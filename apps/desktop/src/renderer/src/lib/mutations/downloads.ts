@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { downloadsApi } from '../api/downloads'
 import { QueryKeys } from '../query-keys'
+import { formatError } from '../utils/format-error'
 import type { JobInput, Job } from '@vault/types'
 
 export const useQueueDownload = () => {
@@ -16,7 +17,7 @@ export const useQueueDownload = () => {
     },
     onError: (error: Error) => {
       toast.error('Failed to queue download', {
-        description: error.message
+        description: formatError(error)
       })
     }
   })
@@ -40,7 +41,7 @@ export const useCancelDownload = () => {
     },
     onError: (error: Error) => {
       toast.error('Failed to cancel download', {
-        description: error.message
+        description: formatError(error)
       })
     }
   })
@@ -56,7 +57,7 @@ export const useSetConcurrency = () => {
     },
     onError: (error: Error) => {
       toast.error('Failed to update concurrency', {
-        description: error.message
+        description: formatError(error)
       })
     }
   })
