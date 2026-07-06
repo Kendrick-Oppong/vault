@@ -1,0 +1,304 @@
+@import "tailwindcss";
+
+/* Scan for Tailwind classes in these directories */
+@source "../../src";
+@source "../../../../../../packages/ui/src";
+
+@import "tw-animate-css";
+
+@import "@vault/ui/styles/globals.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─────────────────────────────────────────
+   LIGHT MODE  (clean white + amber brand)
+───────────────────────────────────────── */
+
+:root {
+  /* Core surfaces */
+  --background: #f4f4f5;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --card-hover: #f8f8f9;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+
+  /* Brand — darker amber for AA contrast on white */
+  --primary: #b45309;
+  --primary-foreground: #ffffff;
+
+  /* Surfaces */
+  --secondary: #e4e4e7;
+  --secondary-foreground: #09090b;
+  --muted: #e4e4e7;
+  --muted-foreground: #747477;
+  --accent: #f1f1f3;
+  --accent-foreground: #09090b;
+
+  /* Semantic */
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+
+  /* Borders */
+  --border: #d4d4d8;
+  --border-strong: #a1a1aa;
+  --input: #d4d4d8;
+  --ring: #b45309;
+
+  /* Charts */
+  --chart-1: #b45309;
+  --chart-2: #09090b;
+  --chart-3: #71717a;
+  --chart-4: #a1a1aa;
+  --chart-5: #e4e4e7;
+
+  /* Sidebar */
+  --sidebar: #f4f4f5;
+  --sidebar-foreground: #09090b;
+  --sidebar-primary: #b45309;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e4e4e7;
+  --sidebar-accent-foreground: #09090b;
+  --sidebar-border: #d4d4d8;
+  --sidebar-ring: #b45309;
+
+  /* Shape & spacing */
+  --radius: 0.625rem;
+
+  /* Shadows — more visible on white cards */
+  --shadow-2xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.06);
+  --shadow-xs: 0px 2px 4px 0px hsl(0 0% 0% / 0.08);
+  --shadow-sm:
+    0px 2px 6px 0px hsl(0 0% 0% / 0.09), 0px 1px 2px -1px hsl(0 0% 0% / 0.06);
+  --shadow:
+    0px 4px 10px 0px hsl(0 0% 0% / 0.1), 0px 1px 3px -1px hsl(0 0% 0% / 0.08);
+  --shadow-md:
+    0px 4px 12px 0px hsl(0 0% 0% / 0.12), 0px 2px 4px -1px hsl(0 0% 0% / 0.08);
+  --shadow-lg:
+    0px 8px 20px 0px hsl(0 0% 0% / 0.12), 0px 4px 6px -1px hsl(0 0% 0% / 0.08);
+  --shadow-xl:
+    0px 12px 30px 0px hsl(0 0% 0% / 0.12), 0px 8px 10px -1px hsl(0 0% 0% / 0.08);
+  --shadow-2xl: 0px 20px 40px 0px hsl(0 0% 0% / 0.18);
+
+  /* Hero stroke — stronger in light mode so it reads on white */
+  --hero-stroke: var(--primary);
+
+  /* Typography */
+  --tracking-normal: 0.01em;
+}
+
+/* ─────────────────────────────────────────
+   DARK MODE  (deep space + amber gold)
+───────────────────────────────────────── */
+
+.dark {
+  /* Core surfaces */
+  --background: #07070a;
+  --foreground: #eeedf5;
+  --card: #0d0d12;
+  --card-foreground: #eeedf5;
+  --card-hover: #131318;
+  --popover: #0d0d12;
+  --popover-foreground: #eeedf5;
+
+  /* Brand */
+  --primary: #f0b429;
+  --primary-foreground: #07070a;
+
+  /* Surfaces */
+  --secondary: #18181f;
+  --secondary-foreground: #eeedf5;
+  --muted: #18181f;
+  --muted-foreground: #99999e;
+  --accent: #1e1e27;
+  --accent-foreground: #eeedf5;
+
+  /* Semantic */
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --success: #22c55e;
+
+  /* Borders */
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --input: #18181f;
+  --ring: #f0b429;
+
+  /* Charts */
+  --chart-1: #f0b429;
+  --chart-2: #eeedf5;
+  --chart-3: #55546a;
+  --chart-4: #3a394d;
+  --chart-5: #18181f;
+
+  /* Sidebar */
+  --sidebar: #050508;
+  --sidebar-foreground: #eeedf5;
+  --sidebar-primary: #f0b429;
+  --sidebar-primary-foreground: #07070a;
+  --sidebar-accent: #1e1e27;
+  --sidebar-accent-foreground: #eeedf5;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: #f0b429;
+
+  /* Shape & spacing */
+  --radius: 0.625rem;
+
+  /* Shadows */
+  --shadow-2xs: 0px 2px 6px 0px hsl(0 0% 0% / 0.2);
+  --shadow-xs: 0px 3px 8px 0px hsl(0 0% 0% / 0.25);
+  --shadow-sm:
+    0px 4px 12px 0px hsl(0 0% 0% / 0.35), 0px 1px 2px -1px hsl(0 0% 0% / 0.3);
+  --shadow:
+    0px 6px 16px 0px hsl(0 0% 0% / 0.4), 0px 2px 4px -1px hsl(0 0% 0% / 0.3);
+  --shadow-md:
+    0px 8px 20px 0px hsl(0 0% 0% / 0.45), 0px 3px 6px -1px hsl(0 0% 0% / 0.35);
+  --shadow-lg:
+    0px 12px 30px 0px hsl(0 0% 0% / 0.5), 0px 5px 8px -1px hsl(0 0% 0% / 0.4);
+  --shadow-xl:
+    0px 18px 40px 0px hsl(0 0% 0% / 0.55), 0px 8px 12px -1px hsl(0 0% 0% / 0.45);
+  --shadow-2xl: 0px 30px 60px 0px hsl(0 0% 0% / 0.75);
+
+  /* Hero stroke — softer in dark mode */
+  --hero-stroke: color-mix(in srgb, var(--primary) 45%, transparent);
+
+  /* Typography */
+  --tracking-normal: 0.01em;
+}
+
+/* ─────────────────────────────────────────
+   TAILWIND v4 THEME REGISTRATION
+───────────────────────────────────────── */
+
+@theme inline {
+  /* Colors — standard shadcn tokens */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-hover: var(--card-hover);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Fonts */
+  --font-sans: "Bai Jamjuree", sans-serif;
+  --font-mono: "Courier Prime", "Consolas", monospace;
+
+  /* Border radius */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+
+  /* Letter spacing */
+  --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+  --tracking-tight: calc(var(--tracking-normal) - 0.025em);
+  --tracking-normal: var(--tracking-normal);
+  --tracking-wide: calc(var(--tracking-normal) + 0.025em);
+  --tracking-wider: calc(var(--tracking-normal) + 0.05em);
+  --tracking-widest: calc(var(--tracking-normal) + 0.1em);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground -tracking-normal overflow-x-hidden leading-[1.6];
+  }
+
+  html {
+    @apply font-sans scroll-smooth;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    content: "";
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.6;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    border-radius: 9999px;
+    @apply bg-background;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 1px solid var(--background);
+    /* prevents ugly edges */
+    @apply bg-muted rounded-full;
+    /* prevents ugly edges */
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground;
+  }
+
+  /* More aggressive targeting for horizontal scrollbars */
+  .overflow-x-auto::-webkit-scrollbar,
+  .overflow-x-auto::-webkit-scrollbar-track,
+  .overflow-x-auto::-webkit-scrollbar-thumb {
+    height: 5px;
+  }
+
+  .overflow-x-auto::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+  }
+
+  /* Selection */
+  ::selection {
+    @apply bg-primary/10 text-primary;
+  }
+}
