@@ -1,10 +1,12 @@
+/* eslint-disable prefer-const */
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { YtDlpManager } from './ytdlp-manager'
-import { WorkerPool, type JobInput } from './worker-pool'
+import { WorkerPool } from './worker-pool'
 import { initDb, type VaultDb } from './db'
+import { JobInput } from '@vault/types'
 
 let mainWindow: BrowserWindow
 let pool: WorkerPool
@@ -183,26 +185,27 @@ function registerIpcHandlers(): void {
   })
 }
 
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.vault.app')
+// Initialize the app when ready
+await app.whenReady()
 
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
+electronApp.setAppUserModelId('com.vault.app')
 
-  const { binaryPath, ffmpegPath } = resolveBinaryPaths()
-  ytdlp = new YtDlpManager({ binaryPath, ffmpegPath })
+app.on('browser-window-created', (_, window) => {
+  optimizer.watchWindowShortcuts(window)
+})
 
-  pool = new WorkerPool({ ytdlp, maxConcurrent: 3 })
-  db = initDb(join(app.getPath('userData'), 'library.db'))
+const { binaryPath, ffmpegPath } = resolveBinaryPaths()
+ytdlp = new YtDlpManager({ binaryPath, ffmpegPath })
 
-  registerIpcHandlers()
-  createWindow()
-  forwardPoolEventsToRenderer()
+pool = new WorkerPool({ ytdlp, maxConcurrent: 3 })
+db = initDb(join(app.getPath('userData'), 'library.db'))
 
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
+registerIpcHandlers()
+createWindow()
+forwardPoolEventsToRenderer()
+
+app.on('activate', function () {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow()
 })
 
 app.on('window-all-closed', () => {

@@ -16,11 +16,11 @@ interface ActiveJob {
 }
 
 export class WorkerPool extends EventEmitter {
-  private queue: Job[] = []
-  private active = new Map<string, ActiveJob>()
+  private readonly queue: Job[] = []
+  private readonly active = new Map<string, ActiveJob>()
   private maxConcurrent: number
 
-  constructor(private opts: WorkerPoolOptions) {
+  constructor(private readonly opts: WorkerPoolOptions) {
     super()
     this.maxConcurrent = opts.maxConcurrent ?? 3
   }
@@ -105,5 +105,3 @@ export class WorkerPool extends EventEmitter {
       })
   }
 }
-
-export type { JobInput }
