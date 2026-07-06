@@ -29,8 +29,14 @@
       "@/lib/*": [
         "src/renderer/src/lib/*"
       ],
+      "@/components": [
+        "src/renderer/src/components"
+      ],
       "@/components/*": [
         "src/renderer/src/components/*"
+      ],
+      "@/providers": [
+        "src/renderer/src/providers"
       ],
       "@/providers/*": [
         "src/renderer/src/providers/*"
