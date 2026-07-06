@@ -13,6 +13,27 @@
     "paths": {
       "@renderer/*": [
         "src/renderer/src/*"
+      ],
+      "@vault/types": [
+        "../../packages/types/src"
+      ],
+      "@vault/ui": [
+        "../../packages/ui/src"
+      ],
+      "@vault/ui/*": [
+        "../../packages/ui/src/*"
+      ],
+      "@/lib": [
+        "src/renderer/src/lib"
+      ],
+      "@/lib/*": [
+        "src/renderer/src/lib/*"
+      ],
+      "@/components/*": [
+        "src/renderer/src/components/*"
+      ],
+      "@/providers/*": [
+        "src/renderer/src/providers/*"
       ]
     }
   }
