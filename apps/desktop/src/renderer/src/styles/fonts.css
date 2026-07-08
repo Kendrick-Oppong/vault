@@ -2,7 +2,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-Regular.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -10,7 +10,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-Italic.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-italic.ttf') format('truetype');
   font-weight: 400;
   font-style: italic;
   font-display: swap;
@@ -18,7 +18,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-ExtraLight.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-extra-light.ttf') format('truetype');
   font-weight: 200;
   font-style: normal;
   font-display: swap;
@@ -26,7 +26,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-ExtraLightItalic.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-extra-light-italic.ttf') format('truetype');
   font-weight: 200;
   font-style: italic;
   font-display: swap;
@@ -34,7 +34,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-Light.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-light.ttf') format('truetype');
   font-weight: 300;
   font-style: normal;
   font-display: swap;
@@ -42,7 +42,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-LightItalic.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-light-italic.ttf') format('truetype');
   font-weight: 300;
   font-style: italic;
   font-display: swap;
@@ -50,7 +50,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-Medium.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-medium.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -58,7 +58,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-MediumItalic.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-medium-italic.ttf') format('truetype');
   font-weight: 500;
   font-style: italic;
   font-display: swap;
@@ -66,7 +66,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-SemiBold.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-semi-bold.ttf') format('truetype');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
@@ -74,7 +74,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-SemiBoldItalic.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-semi-bold-italic.ttf') format('truetype');
   font-weight: 600;
   font-style: italic;
   font-display: swap;
@@ -82,7 +82,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-Bold.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -90,7 +90,7 @@
 
 @font-face {
   font-family: 'Bai Jamjuree';
-  src: url('./fonts/BaiJamjuree-BoldItalic.ttf') format('truetype');
+  src: url('../assets/fonts/bai-jamjuree-bold-italic.ttf') format('truetype');
   font-weight: 700;
   font-style: italic;
   font-display: swap;
