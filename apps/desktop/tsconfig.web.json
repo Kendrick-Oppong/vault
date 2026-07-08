@@ -41,6 +41,12 @@
       ],
       "@/providers/*": [
         "src/renderer/src/providers/*"
+      ],
+      "@/features": [
+        "src/renderer/src/features"
+      ],
+      "@/features/*": [
+        "src/renderer/src/features/*"
       ]
     }
   }
