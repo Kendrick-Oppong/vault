@@ -186,23 +186,23 @@ function registerIpcHandlers(): void {
 }
 
 // Initialize the app when ready
-await app.whenReady()
+app.whenReady().then(() => {
+  electronApp.setAppUserModelId('com.vault.app')
 
-electronApp.setAppUserModelId('com.vault.app')
+  app.on('browser-window-created', (_, window) => {
+    optimizer.watchWindowShortcuts(window)
+  })
 
-app.on('browser-window-created', (_, window) => {
-  optimizer.watchWindowShortcuts(window)
+  const { binaryPath, ffmpegPath } = resolveBinaryPaths()
+  ytdlp = new YtDlpManager({ binaryPath, ffmpegPath })
+
+  pool = new WorkerPool({ ytdlp, maxConcurrent: 3 })
+  db = initDb(join(app.getPath('userData'), 'library.db'))
+
+  registerIpcHandlers()
+  createWindow()
+  forwardPoolEventsToRenderer()
 })
-
-const { binaryPath, ffmpegPath } = resolveBinaryPaths()
-ytdlp = new YtDlpManager({ binaryPath, ffmpegPath })
-
-pool = new WorkerPool({ ytdlp, maxConcurrent: 3 })
-db = initDb(join(app.getPath('userData'), 'library.db'))
-
-registerIpcHandlers()
-createWindow()
-forwardPoolEventsToRenderer()
 
 app.on('activate', function () {
   if (BrowserWindow.getAllWindows().length === 0) createWindow()
