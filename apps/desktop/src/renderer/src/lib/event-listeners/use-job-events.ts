@@ -9,6 +9,8 @@ export function useJobEvents() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
+    if (!globalThis.api) return;
+
     const unsubscribes: Array<() => void> = []
 
     // When a job is queued, add it to active jobs cache
