@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { useJobEvents } from '@/lib'
+import { useJobEvents } from '@/lib/event-listeners/use-job-events'
 
 const queryClient = new QueryClient({
   defaultOptions: {

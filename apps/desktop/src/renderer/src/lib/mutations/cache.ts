@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { cacheApi } from '../api/cache'
-import { formatError } from '../utils/format-error'
+import { cacheApi } from '@/lib/api/cache'
+import { formatError } from '@/lib/utils/format-error'
 
 export const useClearFormatCache = () =>
   useMutation({

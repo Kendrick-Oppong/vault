@@ -2,14 +2,14 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import type { Job, YtDlpProgress } from '@vault/types'
-import { QueryKeys } from '../query-keys'
-import { formatError } from '../utils/format-error'
+import { QueryKeys } from '@/lib/constants/query-keys'
+import { formatError } from '@/lib/utils/format-error'
 
 export function useJobEvents() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    if (!globalThis.api) return;
+    if (!globalThis.api) return
 
     const unsubscribes: Array<() => void> = []
 

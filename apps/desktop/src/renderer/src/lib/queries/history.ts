@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { historyApi } from '../api/history'
-import { QueryKeys } from '../query-keys'
+import { historyApi } from '@/lib/api/history'
+import { QueryKeys } from '@/lib/constants/query-keys'
 
 export const useHistory = (limit?: number, offset?: number) =>
   useQuery({

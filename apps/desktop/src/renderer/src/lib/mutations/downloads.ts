@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { downloadsApi } from '../api/downloads'
-import { QueryKeys } from '../query-keys'
-import { formatError } from '../utils/format-error'
+import { downloadsApi } from '@/lib/api/downloads'
+import { QueryKeys } from '@/lib/constants/query-keys'
+import { formatError } from '@/lib/utils/format-error'
 import type { JobInput, Job } from '@vault/types'
 
 export const useQueueDownload = () => {

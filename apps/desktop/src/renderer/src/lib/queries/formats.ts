@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { downloadsApi } from '../api/downloads'
-import { QueryKeys } from '../query-keys'
+import { downloadsApi } from '@/lib/api/downloads'
+import { QueryKeys } from '@/lib/constants/query-keys'
 
 export const useProbeFormats = (url: string, options?: { enabled?: boolean }) =>
   useQuery({

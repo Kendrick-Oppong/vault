@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { archiveApi } from '../api/archive'
-import { formatError } from '../utils/format-error'
+import { archiveApi } from '@/lib/api/archive'
+import { formatError } from '@/lib/utils/format-error'
 
 export const useSyncChannel = () =>
   useMutation({
