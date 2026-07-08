@@ -2,7 +2,7 @@
   "name": "vault",
   "version": "1.0.0",
   "private": true,
-  "description": "Vault monorepo - Desktop app and landing page",
+  "description": "Advanced Desktop YouTube Downloader",
   "author": "example.com",
   "scripts": {
     "dev:desktop": "pnpm --filter desktop dev",
