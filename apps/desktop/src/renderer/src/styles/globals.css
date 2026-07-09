@@ -236,12 +236,22 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body {
+    @apply h-full;
+  }
+
   body {
     @apply bg-background font-sans text-foreground -tracking-normal overflow-x-hidden leading-[1.6];
   }
 
   html {
     @apply scroll-smooth;
+  }
+
+  /* Ensure #root takes full height */
+  #root {
+    @apply h-full flex flex-col;
   }
 
   /* Noise texture overlay */
