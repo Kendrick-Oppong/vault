@@ -5,9 +5,9 @@ Shared configuration and constants for Vault applications.
 ## Usage
 
 ```typescript
-import { APP_NAME, APP_VERSION } from '@vault/config'
+import { APP_NAME, APP_VERSION } from "@vault/config";
 
-console.log(`${APP_NAME} v${APP_VERSION}`)
+console.log(`${APP_NAME} v${APP_VERSION}`);
 ```
 
 ## Constants

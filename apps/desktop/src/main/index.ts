@@ -1,33 +1,33 @@
 /* eslint-disable prefer-const */
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'node:path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
-import { YtDlpManager } from './ytdlp-manager'
-import { WorkerPool } from './worker-pool'
-import { initDb, type VaultDb } from './db'
-import { JobInput } from '@vault/types'
+import { app, shell, BrowserWindow, ipcMain } from "electron";
+import { join } from "node:path";
+import { electronApp, optimizer, is } from "@electron-toolkit/utils";
+import icon from "../../resources/icon.png?asset";
+import { YtDlpManager } from "./ytdlp-manager";
+import { WorkerPool } from "./worker-pool";
+import { initDb, type VaultDb } from "./db";
+import { JobInput } from "@vault/types";
 
-let mainWindow: BrowserWindow
-let pool: WorkerPool
-let db: VaultDb
-let ytdlp: YtDlpManager
+let mainWindow: BrowserWindow;
+let pool: WorkerPool;
+let db: VaultDb;
+let ytdlp: YtDlpManager;
 
 function resolveBinaryPaths(): { binaryPath: string; ffmpegPath: string } {
-  let base: string
+  let base: string;
   if (app.isPackaged) {
-    base = join(process.resourcesPath, 'bin')
+    base = join(process.resourcesPath, "bin");
   } else {
     // In dev, we expect binaries at project root/bin/<platform>
     // __dirname is <project>/out/main, so we go up two levels to project root
-    base = join(__dirname, '..', '..', 'bin', process.platform)
+    base = join(__dirname, "..", "..", "bin", process.platform);
   }
 
-  const ext = process.platform === 'win32' ? '.exe' : ''
+  const ext = process.platform === "win32" ? ".exe" : "";
   return {
     binaryPath: join(base, `yt-dlp${ext}`),
     ffmpegPath: join(base, `ffmpeg${ext}`)
-  }
+  };
 }
 
 function createWindow(): void {
@@ -36,43 +36,43 @@ function createWindow(): void {
     height: 800,
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    ...(process.platform === "linux" ? { icon } : {}),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, "../preload/index.js"),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }
-  })
+  });
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
+  mainWindow.on("ready-to-show", () => {
+    mainWindow.show();
+  });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+    shell.openExternal(details.url);
+    return { action: "deny" };
+  });
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }
 }
 
 function forwardPoolEventsToRenderer(): void {
   const send = (channel: string, ...args: unknown[]): void => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(channel, ...args)
+      mainWindow.webContents.send(channel, ...args);
     }
-  }
+  };
 
-  pool.on('job:queued', (job) => send('job:queued', job))
-  pool.on('job:started', (job) => send('job:started', job))
-  pool.on('job:progress', (jobId, progress) => send('job:progress', jobId, progress))
+  pool.on("job:queued", (job) => send("job:queued", job));
+  pool.on("job:started", (job) => send("job:started", job));
+  pool.on("job:progress", (jobId, progress) => send("job:progress", jobId, progress));
 
-  pool.on('job:completed', (job) => {
+  pool.on("job:completed", (job) => {
     db.addHistoryEntry({
       job_id: job.id,
       video_id: job.meta?.videoId ?? null,
@@ -81,17 +81,17 @@ function forwardPoolEventsToRenderer(): void {
       url: job.url,
       file_path: job.meta?.expectedPath ?? null,
       thumbnail_url: job.meta?.thumbnailUrl ?? null,
-      status: 'completed',
+      status: "completed",
       created_at: job.createdAt,
       completed_at: Date.now()
-    })
+    });
     if (job.extra?.archiveKey && job.meta?.videoId) {
-      db.markArchived(job.extra.archiveKey, job.meta.videoId)
+      db.markArchived(job.extra.archiveKey, job.meta.videoId);
     }
-    send('job:completed', job)
-  })
+    send("job:completed", job);
+  });
 
-  pool.on('job:failed', (job, err) => {
+  pool.on("job:failed", (job, err) => {
     db.addHistoryEntry({
       job_id: job.id,
       video_id: job.meta?.videoId ?? null,
@@ -100,14 +100,14 @@ function forwardPoolEventsToRenderer(): void {
       url: job.url,
       file_path: null,
       thumbnail_url: job.meta?.thumbnailUrl ?? null,
-      status: 'failed',
+      status: "failed",
       created_at: job.createdAt,
       completed_at: Date.now()
-    })
-    send('job:failed', job, { message: err.message, stderr: err.stderr })
-  })
+    });
+    send("job:failed", job, { message: err.message, stderr: err.stderr });
+  });
 
-  pool.on('job:cancelled', (job) => {
+  pool.on("job:cancelled", (job) => {
     db.addHistoryEntry({
       job_id: job.id,
       video_id: job.meta?.videoId ?? null,
@@ -116,100 +116,111 @@ function forwardPoolEventsToRenderer(): void {
       url: job.url,
       file_path: null,
       thumbnail_url: job.meta?.thumbnailUrl ?? null,
-      status: 'cancelled',
+      status: "cancelled",
       created_at: job.createdAt,
       completed_at: Date.now()
-    })
-    send('job:cancelled', job)
-  })
+    });
+    send("job:cancelled", job);
+  });
 }
 
 function registerIpcHandlers(): void {
-  ipcMain.handle('formats:probe', async (_e, url: string) => {
-    const cached = db.getCachedFormats(url)
-    if (cached) return cached
+  ipcMain.handle("formats:probe", async (_e, url: string) => {
+    const cached = db.getCachedFormats(url);
+    if (cached) return cached;
 
-    const formats = await ytdlp.probeFormats(url)
-    db.setCachedFormats(url, formats)
-    return formats
-  })
+    const formats = await ytdlp.probeFormats(url);
+    db.setCachedFormats(url, formats);
+    return formats;
+  });
 
-  ipcMain.handle('queue:add', (_e, jobInput: JobInput) => pool.enqueue(jobInput))
+  ipcMain.handle("queue:add", (_e, jobInput: JobInput) => pool.enqueue(jobInput));
 
-  ipcMain.handle('queue:cancel', (_e, jobId: string) => pool.cancel(jobId))
+  ipcMain.handle("queue:cancel", (_e, jobId: string) => pool.cancel(jobId));
 
-  ipcMain.handle('queue:setConcurrency', (_e, n: number) => {
-    pool.setMaxConcurrent(n)
-    return true
-  })
+  ipcMain.handle("queue:setConcurrency", (_e, n: number) => {
+    pool.setMaxConcurrent(n);
+    return true;
+  });
 
-  ipcMain.handle('history:list', (_e, limit?: number, offset?: number) =>
+  ipcMain.handle("history:list", (_e, limit?: number, offset?: number) =>
     db.listHistory(limit, offset)
-  )
+  );
 
-  ipcMain.handle('fs:reveal', (_e, filePath: string) => {
-    shell.showItemInFolder(filePath)
-  })
+  ipcMain.handle("fs:reveal", (_e, filePath: string) => {
+    shell.showItemInFolder(filePath);
+  });
 
   ipcMain.handle(
-    'archive:syncChannel',
+    "archive:syncChannel",
     async (_e, channelUrl: string, destinationFolder: string) => {
       const entries = (await ytdlp.probeFormats(channelUrl)) as Array<{
-        id: string
-        url?: string
-        webpage_url?: string
-        title?: string
-        channel?: string
-      }>
+        id: string;
+        url?: string;
+        webpage_url?: string;
+        title?: string;
+        channel?: string;
+      }>;
       const newEntries = entries.filter((entry) => {
-        if (!entry.id) return false
-        return !db.isArchived(destinationFolder, entry.id)
-      })
+        if (!entry.id) return false;
+        return !db.isArchived(destinationFolder, entry.id);
+      });
 
       const jobIds = newEntries.map((entry) =>
         pool.enqueue({
-          url: entry.url ?? entry.webpage_url ?? '',
-          outputTemplate: join(destinationFolder, '%(title)s.%(ext)s'),
-          formatSelector: 'bestvideo+bestaudio/best',
-          extra: { archiveKey: destinationFolder, embedThumbnail: true, embedMetadata: true },
-          meta: { videoId: entry.id, title: entry.title, channel: entry.channel }
+          url: entry.url ?? entry.webpage_url ?? "",
+          outputTemplate: join(destinationFolder, "%(title)s.%(ext)s"),
+          formatSelector: "bestvideo+bestaudio/best",
+          extra: {
+            archiveKey: destinationFolder,
+            embedThumbnail: true,
+            embedMetadata: true
+          },
+          meta: {
+            videoId: entry.id,
+            title: entry.title,
+            channel: entry.channel
+          }
         })
-      )
+      );
 
-      return { queued: jobIds.length, skipped: entries.length - newEntries.length }
+      return {
+        queued: jobIds.length,
+        skipped: entries.length - newEntries.length
+      };
     }
-  )
+  );
 
-  ipcMain.handle('cache:clearFormats', (_e, url?: string) => {
-    db.clearFormatCache(url)
-  })
+  ipcMain.handle("cache:clearFormats", (_e, url?: string) => {
+    db.clearFormatCache(url);
+  });
 }
 
 // Initialize the app when ready
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.vault.app')
+  electronApp.setAppUserModelId("com.vault.app");
 
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
+  app.on("browser-window-created", (_, window) => {
+    optimizer.watchWindowShortcuts(window);
+  });
 
-  const { binaryPath, ffmpegPath } = resolveBinaryPaths()
-  ytdlp = new YtDlpManager({ binaryPath, ffmpegPath })
+  const { binaryPath, ffmpegPath } = resolveBinaryPaths();
+  ytdlp = new YtDlpManager({ binaryPath, ffmpegPath });
 
-  pool = new WorkerPool({ ytdlp, maxConcurrent: 3 })
-  db = initDb(join(app.getPath('userData'), 'library.db'))
+  pool = new WorkerPool({ ytdlp, maxConcurrent: 3 });
+  db = initDb(join(app.getPath("userData"), "library.db"));
 
-  registerIpcHandlers()
-  createWindow()
-  forwardPoolEventsToRenderer()
-})
+  registerIpcHandlers();
+  createWindow();
+  forwardPoolEventsToRenderer();
+});
 
-app.on('activate', function () {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow()
-})
+app.on("activate", function () {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
   }
-})
+});

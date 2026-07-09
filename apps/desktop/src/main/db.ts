@@ -1,20 +1,20 @@
-import Database from 'better-sqlite3'
-import type { HistoryEntry } from '@vault/types'
+import Database from "better-sqlite3";
+import type { HistoryEntry } from "@vault/types";
 
 export interface VaultDb {
-  raw: Database.Database
-  addHistoryEntry: (entry: HistoryEntry) => void
-  listHistory: (limit?: number, offset?: number) => HistoryEntry[]
-  isArchived: (destinationFolder: string, videoId: string) => boolean
-  markArchived: (destinationFolder: string, videoId: string) => void
-  getCachedFormats: (url: string, ttlMs?: number) => unknown | null
-  setCachedFormats: (url: string, payload: unknown) => void
-  clearFormatCache: (url?: string) => void
+  raw: Database.Database;
+  addHistoryEntry: (entry: HistoryEntry) => void;
+  listHistory: (limit?: number, offset?: number) => HistoryEntry[];
+  isArchived: (destinationFolder: string, videoId: string) => boolean;
+  markArchived: (destinationFolder: string, videoId: string) => void;
+  getCachedFormats: (url: string, ttlMs?: number) => unknown | null;
+  setCachedFormats: (url: string, payload: unknown) => void;
+  clearFormatCache: (url?: string) => void;
 }
 
 export function initDb(dbPath: string): VaultDb {
-  const db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
+  const db = new Database(dbPath);
+  db.pragma("journal_mode = WAL");
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS history (
@@ -44,7 +44,7 @@ export function initDb(dbPath: string): VaultDb {
     );
 
     CREATE INDEX IF NOT EXISTS idx_history_created_at ON history(created_at DESC);
-  `)
+  `);
 
   return {
     raw: db,
@@ -54,49 +54,49 @@ export function initDb(dbPath: string): VaultDb {
         `INSERT OR REPLACE INTO history
          (job_id, video_id, title, channel, url, file_path, thumbnail_url, status, created_at, completed_at)
          VALUES (@job_id, @video_id, @title, @channel, @url, @file_path, @thumbnail_url, @status, @created_at, @completed_at)`
-      ).run(entry)
+      ).run(entry);
     },
 
     listHistory(limit = 200, offset = 0) {
       return db
-        .prepare('SELECT * FROM history ORDER BY created_at DESC LIMIT ? OFFSET ?')
-        .all(limit, offset) as HistoryEntry[]
+        .prepare("SELECT * FROM history ORDER BY created_at DESC LIMIT ? OFFSET ?")
+        .all(limit, offset) as HistoryEntry[];
     },
 
     isArchived(destinationFolder, videoId) {
       const row = db
-        .prepare('SELECT 1 FROM archive WHERE destination_folder = ? AND video_id = ?')
-        .get(destinationFolder, videoId)
-      return !!row
+        .prepare("SELECT 1 FROM archive WHERE destination_folder = ? AND video_id = ?")
+        .get(destinationFolder, videoId);
+      return !!row;
     },
 
     markArchived(destinationFolder, videoId) {
       db.prepare(
         `INSERT OR IGNORE INTO archive (destination_folder, video_id, downloaded_at) VALUES (?, ?, ?)`
-      ).run(destinationFolder, videoId, Date.now())
+      ).run(destinationFolder, videoId, Date.now());
     },
 
     getCachedFormats(url, ttlMs = 10 * 60 * 1000) {
       const row = db
-        .prepare('SELECT payload, cached_at FROM format_cache WHERE url = ?')
-        .get(url) as { payload: string; cached_at: number } | undefined
-      if (!row) return null
-      if (Date.now() - row.cached_at > ttlMs) return null
-      return JSON.parse(row.payload)
+        .prepare("SELECT payload, cached_at FROM format_cache WHERE url = ?")
+        .get(url) as { payload: string; cached_at: number } | undefined;
+      if (!row) return null;
+      if (Date.now() - row.cached_at > ttlMs) return null;
+      return JSON.parse(row.payload);
     },
 
     setCachedFormats(url, payload) {
       db.prepare(
         `INSERT OR REPLACE INTO format_cache (url, payload, cached_at) VALUES (?, ?, ?)`
-      ).run(url, JSON.stringify(payload), Date.now())
+      ).run(url, JSON.stringify(payload), Date.now());
     },
 
     clearFormatCache(url?: string) {
       if (url) {
-        db.prepare('DELETE FROM format_cache WHERE url = ?').run(url)
+        db.prepare("DELETE FROM format_cache WHERE url = ?").run(url);
       } else {
-        db.prepare('DELETE FROM format_cache').run()
+        db.prepare("DELETE FROM format_cache").run();
       }
     }
-  }
+  };
 }

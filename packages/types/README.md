@@ -5,14 +5,14 @@ Shared TypeScript types and interfaces for Vault applications.
 ## Usage
 
 ```typescript
-import type { User, PasswordEntry } from '@vault/types'
+import type { User, PasswordEntry } from "@vault/types";
 
 const user: User = {
-  id: '1',
-  email: 'user@example.com',
+  id: "1",
+  email: "user@example.com",
   createdAt: new Date(),
   updatedAt: new Date()
-}
+};
 ```
 
 ## Types

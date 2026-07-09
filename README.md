@@ -1,12 +1,12 @@
 # Vault
 
 > Advanced Desktop YouTube Downloader - A feature-rich, high-performance, local media downloader for YouTube and other video platforms
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-19.2-61dafb.svg)](https://reactjs.org/)
-[![Electron](https://img.shields.io/badge/Electron-39.2-47848f.svg)](https://www.electronjs.org/)
-[![yt-dlp](https://img.shields.io/badge/yt--dlp-powered-red.svg)](https://github.com/yt-dlp/yt-dlp)
-[![pnpm](https://img.shields.io/badge/pnpm-workspace-orange.svg)](https://pnpm.io/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8.svg)](https://tailwindcss.com/)
+> [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+> [![React](https://img.shields.io/badge/React-19.2-61dafb.svg)](https://reactjs.org/)
+> [![Electron](https://img.shields.io/badge/Electron-39.2-47848f.svg)](https://www.electronjs.org/)
+> [![yt-dlp](https://img.shields.io/badge/yt--dlp-powered-red.svg)](https://github.com/yt-dlp/yt-dlp)
+> [![pnpm](https://img.shields.io/badge/pnpm-workspace-orange.svg)](https://pnpm.io/)
+> [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8.svg)](https://tailwindcss.com/)
 
 ---
 
@@ -37,7 +37,6 @@ Vault is a **powerful desktop application** for downloading YouTube videos and m
 - **Full control** - Choose formats, quality, output paths, and metadata
 - **Privacy** - No data leaves your machine except to the video platforms
 
-
 - **Desktop-first** Electron application with yt-dlp integration
 - **Type-safe** development with shared TypeScript types
 - **Real-time progress** tracking via IPC event streaming
@@ -52,7 +51,7 @@ Vault is a **powerful desktop application** for downloading YouTube videos and m
 � **History tracking** - SQLite-backed history with metadata and thumbnails  
 🔄 **Channel sync** - Sync entire channels and track what's downloaded  
 ⚡ **Real-time updates** - Live progress bars and status updates  
-🎯 **Format selection** - Probe and choose exact video/audio formats  
+🎯 **Format selection** - Probe and choose exact video/audio formats
 
 ---
 
@@ -171,7 +170,7 @@ Vault is a **powerful desktop application** for downloading YouTube videos and m
 
 ## 📁 Project Structure
 
-```
+````
 vault/
 ├── apps/
 │   ├── desktop/                    # Main Electron application
@@ -286,9 +285,10 @@ CREATE TABLE history (
   created_at INTEGER,
   completed_at INTEGER
 );
-```
+````
 
 **archive** - Track downloaded videos per channel
+
 ```sql
 CREATE TABLE archive (
   destination_folder TEXT,
@@ -299,6 +299,7 @@ CREATE TABLE archive (
 ```
 
 **format_cache** - Cache format probe results (10 min TTL)
+
 ```sql
 CREATE TABLE format_cache (
   url TEXT PRIMARY KEY,
@@ -320,6 +321,7 @@ Ensure you have the following installed:
 - **Git** ([Download](https://git-scm.com/))
 
 **Required for desktop app:**
+
 - **yt-dlp** - Download from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases)
 - **ffmpeg** - Download from [ffmpeg.org](https://ffmpeg.org/download.html)
 
@@ -361,12 +363,14 @@ mkdir -p apps/desktop/bin/linux
 ```
 
 **Download links:**
+
 - yt-dlp: https://github.com/yt-dlp/yt-dlp/releases
 - ffmpeg: https://ffmpeg.org/download.html
 
 4. **Create shadcn/ui configuration files**
 
 Create these manually (see [SHADCN_SETUP.md](./SHADCN_SETUP.md)):
+
 - `packages/ui/components.json`
 - `apps/desktop/components.json`
 
@@ -427,9 +431,11 @@ pnpm typecheck            # Run TypeScript checks
 ### Development Workflow
 
 1. **Start the dev server**
+
    ```bash
    pnpm dev:desktop
    ```
+
    This opens Vault with hot reload enabled. Edit renderer code and see changes instantly.
 
 2. **Add a download**
@@ -440,16 +446,18 @@ pnpm typecheck            # Run TypeScript checks
    - Watch real-time progress in the UI
 
 3. **Add shared components**
+
    ```bash
    cd apps/desktop
    npx shadcn@latest add card input progress
    ```
 
 4. **Use shared packages**
+
    ```typescript
-   import { Button } from '@vault/ui/components/button'
-   import type { Job, JobInput } from '@vault/types'
-   import { APP_NAME, APP_VERSION } from '@vault/config'
+   import { Button } from "@vault/ui/components/button";
+   import type { Job, JobInput } from "@vault/types";
+   import { APP_NAME, APP_VERSION } from "@vault/config";
    ```
 
 5. **Format and lint**
@@ -510,14 +518,14 @@ All apps have consistent import aliases:
 
 ```typescript
 // Shared packages
-import { Button } from '@vault/ui/components/button'
-import type { Job } from '@vault/types'
-import { APP_NAME } from '@vault/config'
+import { Button } from "@vault/ui/components/button";
+import type { Job } from "@vault/types";
+import { APP_NAME } from "@vault/config";
 
 // App-specific
-import { useHistory } from '@/lib'           // lib/
-import { Header } from '@/components'        // components/
-import { QueryProvider } from '@/providers'  // providers/
+import { useHistory } from "@/lib"; // lib/
+import { Header } from "@/components"; // components/
+import { QueryProvider } from "@/providers"; // providers/
 ```
 
 ---
@@ -526,42 +534,42 @@ import { QueryProvider } from '@/providers'  // providers/
 
 ### Core Technologies
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| [TypeScript](https://www.typescriptlang.org/) | 5.9 | Type-safe development |
-| [React](https://react.dev/) | 19.2 | UI library |
-| [Electron](https://www.electronjs.org/) | 39.2 | Desktop app framework |
-| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Latest | Video downloading engine |
-| [pnpm](https://pnpm.io/) | 8+ | Fast package manager |
+| Technology                                    | Version | Purpose                  |
+| --------------------------------------------- | ------- | ------------------------ |
+| [TypeScript](https://www.typescriptlang.org/) | 5.9     | Type-safe development    |
+| [React](https://react.dev/)                   | 19.2    | UI library               |
+| [Electron](https://www.electronjs.org/)       | 39.2    | Desktop app framework    |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp)    | Latest  | Video downloading engine |
+| [pnpm](https://pnpm.io/)                      | 8+      | Fast package manager     |
 
 ### Desktop App Stack
 
-| Technology | Purpose |
-|------------|---------|
-| [Electron Vite](https://electron-vite.org/) | Fast build tooling for Electron |
-| [React Query](https://tanstack.com/query) | Server state management & caching |
-| [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) | Embedded SQLite database |
-| [Sonner](https://sonner.emilkowal.ski/) | Beautiful toast notifications |
-| [Lucide React](https://lucide.dev/) | Consistent icon library |
-| [ffmpeg](https://ffmpeg.org/) | Video/audio processing |
+| Technology                                                   | Purpose                           |
+| ------------------------------------------------------------ | --------------------------------- |
+| [Electron Vite](https://electron-vite.org/)                  | Fast build tooling for Electron   |
+| [React Query](https://tanstack.com/query)                    | Server state management & caching |
+| [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) | Embedded SQLite database          |
+| [Sonner](https://sonner.emilkowal.ski/)                      | Beautiful toast notifications     |
+| [Lucide React](https://lucide.dev/)                          | Consistent icon library           |
+| [ffmpeg](https://ffmpeg.org/)                                | Video/audio processing            |
 
 ### Styling Stack
 
-| Technology | Purpose |
-|------------|---------|
-| [Tailwind CSS v4](https://tailwindcss.com/) | Utility-first CSS |
-| [shadcn/ui](https://ui.shadcn.com/) | Component library |
-| [class-variance-authority](https://cva.style/) | Variant management |
-| [tailwind-merge](https://github.com/dcastil/tailwind-merge) | Class merging |
+| Technology                                                  | Purpose            |
+| ----------------------------------------------------------- | ------------------ |
+| [Tailwind CSS v4](https://tailwindcss.com/)                 | Utility-first CSS  |
+| [shadcn/ui](https://ui.shadcn.com/)                         | Component library  |
+| [class-variance-authority](https://cva.style/)              | Variant management |
+| [tailwind-merge](https://github.com/dcastil/tailwind-merge) | Class merging      |
 
 ### Build & Tooling
 
-| Tool | Purpose |
-|------|---------|
-| [Vite](https://vitejs.dev/) | Build tool & dev server |
-| [Electron Builder](https://www.electron.build/) | App packaging |
-| [ESLint](https://eslint.org/) | Code linting |
-| [Prettier](https://prettier.io/) | Code formatting |
+| Tool                                            | Purpose                 |
+| ----------------------------------------------- | ----------------------- |
+| [Vite](https://vitejs.dev/)                     | Build tool & dev server |
+| [Electron Builder](https://www.electron.build/) | App packaging           |
+| [ESLint](https://eslint.org/)                   | Code linting            |
+| [Prettier](https://prettier.io/)                | Code formatting         |
 
 ---
 
@@ -613,15 +621,15 @@ import { QueryProvider } from '@/providers'  // providers/
 
 Comprehensive guides are available in the repository:
 
-| Document | Description |
-|----------|-------------|
-| [COMPLETE_SETUP_SUMMARY.md](./COMPLETE_SETUP_SUMMARY.md) | Complete setup overview |
-| [WORKSPACE.md](./WORKSPACE.md) | Monorepo workspace guide |
-| [STYLING.md](./STYLING.md) | Design system documentation |
-| [SHADCN_SETUP.md](./SHADCN_SETUP.md) | shadcn/ui integration guide |
-| [DATA_LAYER.md](./apps/desktop/DATA_LAYER.md) | React Query architecture |
-| [ERROR_HANDLING.md](./apps/desktop/ERROR_HANDLING.md) | Error formatting guide |
-| [SETUP_COMPLETE.md](./apps/desktop/SETUP_COMPLETE.md) | Data layer setup details |
+| Document                                                 | Description                 |
+| -------------------------------------------------------- | --------------------------- |
+| [COMPLETE_SETUP_SUMMARY.md](./COMPLETE_SETUP_SUMMARY.md) | Complete setup overview     |
+| [WORKSPACE.md](./WORKSPACE.md)                           | Monorepo workspace guide    |
+| [STYLING.md](./STYLING.md)                               | Design system documentation |
+| [SHADCN_SETUP.md](./SHADCN_SETUP.md)                     | shadcn/ui integration guide |
+| [DATA_LAYER.md](./apps/desktop/DATA_LAYER.md)            | React Query architecture    |
+| [ERROR_HANDLING.md](./apps/desktop/ERROR_HANDLING.md)    | Error formatting guide      |
+| [SETUP_COMPLETE.md](./apps/desktop/SETUP_COMPLETE.md)    | Data layer setup details    |
 
 ### Quick Links
 
@@ -638,31 +646,37 @@ Comprehensive guides are available in the repository:
 ### Why Monorepo?
 
 ✅ **Code Sharing**
+
 - Share components, types, and utilities
 - Single source of truth for design system
 - Reuse business logic across apps
 
 ✅ **Consistent Dependencies**
+
 - One `pnpm-lock.yaml` for entire project
 - Shared dependencies installed once
 - Reduced disk space and install time
 
 ✅ **Type Safety**
+
 - Types flow across package boundaries
 - Refactor with confidence
 - IDE autocomplete across packages
 
 ✅ **Unified Tooling**
+
 - Single ESLint, Prettier, TypeScript config
 - Consistent code style
 - Shared scripts and workflows
 
 ✅ **Atomic Changes**
+
 - Change types, components, and apps together
 - Single PR for cross-package features
 - No version mismatches
 
 ✅ **Better Developer Experience**
+
 - One `pnpm install` for everything
 - Hot reload across packages
 - Faster development cycles
@@ -672,8 +686,8 @@ Comprehensive guides are available in the repository:
 ```yaml
 # pnpm-workspace.yaml
 packages:
-  - "apps/*"      # Applications (desktop, web)
-  - "packages/*"  # Shared packages (ui, types, config)
+  - "apps/*" # Applications (desktop, web)
+  - "packages/*" # Shared packages (ui, types, config)
 ```
 
 ### Package Linking
@@ -681,7 +695,7 @@ packages:
 ```json
 {
   "dependencies": {
-    "@vault/ui": "workspace:*",      // Links to local package
+    "@vault/ui": "workspace:*", // Links to local package
     "@vault/types": "workspace:*",
     "@vault/config": "workspace:*"
   }
@@ -779,12 +793,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Platform-specific content policies
 
 **Use cases:**
+
 - ✅ Downloading your own uploaded content
 - ✅ Downloading Creative Commons licensed content
 - ✅ Archiving educational or research materials within fair use
 - ✅ Downloading content you have explicit permission to download
 
 **Do NOT use Vault to:**
+
 - ❌ Pirate copyrighted content
 - ❌ Violate platform terms of service
 - ❌ Distribute downloaded content without permission

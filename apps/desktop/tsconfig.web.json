@@ -5,7 +5,8 @@
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.tsx",
     "src/preload/*.d.ts",
-    "../../packages/types/src/**/*"
+    "../../packages/types/src/**/*",
+    "../../packages/ui/src/**/*"
   ],
   "compilerOptions": {
     "composite": true,

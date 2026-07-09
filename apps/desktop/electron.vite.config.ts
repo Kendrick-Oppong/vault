@@ -1,7 +1,7 @@
-import { resolve } from 'node:path'
-import { defineConfig } from 'electron-vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from "electron-vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { resolve } from "node:path";
 
 export default defineConfig({
   main: {},
@@ -9,14 +9,15 @@ export default defineConfig({
   renderer: {
     resolve: {
       alias: {
-        '@renderer': resolve('src/renderer/src'),
-        '@vault/types': resolve('../../packages/types/src'),
-        '@vault/ui': resolve('../../packages/ui/src'),
-        '@/lib': resolve('src/renderer/src/lib'),
-        '@/components': resolve('src/renderer/src/components'),
-        '@/providers': resolve('src/renderer/src/providers')
+        "@renderer": resolve(__dirname, "src/renderer/src"),
+        "@vault/types": resolve(__dirname, "../../packages/types/src"),
+        "@vault/ui": resolve(__dirname, "../../packages/ui/src"),
+        "@/lib": resolve(__dirname, "src/renderer/src/lib"),
+        "@/components": resolve(__dirname, "src/renderer/src/components"),
+        "@/providers": resolve(__dirname, "src/renderer/src/providers"),
+        "@/features": resolve(__dirname, "src/renderer/src/features")
       }
     },
     plugins: [react(), tailwindcss()]
   }
-})
+});
