@@ -1,5 +1,3 @@
-const QueueShell = () => {
-  return <div>shell</div>;
+export const QueueShell = () => {
+  return <div>queue shell</div>;
 };
-
-export default QueueShell;

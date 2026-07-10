@@ -1,6 +1,5 @@
+import { NavigationView } from "@/stores/navigation/navigation.store";
 import { LucideIcon } from "lucide-react";
-
-export type NavigationView = "queue" | "library" | "channel-sync" | "settings";
 
 export interface SidebarItem {
   readonly id: NavigationView;

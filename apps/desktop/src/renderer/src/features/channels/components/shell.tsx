@@ -1,5 +1,3 @@
-const ChannelShell = () => {
-  return <div>shell</div>;
+export const ChannelShell = () => {
+  return <div>channel shell</div>;
 };
-
-export default ChannelShell;

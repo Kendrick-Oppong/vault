@@ -1,8 +1,8 @@
 import { HardDrive, Library, Layers, Moon, Rss, Settings2, Sun } from "lucide-react";
-import { useNavigation } from "../../../providers/navigation-provider";
-import type { SidebarItem } from "../types";
-import { useTheme } from "@renderer/providers/theme-provider";
 import { Button } from "@vault/ui/components/button";
+import { useNavigationState } from "@/stores/navigation/navigation.selectors";
+import { useUIState } from "@/stores/ui/ui.selectors";
+import type { SidebarItem } from "../types";
 
 const sidebarItems: SidebarItem[] = [
   { id: "queue", label: "Queue", count: 4, icon: Layers },
@@ -12,8 +12,8 @@ const sidebarItems: SidebarItem[] = [
 ];
 
 export const SideBar = () => {
-  const { currentView, navigate } = useNavigation();
-  const { theme, setTheme } = useTheme();
+  const { currentView, navigate } = useNavigationState();
+  const { theme, setTheme } = useUIState();
   const isDark = theme === "dark";
 
   return (
