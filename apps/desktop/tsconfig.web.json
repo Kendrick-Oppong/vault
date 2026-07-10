@@ -48,6 +48,12 @@
       ],
       "@/features/*": [
         "src/renderer/src/features/*"
+      ],
+      "@/stores": [
+        "src/renderer/src/stores"
+      ],
+      "@/stores/*": [
+        "src/renderer/src/stores/*"
       ]
     }
   }
