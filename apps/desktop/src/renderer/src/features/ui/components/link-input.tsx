@@ -4,13 +4,10 @@ import { Link as LinkIcon } from "lucide-react";
 import { CommandMenu } from "./command-menu";
 import { Button } from "@vault/ui/components/button";
 import { Kbd } from "@vault/ui/components/kbd";
+import { getModifierKey } from "@/lib/utils/platform";
 
 export const LinkInput = () => {
   const [open, setOpen] = useState(false);
-
-  // Detect if it's Mac or Windows
-  const isMac = window.navigator.userAgent.includes("Mac");
-  const modifierKey = isMac ? "⌘" : "Ctrl";
 
   return (
     <div className="relative flex-1">
@@ -29,7 +26,7 @@ export const LinkInput = () => {
         className="absolute w-16! right-2.5 top-1/2 size-6 -translate-y-1/2 rounded-md border-border/60 bg-background/40 font-mono text-xs text-muted-foreground hover:text-foreground"
       >
         <div className="flex items-center">
-          <Kbd className="bg-transparent">{modifierKey}</Kbd>
+          <Kbd className="bg-transparent">{getModifierKey()}</Kbd>
           <Kbd className="bg-transparent">K</Kbd>
         </div>
       </Button>
