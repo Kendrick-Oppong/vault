@@ -20,6 +20,7 @@ import {
 import { useNavigationState } from "@/stores/navigation/navigation.selectors";
 import { useUIState } from "@/stores/ui/ui.selectors";
 import { Kbd } from "@vault/ui/components/kbd";
+import { getModifierKey } from "@/lib/utils/platform";
 
 interface CommandMenuProps {
   open: boolean;
@@ -53,10 +54,6 @@ export const CommandMenu = ({ open, onOpenChange }: CommandMenuProps) => {
     onOpenChange(false);
     command();
   };
-
-  // Detect if it's Mac or Windows
-  const isMac = window.navigator.userAgent.includes("Mac");
-  const modifierKey = isMac ? "⌘" : "Ctrl";
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} className="max-w-lg!">
@@ -123,7 +120,7 @@ export const CommandMenu = ({ open, onOpenChange }: CommandMenuProps) => {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Kbd>{modifierKey}</Kbd>
+            <Kbd>{getModifierKey()}</Kbd>
             <Kbd>K</Kbd>
             <span className="ml-1">Open</span>
           </div>
