@@ -4,11 +4,11 @@ export function ToastProvider() {
   return (
     <Toaster
       icons={{
-        success: null,
-        error: null,
-        info: null,
-        warning: null,
-        loading: null
+        success: <></>,
+        error: <></>,
+        warning: <></>,
+        info: <></>,
+        loading: <></>
       }}
       closeButton
       richColors
@@ -26,11 +26,11 @@ export function ToastProvider() {
         classNames: {
           toast: "group",
           success: "!bg-card !border-live/20",
-          error: "!bg-card !border-danger/20",
+          error: "!bg-card !border-destructive/20",
           title:
-            "font-semibold group-data-[type=success]:!text-live group-data-[type=error]:!text-danger",
+            "font-semibold group-data-[type=success]:!text-success group-data-[type=error]:!text-destructive",
           description:
-            "group-data-[type=success]:!text-live/80 group-data-[type=error]:!text-danger/80"
+            "group-data-[type=success]:!text-success/80 group-data-[type=error]:!text-destructive/80"
         }
       }}
     />

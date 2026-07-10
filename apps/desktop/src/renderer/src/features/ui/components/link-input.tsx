@@ -15,7 +15,7 @@ export const LinkInput = () => {
       <Input
         id="url-input"
         type="text"
-        placeholder="Paste a video, playlist, or channel link…"
+        placeholder="Paste a YouTube video, playlist, or channel URL"
         className="h-11 w-full shadow-card border-border-strong bg-secondary/30 pl-10 pr-16 text-sm focus-visible:bg-card"
       />
       <Button
