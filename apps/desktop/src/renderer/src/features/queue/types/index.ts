@@ -1,0 +1,31 @@
+export type QueueFilter = "all" | "downloading" | "paused" | "queued" | "error";
+
+export interface QueueItem {
+  id: string;
+  title: string;
+  channel: string;
+  status: QueueFilter;
+  progress?: number;
+  size?: string;
+  downloaded?: string;
+  addedAt: Date;
+  url?: string;
+  thumbnail?: string;
+  type: "video" | "music";
+  format?: string;
+  errorMessage?: string;
+  errorDetails?: string;
+}
+
+export interface QueueStats {
+  total: number;
+  downloading: number;
+  paused: number;
+  queued: number;
+  error: number;
+}
+
+export interface BulkAction {
+  type: "pause" | "resume" | "retry" | "cancel";
+  ids: string[];
+}
