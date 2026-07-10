@@ -28,9 +28,10 @@ export const LinkInput = () => {
         aria-label="Open command menu"
         className="absolute w-16! right-2.5 top-1/2 size-6 -translate-y-1/2 rounded-md border-border/60 bg-background/40 font-mono text-xs text-muted-foreground hover:text-foreground"
       >
-        <Kbd className="bg-transparent">
-          <span className="text-[10px]">{modifierKey}</span>K
-        </Kbd>
+        <div className="flex items-center">
+          <Kbd className="bg-transparent">{modifierKey}</Kbd>
+          <Kbd className="bg-transparent">K</Kbd>
+        </div>
       </Button>
 
       <CommandMenu open={open} onOpenChange={setOpen} />
