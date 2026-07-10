@@ -15,7 +15,8 @@ export default defineConfig({
         "@/lib": resolve(__dirname, "src/renderer/src/lib"),
         "@/components": resolve(__dirname, "src/renderer/src/components"),
         "@/providers": resolve(__dirname, "src/renderer/src/providers"),
-        "@/features": resolve(__dirname, "src/renderer/src/features")
+        "@/features": resolve(__dirname, "src/renderer/src/features"),
+        "@/stores": resolve(__dirname, "src/renderer/src/stores")
       }
     },
     plugins: [react(), tailwindcss()]
