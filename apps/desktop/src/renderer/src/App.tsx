@@ -27,12 +27,16 @@ function App(): React.JSX.Element {
   };
 
   return (
-    <main className="flex h-full">
+    <main className="flex h-full overflow-hidden">
       <SideBar />
-      <div className="flex-1 overflow-auto pt-4 bg-background">
-        <div className="max-w-[97%] mx-auto">
-          <LinkInput />
-          {renderView()}
+
+      <div className="flex flex-1 flex-col bg-background">
+        <div className="mx-auto flex h-full w-full max-w-[97%] flex-col">
+          <div className="py-4">
+            <LinkInput />
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto">{renderView()}</div>
         </div>
       </div>
     </main>
