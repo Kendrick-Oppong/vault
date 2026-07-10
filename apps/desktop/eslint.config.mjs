@@ -27,9 +27,9 @@ export default defineConfig(
       ...eslintPluginReactHooks.configs.recommended.rules,
       ...eslintPluginReactRefresh.configs.vite.rules,
       "@typescript-eslint/explicit-function-return-type": "off",
-      // Prettier integration - match .prettierrc.yaml
       quotes: ["error", "double", { avoidEscape: true }],
-      semi: ["error", "always"]
+      semi: ["error", "always"],
+      "prettier/prettier": ["error", { endOfLine: "auto" }]
     }
   },
   eslintConfigPrettier
