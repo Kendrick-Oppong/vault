@@ -2,11 +2,11 @@ import { SideBar } from "@/features/ui/components/sidebar";
 import { useNavigationStore } from "@/stores/navigation/navigation.store";
 import { selectCurrentView } from "@/stores/navigation/navigation.selectors";
 
-import { QueueShell } from "@/features/queue/components/shell";
-import { LibraryShell } from "@/features/library/components/shell";
-import { ChannelShell } from "@/features/channels/components/shell";
-import { SettingsShell } from "@/features/settings/components/shell";
+import { LibraryView } from "@/features/library/components/shell";
+import { ChannelView } from "@/features/channels/components/shell";
+import { SettingsView } from "@/features/settings/components/shell";
 import { LinkInput } from "@/features/ui/components/link-input";
+import { QueueView } from "@/features/queue/components/shell";
 
 function App(): React.JSX.Element {
   const currentView = useNavigationStore(selectCurrentView);
@@ -14,15 +14,15 @@ function App(): React.JSX.Element {
   const renderView = () => {
     switch (currentView) {
       case "queue":
-        return <QueueShell />;
+        return <QueueView />;
       case "library":
-        return <LibraryShell />;
+        return <LibraryView />;
       case "channel-sync":
-        return <ChannelShell />;
+        return <ChannelView />;
       case "settings":
-        return <SettingsShell />;
+        return <SettingsView />;
       default:
-        return <QueueShell />;
+        return <QueueView />;
     }
   };
 

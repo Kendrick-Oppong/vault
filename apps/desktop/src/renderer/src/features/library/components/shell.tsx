@@ -1,3 +1,3 @@
-export const LibraryShell = () => {
-  return <div>library shell</div>;
+export const LibraryView = () => {
+  return <div>library view</div>;
 };

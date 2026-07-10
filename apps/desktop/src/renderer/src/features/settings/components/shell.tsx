@@ -1,3 +1,3 @@
-export const SettingsShell = () => {
-  return <div>settings shell</div>;
+export const SettingsView = () => {
+  return <div>settings view</div>;
 };

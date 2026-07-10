@@ -1,3 +1,3 @@
-export const ChannelShell = () => {
-  return <div>channel shell</div>;
+export const ChannelView = () => {
+  return <div>channel view</div>;
 };

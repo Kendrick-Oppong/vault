@@ -1,3 +1,3 @@
-export const QueueShell = () => {
-  return <div>queue shell</div>;
+export const QueueView = () => {
+  return <div>queue view</div>;
 };
