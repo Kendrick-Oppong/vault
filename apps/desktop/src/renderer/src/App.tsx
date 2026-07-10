@@ -31,12 +31,14 @@ function App(): React.JSX.Element {
       <SideBar />
 
       <div className="flex flex-1 flex-col bg-background">
-        <div className="mx-auto flex h-full w-full max-w-[97%] flex-col">
-          <div className="py-4">
+        <div className="border border-l-0 border-r-0 border-border py-4">
+          <div className="mx-auto w-full max-w-[97%]">
             <LinkInput />
           </div>
+        </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">{renderView()}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-[97%] pb-5 pt-2">{renderView()}</div>
         </div>
       </div>
     </main>
