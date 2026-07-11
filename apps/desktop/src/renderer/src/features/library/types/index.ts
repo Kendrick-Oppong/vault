@@ -14,6 +14,8 @@ export interface LibraryItem {
   addedAt: Date;
   duration?: string;
   thumbnail?: string;
+  url?: string;
+  filePath?: string;
   isRecovered?: boolean;
 }
 
