@@ -1,12 +1,15 @@
-/* eslint-disable prefer-const */
 import { app, shell, BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import icon from "../../resources/icon.png?asset";
 import { YtDlpManager } from "./ytdlp-manager";
 import { WorkerPool } from "./worker-pool";
 import { initDb, type VaultDb } from "./db";
 import { JobInput } from "@vault/types";
+
+const execFileAsync = promisify(execFile);
 
 let mainWindow: BrowserWindow;
 let pool: WorkerPool;
@@ -193,6 +196,22 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle("cache:clearFormats", (_e, url?: string) => {
     db.clearFormatCache(url);
+  });
+
+  ipcMain.handle("app:info", async () => {
+    const { binaryPath } = resolveBinaryPaths();
+    let ytDlpVersion = "unknown";
+    try {
+      const { stdout } = await execFileAsync(binaryPath, ["--version"]);
+      ytDlpVersion = stdout.trim();
+    } catch {
+      // Binary not found in dev, that's fine
+    }
+    return {
+      appVersion: app.getVersion(),
+      ytDlpVersion,
+      defaultDownloadPath: app.getPath("videos")
+    };
   });
 }
 
