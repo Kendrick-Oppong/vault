@@ -1,6 +1,10 @@
 import { SideBar } from "@/features/ui/components/sidebar";
 import { useNavigationStore } from "@/stores/navigation/navigation.store";
 import { selectCurrentView } from "@/stores/navigation/navigation.selectors";
+import { AlertBanners } from "@/features/ui/components/alert-banners";
+import { GlobalModals } from "@/features/ui/components/global-modals";
+import { useJobEvents } from "@/lib/event-listeners/use-job-events";
+import { useAppInfoInit } from "@/lib/event-listeners/use-app-info-init";
 
 import { LibraryView } from "@/features/library/components/shell";
 import { ChannelView } from "@/features/channels/components/shell";
@@ -10,6 +14,11 @@ import { QueueView } from "@/features/queue/components/shell";
 
 function App(): React.JSX.Element {
   const currentView = useNavigationStore(selectCurrentView);
+
+  // Initialize app with real system data (app version, yt-dlp version, default path)
+  useAppInfoInit();
+  // Subscribe to job lifecycle events from the main process
+  useJobEvents();
 
   const renderView = () => {
     switch (currentView) {
@@ -31,6 +40,17 @@ function App(): React.JSX.Element {
       <SideBar />
 
       <div className="flex flex-1 flex-col bg-background">
+        {/* Alert Banners */}
+        <AlertBanners
+          offline={false}
+          disk={false}
+          update={false}
+          onOfflineAction={() => {}}
+          onDiskAction={() => {}}
+          onUpdateAction={() => {}}
+          onUpdateDismiss={() => {}}
+        />
+
         <div className="border border-l-0 border-r-0 border-border py-4">
           <div className="mx-auto w-full max-w-[97%]">
             <LinkInput />
@@ -41,6 +61,7 @@ function App(): React.JSX.Element {
           <div className="mx-auto w-full max-w-[97%] pb-5 pt-2">{renderView()}</div>
         </div>
       </div>
+      <GlobalModals />
     </main>
   );
 }
