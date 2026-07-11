@@ -3,111 +3,36 @@ import { FilterTabs } from "./filter-tabs";
 import { LibraryCard } from "./library-card";
 import type { LibraryItem, LibrarySort, SortOrder, LibraryStats } from "../types";
 import { EmptyState } from "@/features/ui/components/empty-state";
-import { Search } from "lucide-react";
-import { toast } from "sonner";
+import { Search, Loader2 } from "lucide-react";
 
-// Mock data - replace with real data later
-const mockItems: LibraryItem[] = [
-  {
-    id: "1",
-    title: "Electron + Vite: Full Setup Walkthrough",
-    channel: "ThePrimeagen",
-    type: "video",
-    quality: "1080p",
-    size: "300 MB",
-    sizeBytes: 300 * 1024 * 1024,
-    addedAt: new Date(Date.now() - 16 * 60000)
-  },
-  {
-    id: "2",
-    title: "How Compilers Actually Work",
-    channel: "ThePrimeagen",
-    type: "video",
-    quality: "1080p",
-    size: "210 MB",
-    sizeBytes: 210 * 1024 * 1024,
-    addedAt: new Date(Date.now() - 6 * 3600000)
-  },
-  {
-    id: "3",
-    title: "Building a Rust CLI from Scratch",
-    channel: "Two Minute Papers",
-    type: "music",
-    quality: "FLAC",
-    size: "120 MB",
-    sizeBytes: 120 * 1024 * 1024,
-    addedAt: new Date(Date.now() - 8 * 3600000)
-  },
-  {
-    id: "4",
-    title: "Deep Dive: React Server Components",
-    channel: "Chill Records",
-    type: "video",
-    quality: "4K",
-    size: "165 MB",
-    sizeBytes: 165 * 1024 * 1024,
-    addedAt: new Date(Date.now() - 15 * 3600000)
-  },
-  {
-    id: "5",
-    title: "Synthwave Mix — Late Night Drive",
-    channel: "Chill Records",
-    type: "video",
-    quality: "720p",
-    size: "210 MB",
-    sizeBytes: 210 * 1024 * 1024,
-    addedAt: new Date(Date.now() - 22 * 3600000),
-    isRecovered: true
-  },
-  {
-    id: "6",
-    title: "The Physics of Black Holes Explained",
-    channel: "ThePrimeagen",
-    type: "music",
-    quality: "FLAC",
-    size: "255 MB",
-    sizeBytes: 255 * 1024 * 1024,
-    addedAt: new Date(Date.now() - 24 * 3600000)
-  },
-  {
-    id: "7",
-    title: "Electron + Vite: Full Setup Walkthrough",
-    channel: "ThePrimeagen",
-    type: "video",
-    quality: "4K",
-    size: "300 MB",
-    sizeBytes: 300 * 1024 * 1024,
-    addedAt: new Date(Date.now() - 48 * 3600000)
-  },
-  {
-    id: "8",
-    title: "Lo-fi Beats for Deep Focus",
-    channel: "ThePrimeagen",
-    type: "video",
-    quality: "720p",
-    size: "345 MB",
-    sizeBytes: 345 * 1024 * 1024,
-    addedAt: new Date(Date.now() - 72 * 3600000)
-  },
-  {
-    id: "9",
-    title: "How Compilers Actually Work",
-    channel: "Two Minute Papers",
-    type: "music",
-    quality: "FLAC",
-    size: "390 MB",
-    sizeBytes: 390 * 1024 * 1024,
-    addedAt: new Date(Date.now() - 96 * 3600000)
-  }
-];
+import { useHistory } from "@/lib/queries/history";
+import { formatBytes } from "@/lib/utils/platform";
 
 export const LibraryView = () => {
   const [sortBy, setSortBy] = useState<LibrarySort>("date");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const { data: history = [], isLoading } = useHistory();
+
+  const mappedItems: LibraryItem[] = useMemo(() => {
+    return history.map((entry) => ({
+      id: entry.job_id,
+      title: entry.title || entry.url,
+      channel: entry.channel || "Unknown",
+      type: "video", // Assuming everything is video for now, unless we can infer from path
+      quality: "1080p", // Mock quality
+      size: "Unknown", // We'd need to stat the file to get size
+      sizeBytes: 0,
+      addedAt: new Date(entry.completed_at || entry.created_at),
+      thumbnail: entry.thumbnail_url || undefined,
+      url: entry.url,
+      filePath: entry.file_path || undefined
+    }));
+  }, [history]);
+
   const filteredAndSortedItems = useMemo(() => {
-    const filtered = mockItems.filter(
+    const filtered = mappedItems.filter(
       (item) =>
         item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.channel.toLowerCase().includes(searchQuery.toLowerCase())
@@ -126,15 +51,13 @@ export const LibraryView = () => {
         case "size":
           comparison = a.sizeBytes - b.sizeBytes;
           break;
-        default:
-          comparison = 0;
       }
 
       return sortOrder === "asc" ? comparison : -comparison;
     });
 
     return filtered;
-  }, [searchQuery, sortBy, sortOrder]);
+  }, [mappedItems, searchQuery, sortBy, sortOrder]);
 
   const handleSortChange = (sort: LibrarySort) => {
     if (sort === sortBy) {
@@ -149,43 +72,23 @@ export const LibraryView = () => {
     setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
   };
 
-  const handlePlay = (id: string) => {
-    const item = mockItems.find((i) => i.id === id);
-    console.log("Playing:", item?.title);
-    toast.success(`Playing: ${item?.title}`);
-    // Implement actual play logic
-  };
-
-  const handleOpenFolder = (id: string) => {
-    const item = mockItems.find((i) => i.id === id);
-    console.log("Opening folder for:", item?.title);
-    toast.info(`Opening folder for ${item?.title}`);
-    // Implement actual folder opening logic
-  };
-
-  const handleCopyLink = (id: string) => {
-    const item = mockItems.find((i) => i.id === id);
-    // For demo purposes, using a mock URL
-    const mockUrl = `https://youtube.com/watch?v=${item?.id}`;
-    navigator.clipboard.writeText(mockUrl);
-    toast.success("Link copied to clipboard");
-  };
-
-  const handleDelete = (id: string) => {
-    const item = mockItems.find((i) => i.id === id);
-    console.log("Deleting:", item?.title);
-    toast.warning(`Deleted: ${item?.title}`);
-    // Implement actual delete logic
-  };
-
   // Calculate stats
-  const totalSizeBytes = mockItems.reduce((acc, item) => acc + item.sizeBytes, 0);
+  const totalSizeBytes = mappedItems.reduce((acc, item) => acc + item.sizeBytes, 0);
   const totalSize = formatBytes(totalSizeBytes);
   const stats: LibraryStats = {
-    total: mockItems.length,
+    total: mappedItems.length,
     totalSize,
     totalSizeBytes
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64">
+        <Loader2 className="size-6 animate-spin text-muted-foreground mb-4" />
+        <p className="text-sm text-muted-foreground">Loading library...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
@@ -214,26 +117,10 @@ export const LibraryView = () => {
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
           {filteredAndSortedItems.map((item) => (
-            <LibraryCard
-              key={item.id}
-              item={item}
-              onPlay={handlePlay}
-              onOpenFolder={handleOpenFolder}
-              onCopyLink={handleCopyLink}
-              onDelete={handleDelete}
-            />
+            <LibraryCard key={item.id} item={item} />
           ))}
         </div>
       )}
     </div>
   );
 };
-
-function formatBytes(bytes: number): string {
-  const gb = bytes / (1024 * 1024 * 1024);
-  if (gb >= 1) {
-    return `${gb.toFixed(2)} GB`;
-  }
-  const mb = bytes / (1024 * 1024);
-  return `${mb.toFixed(0)} MB`;
-}
