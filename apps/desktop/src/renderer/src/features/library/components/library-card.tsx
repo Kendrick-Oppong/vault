@@ -1,39 +1,21 @@
 import { Play, Video, Music, RefreshCw } from "lucide-react";
 import { LibraryContextMenu } from "./library-context-menu";
 import type { LibraryItem } from "../types";
+import { getTimeAgo } from "@/lib/utils/platform";
 
 interface LibraryCardProps {
   item: LibraryItem;
-  onPlay: (id: string) => void;
-  onOpenFolder: (id: string) => void;
-  onCopyLink: (id: string) => void;
-  onDelete: (id: string) => void;
 }
 
-export const LibraryCard = ({
-  item,
-  onPlay,
-  onOpenFolder,
-  onCopyLink,
-  onDelete
-}: LibraryCardProps) => {
+export const LibraryCard = ({ item }: LibraryCardProps) => {
   const isVideo = item.type === "video";
 
   return (
-    <LibraryContextMenu
-      item={item}
-      onPlay={onPlay}
-      onOpenFolder={onOpenFolder}
-      onCopyLink={onCopyLink}
-      onDelete={onDelete}
-    >
-      <div
-        className="group cursor-pointer rounded-xl overflow-hidden border border-border bg-card hover:bg-card-hover transition-colors"
-        onClick={() => onPlay(item.id)}
-      >
+    <LibraryContextMenu item={item}>
+      <div className="group cursor-pointer rounded-xl overflow-hidden border border-border bg-card hover:bg-card-hover transition-colors">
         <div className="relative aspect-video overflow-hidden bg-secondary">
           {/* Gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-background" />
+          <div className="absolute inset-0 bg-linear-to-br from-primary/20 to-background" />
 
           {/* Icon pattern */}
           <div className="absolute inset-0 flex items-center justify-center text-white/10">
@@ -66,7 +48,7 @@ export const LibraryCard = ({
           <p className="text-[12.5px] font-medium truncate">{item.title}</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">{item.channel}</p>
           <div className="flex items-center justify-between mt-1.5 text-[10.5px] text-muted-foreground">
-            <span>{formatTimeAgo(item.addedAt)}</span>
+            <span>{getTimeAgo(item.addedAt)}</span>
             <span>{item.size}</span>
           </div>
           {item.isRecovered && (
@@ -80,20 +62,3 @@ export const LibraryCard = ({
     </LibraryContextMenu>
   );
 };
-
-// Helper function
-function formatTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 60) {
-    return `${diffMins}m ago`;
-  } else if (diffHours < 24) {
-    return `${diffHours}h ago`;
-  } else {
-    return `${diffDays}d ago`;
-  }
-}
