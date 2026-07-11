@@ -7,19 +7,9 @@ interface QueueListProps {
   items: QueueItemType[];
   selectedIds: string[];
   onSelect: (id: string) => void;
-  onAction: (action: string, id: string) => void;
-  onCopyLink: (id: string) => void;
-  onOpenFolder: (id: string) => void;
 }
 
-export const QueueList = ({
-  items,
-  selectedIds,
-  onSelect,
-  onAction,
-  onCopyLink,
-  onOpenFolder
-}: QueueListProps) => {
+export const QueueList = ({ items, selectedIds, onSelect }: QueueListProps) => {
   if (items.length === 0) {
     return (
       <EmptyState
@@ -38,9 +28,6 @@ export const QueueList = ({
           item={item}
           isSelected={selectedIds.includes(item.id)}
           onSelect={onSelect}
-          onAction={onAction}
-          onCopyLink={onCopyLink}
-          onOpenFolder={onOpenFolder}
         />
       ))}
     </div>
