@@ -1,87 +1,40 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { FilterTabs } from "./filter-tabs";
 import { BulkActions } from "./bulk-actions";
 import { QueueList } from "./queue-list";
 import type { QueueFilter, QueueItem, QueueStats } from "../types";
-import { toast } from "sonner";
-
-// Mock data - replace with real data later
-const mockItems: QueueItem[] = [
-  {
-    id: "jhqw202b",
-    title: "Building a Rust CLI from Scratch",
-    channel: "Fireship",
-    status: "paused",
-    progress: 93.9,
-    size: "340 MB",
-    downloaded: "319 MB",
-    addedAt: new Date(),
-    type: "video",
-    format: "1080p60 · MP4"
-  },
-  {
-    id: "j6pucr3g",
-    title: "Synthwave Mix — Late Night Drive",
-    channel: "Chill Records",
-    status: "paused",
-    progress: 58.1,
-    size: "84 MB",
-    downloaded: "49 MB",
-    addedAt: new Date(Date.now() - 3600000),
-    type: "music",
-    format: "FLAC"
-  },
-  {
-    id: "jcwbl7qs",
-    title: "The Physics of Black Holes Explained",
-    channel: "Two Minute Papers",
-    status: "queued",
-    addedAt: new Date(Date.now() - 7200000),
-    type: "video",
-    format: "4K60 · MP4"
-  },
-  {
-    id: "jy8utkt8",
-    title: "How Compilers Actually Work",
-    channel: "ThePrimeagen",
-    status: "paused",
-    progress: 45.0,
-    size: "210 MB",
-    downloaded: "95 MB",
-    addedAt: new Date(Date.now() - 10800000),
-    type: "video",
-    format: "1080p · MP4"
-  },
-  {
-    id: "j3tap4c2",
-    title: "Private Watch-Later Deep Dive",
-    channel: "Two Minute Papers",
-    status: "error",
-    addedAt: new Date(Date.now() - 14400000),
-    type: "video",
-    format: "1080p · MP4",
-    errorMessage: "Sign-in required. This video is private or age-restricted."
-  },
-  {
-    id: "jh7q68hi",
-    title: "Studio Session: Analog Warmth",
-    channel: "Chill Records",
-    status: "error",
-    addedAt: new Date(Date.now() - 18000000),
-    type: "music",
-    format: "FLAC",
-    errorMessage: "Ran out of retries after 3 attempts across web, android, and ios clients",
-    errorDetails: `ERROR: [youtube] nsig extraction failed
-  Retrying with player_client=android... failed
-  Retrying with player_client=ios... failed
-  Exhausted fallback chain (3/3)`
-  }
-];
+import { useActiveJobs } from "@/lib/queries/jobs";
+import { Loader2 } from "lucide-react";
 
 export const QueueView = () => {
   const [activeFilter, setActiveFilter] = useState<QueueFilter>("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [items] = useState<QueueItem[]>(mockItems);
+
+  const { data: activeJobs = [], isLoading } = useActiveJobs();
+
+  // Map Job to QueueItem
+  const items: QueueItem[] = useMemo(() => {
+    return activeJobs.map((job) => {
+      // Map JobStatus to QueueFilter status
+      let status: QueueFilter = "queued";
+      if (job.status === "active") status = "downloading";
+      if (job.status === "failed") status = "error";
+      // We don't have paused jobs yet in the backend, but we map it here if it's added
+      if (job.status === ("paused" as unknown)) status = "paused";
+
+      return {
+        id: job.id,
+        title: job.meta?.title || job.url,
+        channel: job.meta?.channel || "Unknown",
+        status,
+        addedAt: new Date(job.createdAt),
+        url: job.url,
+        thumbnail: job.meta?.thumbnailUrl,
+        type: "video", // Defaulting to video
+        format: job.formatSelector || "best"
+      };
+    });
+  }, [activeJobs]);
 
   const filteredItems = items.filter((item) => {
     if (activeFilter === "all") return true;
@@ -102,31 +55,10 @@ export const QueueView = () => {
     setSelectedIds([]);
   };
 
-  const handleAction = (action: string, id: string) => {
-    console.log(`Action ${action} on job ${id}`);
-    // Implement actual action logic here
-  };
-
   const handleBulkAction = (action: "pause" | "resume" | "retry" | "cancel") => {
     console.log(`Bulk ${action} on:`, selectedIds);
     // Implement actual bulk action logic here
     setSelectedIds([]);
-  };
-
-  const handleCopyLink = (id: string) => {
-    const item = items.find((i) => i.id === id);
-    if (item?.url) {
-      navigator.clipboard.writeText(item.url);
-      toast.success("Link copied to clipboard");
-    } else {
-      toast.error("No link available");
-    }
-  };
-
-  const handleOpenFolder = (id: string) => {
-    console.log(`Open folder for job ${id}`);
-    toast.info("Opening destination folder...");
-    // Implement actual folder opening logic
   };
 
   const handlePauseAll = () => {
@@ -142,6 +74,15 @@ export const QueueView = () => {
     queued: items.filter((i) => i.status === "queued").length,
     error: items.filter((i) => i.status === "error").length
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64">
+        <Loader2 className="size-6 animate-spin text-muted-foreground mb-4" />
+        <p className="text-sm text-muted-foreground">Loading queue...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
@@ -160,14 +101,7 @@ export const QueueView = () => {
         onBulkAction={handleBulkAction}
       />
 
-      <QueueList
-        items={filteredItems}
-        selectedIds={selectedIds}
-        onSelect={handleSelect}
-        onAction={handleAction}
-        onCopyLink={handleCopyLink}
-        onOpenFolder={handleOpenFolder}
-      />
+      <QueueList items={filteredItems} selectedIds={selectedIds} onSelect={handleSelect} />
     </div>
   );
 };
