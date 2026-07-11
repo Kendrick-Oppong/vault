@@ -31,6 +31,12 @@ const vaultApi = {
 
   clearFormatCache: (url?: string): Promise<void> => ipcRenderer.invoke("cache:clearFormats", url),
 
+  getAppInfo: (): Promise<{
+    appVersion: string;
+    ytDlpVersion: string;
+    defaultDownloadPath: string;
+  }> => ipcRenderer.invoke("app:info"),
+
   // --- Event listeners (return cleanup) ---
   onJobQueued: (cb: (job: Job) => void): (() => void) => {
     const handler = (_e: Electron.IpcRendererEvent, job: Job) => cb(job);
