@@ -5,16 +5,39 @@ import { useUIState } from "@/stores/ui/ui.selectors";
 import type { SidebarItem } from "../types";
 
 const sidebarItems: SidebarItem[] = [
-  { id: "queue", label: "Queue", count: 4, icon: Layers },
-  { id: "library", label: "Library", count: 9, icon: Library },
-  { id: "channel-sync", label: "Channel Sync", count: 2, icon: Rss },
+  { id: "queue", label: "Queue", icon: Layers },
+  { id: "library", label: "Library", icon: Library },
+  { id: "channel-sync", label: "Channel Sync", icon: Rss },
   { id: "settings", label: "Settings", icon: Settings2 }
 ];
+
+import { useActiveJobs } from "@/lib/queries/jobs";
+import { useHistory } from "@/lib/queries/history";
+import { useChannelsStore } from "@/stores/library/channels.store";
+import { selectChannels } from "@/stores/library/channels.selectors";
 
 export const SideBar = () => {
   const { currentView, navigate } = useNavigationState();
   const { theme, setTheme } = useUIState();
   const isDark = theme === "dark";
+
+  // Fetch real counts
+  const { data: activeJobs = [] } = useActiveJobs();
+  const { data: history = [] } = useHistory();
+  const channels = useChannelsStore(selectChannels);
+
+  const getCount = (id: string) => {
+    switch (id) {
+      case "queue":
+        return activeJobs.length || undefined;
+      case "library":
+        return history.length || undefined;
+      case "channel-sync":
+        return channels.length || undefined;
+      default:
+        return undefined;
+    }
+  };
 
   return (
     <aside className="flex h-full w-[220px] flex-col border-r border-sidebar-border bg-sidebar">
@@ -22,6 +45,7 @@ export const SideBar = () => {
         {sidebarItems.map((item) => {
           const Icon = item.icon;
           const active = currentView === item.id;
+          const count = getCount(item.id);
           return (
             <Button
               key={item.id}
@@ -52,13 +76,13 @@ export const SideBar = () => {
               </span>
 
               <span className="flex items-center gap-1.5">
-                {item.count !== undefined && (
+                {count !== undefined && (
                   <span
                     className={`rounded px-1.5 py-0.5 font-mono text-[11px] tabular-nums ${
                       active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {item.count}
+                    {count}
                   </span>
                 )}
               </span>
