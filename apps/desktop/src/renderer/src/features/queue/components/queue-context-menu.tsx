@@ -7,36 +7,30 @@ import {
 } from "@vault/ui/components/context-menu";
 import { Play, Pause, RotateCcw, X, Link2, FolderOpen } from "lucide-react";
 import type { QueueItem } from "../types";
+import { useCancelDownload } from "@/lib/mutations/downloads";
+import { toast } from "sonner";
 
 interface QueueContextMenuProps {
   children: React.ReactNode;
   item: QueueItem;
-  onAction: (action: string, id: string) => void;
-  onCopyLink: (id: string) => void;
-  onOpenFolder: (id: string) => void;
 }
 
-export const QueueContextMenu = ({
-  children,
-  item,
-  onAction,
-  onCopyLink,
-  onOpenFolder
-}: QueueContextMenuProps) => {
+export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
+  const { mutate: cancelDownload } = useCancelDownload();
   const isPaused = item.status === "paused";
   const isQueued = item.status === "queued";
   const isError = item.status === "error";
   const isDownloading = item.status === "downloading";
 
   const getMenuItems = () => {
-    const items = [];
+    const items: React.ReactNode[] = [];
 
     // Status-specific actions
     if (isPaused || isDownloading) {
       items.push(
         <ContextMenuItem
           key="resume"
-          onClick={() => onAction("resume", item.id)}
+          onClick={() => toast.info("Resume not supported yet")}
           className="flex items-center gap-2"
         >
           <Play className="w-3.5 h-3.5" />
@@ -49,7 +43,7 @@ export const QueueContextMenu = ({
       items.push(
         <ContextMenuItem
           key="pause"
-          onClick={() => onAction("pause", item.id)}
+          onClick={() => toast.info("Pause not supported yet")}
           className="flex items-center gap-2"
         >
           <Pause className="w-3.5 h-3.5" />
@@ -62,7 +56,7 @@ export const QueueContextMenu = ({
       items.push(
         <ContextMenuItem
           key="retry"
-          onClick={() => onAction("retry", item.id)}
+          onClick={() => toast.info("Retry not supported yet")}
           className="flex items-center gap-2"
         >
           <RotateCcw className="w-3.5 h-3.5" />
@@ -71,11 +65,16 @@ export const QueueContextMenu = ({
       );
     }
 
-    // Common actions
+    // Common actions + separator + danger
     items.push(
       <ContextMenuItem
         key="copy-link"
-        onClick={() => onCopyLink(item.id)}
+        onClick={() => {
+          if (item.url) {
+            navigator.clipboard.writeText(item.url);
+            toast.success("Link copied to clipboard");
+          }
+        }}
         className="flex items-center gap-2"
       >
         <Link2 className="w-3.5 h-3.5" />
@@ -84,26 +83,24 @@ export const QueueContextMenu = ({
 
       <ContextMenuItem
         key="open-folder"
-        onClick={() => onOpenFolder(item.id)}
+        onClick={() => {
+          toast.info("Destination folder not available for active jobs");
+        }}
         className="flex items-center gap-2"
       >
         <FolderOpen className="w-3.5 h-3.5" />
         Open destination folder
-      </ContextMenuItem>
-    );
+      </ContextMenuItem>,
 
-    // Separator
-    items.push(<ContextMenuSeparator key="separator" />);
+      <ContextMenuSeparator key="separator" />,
 
-    // Danger actions
-    items.push(
       <ContextMenuItem
         key="remove"
-        onClick={() => onAction("cancel", item.id)}
+        onClick={() => cancelDownload(item.id)}
         className="flex items-center gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
       >
         <X className="w-3.5 h-3.5 text-destructive!" />
-        Remove from queue
+        Cancel Download
       </ContextMenuItem>
     );
 

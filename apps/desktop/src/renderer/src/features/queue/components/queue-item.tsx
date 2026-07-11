@@ -15,14 +15,15 @@ import {
 } from "lucide-react";
 import { QueueContextMenu } from "./queue-context-menu";
 import type { QueueItem as QueueItemType } from "../types";
+import { useJobProgress } from "@/lib/queries/jobs";
+import { useCancelDownload } from "@/lib/mutations/downloads";
+import { formatBytes } from "@/lib/utils/platform";
+import { toast } from "sonner";
 
 interface QueueItemProps {
   item: QueueItemType;
   isSelected: boolean;
   onSelect: (id: string) => void;
-  onAction: (action: string, id: string) => void;
-  onCopyLink: (id: string) => void;
-  onOpenFolder: (id: string) => void;
 }
 
 const statusColorMap: Record<string, string> = {
@@ -39,20 +40,32 @@ const statusIconMap = {
   error: CircleAlert
 } as const;
 
-export const QueueItem = ({
-  item,
-  isSelected,
-  onSelect,
-  onAction,
-  onCopyLink,
-  onOpenFolder
-}: QueueItemProps) => {
+export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const StatusIcon = statusIconMap[item.status];
   const statusColor = statusColorMap[item.status] || "text-muted-foreground";
   const isPaused = item.status === "paused";
   const isQueued = item.status === "queued";
   const isError = item.status === "error";
   const isDownloading = item.status === "downloading";
+
+  const { data: rawProgress } = useJobProgress(item.id);
+  const { mutate: cancelDownload } = useCancelDownload();
+
+  // Map raw progress to queue item format if available
+  const progress =
+    rawProgress?.downloaded_bytes && rawProgress?.total_bytes
+      ? (rawProgress.downloaded_bytes / rawProgress.total_bytes) * 100
+      : item.progress;
+
+  const downloaded = rawProgress?.downloaded_bytes
+    ? formatBytes(rawProgress.downloaded_bytes)
+    : item.downloaded;
+
+  const size = rawProgress?.total_bytes
+    ? formatBytes(rawProgress.total_bytes)
+    : rawProgress?.total_bytes_estimate
+      ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
+      : item.size;
 
   const getActions = () => {
     if (isPaused || isDownloading) {
@@ -61,7 +74,7 @@ export const QueueItem = ({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onAction("resume", item.id)}
+            onClick={() => toast.info("Resume not supported yet")}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Resume"
           >
@@ -70,7 +83,7 @@ export const QueueItem = ({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onAction("cancel", item.id)}
+            onClick={() => cancelDownload(item.id)}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Cancel"
           >
@@ -85,7 +98,7 @@ export const QueueItem = ({
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => onAction("cancel", item.id)}
+          onClick={() => cancelDownload(item.id)}
           className="h-7 w-7 rounded hover:bg-accent transition-colors"
           title="Remove"
         >
@@ -100,7 +113,7 @@ export const QueueItem = ({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onAction("retry", item.id)}
+            onClick={() => toast.info("Retry not supported yet")}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Retry"
           >
@@ -109,7 +122,7 @@ export const QueueItem = ({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onAction("cancel", item.id)}
+            onClick={() => cancelDownload(item.id)}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Remove"
           >
@@ -128,12 +141,7 @@ export const QueueItem = ({
   };
 
   return (
-    <QueueContextMenu
-      item={item}
-      onAction={onAction}
-      onCopyLink={onCopyLink}
-      onOpenFolder={onOpenFolder}
-    >
+    <QueueContextMenu item={item}>
       <div
         className={cn(
           "job-card group flex gap-0 rounded-xl border border-border bg-card hover:bg-card-hover transition-colors overflow-hidden cursor-context-menu",
@@ -185,9 +193,9 @@ export const QueueItem = ({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {item.progress !== undefined && !isQueued && !isError && (
+                {progress !== undefined && !isQueued && !isError && (
                   <span className="text-[20px] leading-none font-bold text-muted-foreground">
-                    {item.progress.toFixed(1)}
+                    {progress.toFixed(1)}
                     <span className="text-[12px]">%</span>
                   </span>
                 )}
@@ -233,19 +241,19 @@ export const QueueItem = ({
               </div>
             )}
 
-            {(isPaused || isDownloading) && item.progress !== undefined && (
+            {(isPaused || isDownloading) && progress !== undefined && (
               <div className="mt-2">
                 <div className="h-1 rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full rounded-full bg-muted-foreground transition-all"
-                    style={{ width: `${item.progress}%` }}
+                    style={{ width: `${progress}%` }}
                   />
                 </div>
                 <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
                   <span>{isPaused ? "Paused" : "Downloading"}</span>
-                  {item.downloaded && item.size && (
+                  {downloaded && size && (
                     <span>
-                      {item.downloaded} / {item.size}
+                      {downloaded} / {size}
                     </span>
                   )}
                 </div>
