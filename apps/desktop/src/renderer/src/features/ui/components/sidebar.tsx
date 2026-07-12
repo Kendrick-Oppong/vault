@@ -1,4 +1,4 @@
-import { HardDrive, Library, Layers, Moon, Rss, Settings2, Sun } from "lucide-react";
+import { HardDrive, Library, Layers, Moon, Settings2, Sun } from "lucide-react";
 import { Button } from "@vault/ui/components/button";
 import { useNavigationState } from "@/stores/navigation/navigation.selectors";
 import { useUIState } from "@/stores/ui/ui.selectors";
@@ -7,14 +7,11 @@ import type { SidebarItem } from "../types";
 const sidebarItems: SidebarItem[] = [
   { id: "queue", label: "Queue", icon: Layers },
   { id: "library", label: "Library", icon: Library },
-  { id: "channel-sync", label: "Channel Sync", icon: Rss },
   { id: "settings", label: "Settings", icon: Settings2 }
 ];
 
 import { useActiveJobs } from "@/lib/queries/jobs";
 import { useHistory } from "@/lib/queries/history";
-import { useChannelsStore } from "@/stores/library/channels.store";
-import { selectChannels } from "@/stores/library/channels.selectors";
 
 export const SideBar = () => {
   const { currentView, navigate } = useNavigationState();
@@ -24,7 +21,6 @@ export const SideBar = () => {
   // Fetch real counts
   const { data: activeJobs = [] } = useActiveJobs();
   const { data: history = [] } = useHistory();
-  const channels = useChannelsStore(selectChannels);
 
   const getCount = (id: string) => {
     switch (id) {
@@ -32,8 +28,6 @@ export const SideBar = () => {
         return activeJobs.length || undefined;
       case "library":
         return history.length || undefined;
-      case "channel-sync":
-        return channels.length || undefined;
       default:
         return undefined;
     }
