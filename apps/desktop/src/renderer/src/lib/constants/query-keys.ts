@@ -5,9 +5,6 @@ export const QueryKeys = {
   history: {
     all: (limit?: number, offset?: number) => ["history", { limit, offset }] as const
   },
-  archive: {
-    sync: (channelUrl: string, dest: string) => ["archive", "sync", channelUrl, dest] as const
-  },
   jobs: {
     active: () => ["jobs", "active"] as const,
     progress: (jobId: string) => ["jobs", "progress", jobId] as const
