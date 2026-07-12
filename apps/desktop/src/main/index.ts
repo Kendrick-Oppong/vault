@@ -154,45 +154,6 @@ function registerIpcHandlers(): void {
     shell.showItemInFolder(filePath);
   });
 
-  ipcMain.handle(
-    "archive:syncChannel",
-    async (_e, channelUrl: string, destinationFolder: string) => {
-      const entries = (await ytdlp.probeFormats(channelUrl)) as Array<{
-        id: string;
-        url?: string;
-        webpage_url?: string;
-        title?: string;
-        channel?: string;
-      }>;
-      const newEntries = entries.filter((entry) => {
-        if (!entry.id) return false;
-        return !db.isArchived(destinationFolder, entry.id);
-      });
-
-      const jobIds = newEntries.map((entry) =>
-        pool.enqueue({
-          url: entry.url ?? entry.webpage_url ?? "",
-          outputTemplate: join(destinationFolder, "%(title)s.%(ext)s"),
-          formatSelector: "bestvideo+bestaudio/best",
-          extra: {
-            archiveKey: destinationFolder,
-            embedThumbnail: true,
-            embedMetadata: true
-          },
-          meta: {
-            videoId: entry.id,
-            title: entry.title,
-            channel: entry.channel
-          }
-        })
-      );
-
-      return {
-        queued: jobIds.length,
-        skipped: entries.length - newEntries.length
-      };
-    }
-  );
 
   ipcMain.handle("cache:clearFormats", (_e, url?: string) => {
     db.clearFormatCache(url);
