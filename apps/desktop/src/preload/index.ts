@@ -23,11 +23,6 @@ const vaultApi = {
 
   openInFolder: (filePath: string): Promise<void> => ipcRenderer.invoke("fs:reveal", filePath),
 
-  syncChannel: (
-    channelUrl: string,
-    destinationFolder: string
-  ): Promise<{ queued: number; skipped: number }> =>
-    ipcRenderer.invoke("archive:syncChannel", channelUrl, destinationFolder),
 
   clearFormatCache: (url?: string): Promise<void> => ipcRenderer.invoke("cache:clearFormats", url),
 
