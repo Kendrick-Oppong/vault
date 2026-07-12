@@ -1,5 +1,5 @@
 export type MediaType = "video" | "audio";
-export type LinkType = "video" | "playlist" | "channel";
+export type LinkType = "video" | "playlist";
 
 export interface VideoFormat {
   label: string;
@@ -9,6 +9,7 @@ export interface VideoFormat {
   size: string;
   sizeBytes: number;
   bitrate?: string;
+  formatId?: string;
 }
 
 export interface AudioFormat {
@@ -18,6 +19,15 @@ export interface AudioFormat {
   size: string;
   sizeBytes: number;
   lossless?: boolean;
+  formatId?: string;
+}
+
+export interface PlaylistItem {
+  id: string;
+  title: string;
+  url?: string;
+  thumbnail?: string;
+  duration?: string;
 }
 
 export interface FormatModalData {
@@ -27,7 +37,7 @@ export interface FormatModalData {
   type: LinkType;
   duration?: string;
   videoCount?: number;
-  playlistItems?: string[];
+  playlistItems?: PlaylistItem[];
   selectedCount?: number;
   totalCount?: number;
   duplicate?: boolean;
