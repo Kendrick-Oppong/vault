@@ -7,7 +7,6 @@ import { useJobEvents } from "@/lib/event-listeners/use-job-events";
 import { useAppInfoInit } from "@/lib/event-listeners/use-app-info-init";
 
 import { LibraryView } from "@/features/library/components/shell";
-import { ChannelView } from "@/features/channels/components/shell";
 import { SettingsView } from "@/features/settings/components/shell";
 import { LinkInput } from "@/features/ui/components/link-input";
 import { QueueView } from "@/features/queue/components/shell";
@@ -27,7 +26,7 @@ function App(): React.JSX.Element {
       case "library":
         return <LibraryView />;
       case "channel-sync":
-        return <ChannelView />;
+        return <QueueView />;
       case "settings":
         return <SettingsView />;
       default:
