@@ -8,6 +8,7 @@ import {
 import { Play, Pause, RotateCcw, X, Link2, FolderOpen } from "lucide-react";
 import type { QueueItem } from "../types";
 import { useCancelDownload } from "@/lib/mutations/downloads";
+import { filesApi } from "@/lib/api/files";
 import { toast } from "sonner";
 
 interface QueueContextMenuProps {
@@ -84,7 +85,13 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
       <ContextMenuItem
         key="open-folder"
         onClick={() => {
-          toast.info("Destination folder not available for active jobs");
+          if (item.filePath) {
+            filesApi.openInFolder(item.filePath);
+          } else {
+            toast.info("File not available yet", {
+              description: "The file path will be available once the download completes."
+            });
+          }
         }}
         className="flex items-center gap-2"
       >
