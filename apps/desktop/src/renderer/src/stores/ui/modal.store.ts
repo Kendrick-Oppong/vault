@@ -6,6 +6,10 @@ import type { ConfirmationVariant } from "@/features/ui/components/confirmation-
 export interface FormatModalState {
   isOpen: boolean;
   data: FormatModalData | null;
+  isLoading?: boolean;
+  isError?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   onConfirm?: (options: FormatOptions) => void;
 }
 
@@ -25,7 +29,17 @@ interface ModalState {
 }
 
 interface ModalActions {
-  openFormatModal: (data: FormatModalData, onConfirm?: (options: FormatOptions) => void) => void;
+  openFormatModal: (
+    data: FormatModalData | null,
+    options?: {
+      onConfirm?: (options: FormatOptions) => void;
+      isLoading?: boolean;
+      isError?: boolean;
+      error?: string | null;
+      onRetry?: () => void;
+    }
+  ) => void;
+  updateFormatModal: (updates: Partial<FormatModalState>) => void;
   closeFormatModal: () => void;
 
   openConfirmDialog: (config: Omit<ConfirmationDialogState, "isOpen">) => void;
@@ -44,14 +58,22 @@ export const useModalStore = create<ModalStore>((set) => ({
     title: ""
   },
 
-  openFormatModal: (data, onConfirm) =>
+  openFormatModal: (data, options) =>
     set({
       formatModal: {
         isOpen: true,
         data,
-        onConfirm
+        ...options
       }
     }),
+
+  updateFormatModal: (updates) =>
+    set((state) => ({
+      formatModal: {
+        ...state.formatModal,
+        ...updates
+      }
+    })),
 
   closeFormatModal: () =>
     set((state) => ({
