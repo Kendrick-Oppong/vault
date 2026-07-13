@@ -154,7 +154,6 @@ function registerIpcHandlers(): void {
     shell.showItemInFolder(filePath);
   });
 
-
   ipcMain.handle("cache:clearFormats", (_e, url?: string) => {
     db.clearFormatCache(url);
   });
