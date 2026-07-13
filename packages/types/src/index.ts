@@ -20,6 +20,7 @@ export interface Job extends JobInput {
   id: string;
   status: JobStatus;
   createdAt: number;
+  error?: string;
 }
 
 export type JobStatus = "pending" | "active" | "completed" | "failed" | "cancelled";
