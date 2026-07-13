@@ -23,7 +23,6 @@ const vaultApi = {
 
   openInFolder: (filePath: string): Promise<void> => ipcRenderer.invoke("fs:reveal", filePath),
 
-
   clearFormatCache: (url?: string): Promise<void> => ipcRenderer.invoke("cache:clearFormats", url),
 
   getAppInfo: (): Promise<{
