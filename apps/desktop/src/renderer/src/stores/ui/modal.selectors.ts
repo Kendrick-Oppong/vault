@@ -7,6 +7,7 @@ export const selectConfirmDialog = (state: ModalStore) => state.confirmDialog;
 
 const selectModalActions = (state: ModalStore) => ({
   openFormatModal: state.openFormatModal,
+  updateFormatModal: state.updateFormatModal,
   closeFormatModal: state.closeFormatModal,
   openConfirmDialog: state.openConfirmDialog,
   closeConfirmDialog: state.closeConfirmDialog
