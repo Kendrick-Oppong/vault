@@ -25,8 +25,6 @@ function App(): React.JSX.Element {
         return <QueueView />;
       case "library":
         return <LibraryView />;
-      case "channel-sync":
-        return <QueueView />;
       case "settings":
         return <SettingsView />;
       default:
