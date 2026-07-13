@@ -14,8 +14,17 @@ export class YtDlpManager {
    */
   async probeFormats(url: string): Promise<Record<string, unknown>[]> {
     return new Promise((resolve, reject) => {
-      const args = ["--dump-json", "--flat-playlist", url];
-      const proc = spawn(this.opts.binaryPath, args, { shell: false });
+      const args = [
+        "--dump-json",
+        "--flat-playlist",
+        "--js-runtimes",
+        `node:${process.execPath}`,
+        url
+      ];
+      const proc = spawn(this.opts.binaryPath, args, {
+        shell: false,
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
+      });
 
       let stdout = "";
       let stderr = "";
@@ -60,7 +69,9 @@ export class YtDlpManager {
       "--format",
       formatSelector,
       "--progress",
-      "--newline"
+      "--newline",
+      "--js-runtimes",
+      `node:${process.execPath}`
     ];
 
     // Add extras
@@ -93,7 +104,10 @@ export class YtDlpManager {
 
     args.push(url);
 
-    const proc = spawn(this.opts.binaryPath, args, { shell: false });
+    const proc = spawn(this.opts.binaryPath, args, {
+      shell: false,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
+    });
 
     let stderr = "";
 
