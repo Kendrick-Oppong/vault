@@ -53,15 +53,16 @@ export function useJobEvents() {
     });
     unsubscribes.push(unsubCompleted);
 
-    // On failure, same as completion
+    // On failure, update status to failed instead of removing
     const unsubFailed = globalThis.api.onJobFailed((job: Job, err) => {
+      const errorMessage = formatError(err?.message || err);
       queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-        old.filter((j) => j.id !== job.id)
+        old.map((j) => (j.id === job.id ? { ...job, status: "failed", error: errorMessage } : j))
       );
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
       queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
       toast.error("Download failed", {
-        description: formatError(err.message || err)
+        description: errorMessage
       });
     });
     unsubscribes.push(unsubFailed);
