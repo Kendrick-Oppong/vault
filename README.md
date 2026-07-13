@@ -344,28 +344,53 @@ pnpm install
 
 This installs all dependencies for all workspaces using pnpm's efficient linking.
 
-3. **Add yt-dlp and ffmpeg binaries**
+3. **Download required binaries**
 
-Create the bin directory and add the required binaries:
+**Option 1: Automated Script (Recommended for Windows)**
 
-```bash
-# Windows
-mkdir apps\desktop\bin\win32
-# Download yt-dlp.exe and ffmpeg.exe to this folder
+Run the PowerShell script to automatically download yt-dlp, ffmpeg, and ffprobe:
 
-# macOS
-mkdir -p apps/desktop/bin/darwin
-# Download yt-dlp and ffmpeg to this folder, make executable
-
-# Linux
-mkdir -p apps/desktop/bin/linux
-# Download yt-dlp and ffmpeg to this folder, make executable
+```powershell
+cd apps/desktop
+.\download-binaries.ps1
 ```
 
-**Download links:**
+If you get an execution policy error:
+```powershell
+PowerShell -ExecutionPolicy Bypass -File .\download-binaries.ps1
+```
 
-- yt-dlp: https://github.com/yt-dlp/yt-dlp/releases
-- ffmpeg: https://ffmpeg.org/download.html
+**Option 2: Manual Download**
+
+Download and place the binaries in `apps/desktop/bin/<platform>/`:
+
+- **yt-dlp**: https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
+- **ffmpeg & ffprobe**: https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
+  - Extract the zip file
+  - Copy `bin/ffmpeg.exe` and `bin/ffprobe.exe` from the extracted folder
+
+**Platform-specific paths:**
+```
+# Windows
+apps/desktop/bin/win32/
+  ├── yt-dlp.exe
+  ├── ffmpeg.exe
+  └── ffprobe.exe
+
+# macOS
+apps/desktop/bin/darwin/
+  ├── yt-dlp
+  ├── ffmpeg
+  └── ffprobe
+
+# Linux  
+apps/desktop/bin/linux/
+  ├── yt-dlp
+  ├── ffmpeg
+  └── ffprobe
+```
+
+> **Note:** Binaries are excluded from git via `.gitignore`. Each developer needs to download them.
 
 4. **Create shadcn/ui configuration files**
 
