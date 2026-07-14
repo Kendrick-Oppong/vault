@@ -1,1 +1,3 @@
 apps/desktop/bin
+tsconfig.node.tsbuildinfo
+tsconfig.web.tsbuildinfo
