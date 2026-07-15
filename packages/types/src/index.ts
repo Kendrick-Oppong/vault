@@ -6,6 +6,8 @@ export interface JobMeta {
   channel?: string;
   thumbnailUrl?: string;
   expectedPath?: string;
+  mediaType?: "video" | "music";
+  quality?: string;
 }
 
 export interface JobInput {
@@ -23,10 +25,11 @@ export interface Job extends JobInput {
   error?: string;
 }
 
-export type JobStatus = "pending" | "active" | "completed" | "failed" | "cancelled";
+export type JobStatus = "pending" | "active" | "paused" | "completed" | "failed" | "cancelled";
 
 export interface DownloadExtras {
   cookiesFromBrowser?: "chrome" | "firefox" | "safari" | "edge";
+  cookiesFile?: string;
   rateLimit?: string;
   proxy?: string;
   geoBypass?: boolean;
@@ -57,6 +60,9 @@ export interface HistoryEntry {
   file_path: string | null;
   thumbnail_url: string | null;
   status: string;
+  media_type: string | null;
+  quality: string | null;
+  file_size: number | null;
   created_at: number;
   completed_at: number;
 }
