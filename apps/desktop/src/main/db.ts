@@ -5,6 +5,7 @@ export interface VaultDb {
   raw: Database.Database;
   addHistoryEntry: (entry: HistoryEntry) => void;
   listHistory: (limit?: number, offset?: number) => HistoryEntry[];
+  deleteHistory: (jobId: string) => void;
   isArchived: (destinationFolder: string, videoId: string) => boolean;
   markArchived: (destinationFolder: string, videoId: string) => void;
   getCachedFormats: (url: string, ttlMs?: number) => unknown | null;
@@ -26,6 +27,9 @@ export function initDb(dbPath: string): VaultDb {
       file_path TEXT,
       thumbnail_url TEXT,
       status TEXT,
+      media_type TEXT,
+      quality TEXT,
+      file_size INTEGER,
       created_at INTEGER,
       completed_at INTEGER
     );
@@ -46,14 +50,21 @@ export function initDb(dbPath: string): VaultDb {
     CREATE INDEX IF NOT EXISTS idx_history_created_at ON history(created_at DESC);
   `);
 
+  // Migration: add columns if they don't exist (for users upgrading from older schema)
+  const cols = db.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+  const colNames = cols.map((c) => c.name);
+  if (!colNames.includes("media_type")) db.exec("ALTER TABLE history ADD COLUMN media_type TEXT");
+  if (!colNames.includes("quality")) db.exec("ALTER TABLE history ADD COLUMN quality TEXT");
+  if (!colNames.includes("file_size")) db.exec("ALTER TABLE history ADD COLUMN file_size INTEGER");
+
   return {
     raw: db,
 
     addHistoryEntry(entry) {
       db.prepare(
         `INSERT OR REPLACE INTO history
-         (job_id, video_id, title, channel, url, file_path, thumbnail_url, status, created_at, completed_at)
-         VALUES (@job_id, @video_id, @title, @channel, @url, @file_path, @thumbnail_url, @status, @created_at, @completed_at)`
+         (job_id, video_id, title, channel, url, file_path, thumbnail_url, status, media_type, quality, file_size, created_at, completed_at)
+         VALUES (@job_id, @video_id, @title, @channel, @url, @file_path, @thumbnail_url, @status, @media_type, @quality, @file_size, @created_at, @completed_at)`
       ).run(entry);
     },
 
@@ -61,6 +72,10 @@ export function initDb(dbPath: string): VaultDb {
       return db
         .prepare("SELECT * FROM history ORDER BY created_at DESC LIMIT ? OFFSET ?")
         .all(limit, offset) as HistoryEntry[];
+    },
+
+    deleteHistory(jobId) {
+      db.prepare("DELETE FROM history WHERE job_id = ?").run(jobId);
     },
 
     isArchived(destinationFolder, videoId) {

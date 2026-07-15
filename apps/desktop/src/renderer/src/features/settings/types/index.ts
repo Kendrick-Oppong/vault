@@ -5,7 +5,8 @@ export interface Settings {
   bandwidthLimit: string;
   proxy: string;
   geoBypass: boolean;
-  importCookies: "None" | "Chrome" | "Firefox" | "Edge" | "Safari";
+  importCookies: "None" | "Chrome" | "Firefox" | "Edge" | "Safari" | "File";
+  cookiesFilePath: string;
   embedThumbnail: boolean;
   embedMetadata: boolean;
   version: string;

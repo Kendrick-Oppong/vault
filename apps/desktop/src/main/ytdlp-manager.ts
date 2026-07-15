@@ -4,6 +4,7 @@ import type { YtDlpProgress, DownloadExtras } from "@vault/types";
 export interface YtDlpManagerOptions {
   binaryPath: string;
   ffmpegPath: string;
+  pluginPath?: string;
 }
 
 export class YtDlpManager {
@@ -12,15 +13,30 @@ export class YtDlpManager {
   /**
    * Probe formats/info for a given URL
    */
-  async probeFormats(url: string): Promise<Record<string, unknown>[]> {
+  async probeFormats(url: string, extras?: DownloadExtras): Promise<Record<string, unknown>[]> {
     return new Promise((resolve, reject) => {
       const args = [
         "--dump-json",
         "--flat-playlist",
         "--js-runtimes",
         `node:${process.execPath}`,
-        url
       ];
+
+      // Add plugin directory if available (for ChromeCookieUnlock plugin)
+      if (this.opts.pluginPath) {
+        args.push("--plugin-dirs", this.opts.pluginPath);
+        console.log(`[yt-dlp probe] Using plugin directory: ${this.opts.pluginPath}`);
+      }
+
+      // Add cookies for private/age-restricted videos
+      if (extras?.cookiesFile) {
+        args.push("--cookies", extras.cookiesFile);
+      } else if (extras?.cookiesFromBrowser) {
+        args.push("--cookies-from-browser", extras.cookiesFromBrowser);
+      }
+
+      args.push(url);
+
       const proc = spawn(this.opts.binaryPath, args, {
         shell: false,
         env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
@@ -74,8 +90,20 @@ export class YtDlpManager {
       `node:${process.execPath}`
     ];
 
+    console.log(`[yt-dlp] FFmpeg location: ${this.opts.ffmpegPath}`);
+    console.log(`[yt-dlp] Format selector: ${formatSelector}`);
+
+    // Add plugin directory if available (for ChromeCookieUnlock plugin)
+    if (this.opts.pluginPath) {
+      args.push("--plugin-dirs", this.opts.pluginPath);
+      console.log(`[yt-dlp] Using plugin directory: ${this.opts.pluginPath}`);
+    }
+
     // Add extras
-    if (extras?.cookiesFromBrowser) {
+    if (extras?.cookiesFile) {
+      // Use cookies file (takes priority over browser cookies — avoids Chrome DB lock issue)
+      args.push("--cookies", extras.cookiesFile);
+    } else if (extras?.cookiesFromBrowser) {
       args.push("--cookies-from-browser", extras.cookiesFromBrowser);
     }
     if (extras?.rateLimit) {
@@ -88,7 +116,9 @@ export class YtDlpManager {
       args.push("--geo-bypass");
     }
     if (extras?.embedThumbnail) {
-      args.push("--embed-thumbnail");
+      // Use --embed-thumbnail with --ppa for safer thumbnail embedding
+      // This tells ffmpeg to use mkv container which supports all thumbnail formats
+      args.push("--embed-thumbnail", "--ppa", "EmbedThumbnail:-c copy");
     }
     if (extras?.embedMetadata) {
       args.push("--embed-metadata");
@@ -110,6 +140,7 @@ export class YtDlpManager {
     });
 
     let stderr = "";
+    let stdoutInfo = "";
 
     proc.stdout.on("data", (chunk) => {
       const lines = chunk.toString().split("\n");
@@ -119,7 +150,8 @@ export class YtDlpManager {
           const progress = JSON.parse(line);
           onProgress?.(progress);
         } catch {
-          // Ignore non-JSON lines
+          // Non-JSON stdout lines (warnings, info) — capture for error reporting
+          stdoutInfo += line + "\n";
         }
       }
     });
@@ -133,7 +165,11 @@ export class YtDlpManager {
         if (code === 0) {
           resolve();
         } else {
-          reject(new Error(`yt-dlp download failed (code ${code}): ${stderr}`));
+          // Combine stderr + captured stdout info for complete error picture
+          const details = [stderr.trim(), stdoutInfo.trim()].filter(Boolean).join("\n");
+          const err = new Error(`yt-dlp download failed (code ${code}): ${details}`) as Error & { stderr?: string };
+          err.stderr = details;
+          reject(err);
         }
       });
       proc.on("error", (err) => {

@@ -80,6 +80,18 @@ export function useJobEvents() {
     });
     unsubscribes.push(unsubCancelled);
 
+    // On pause, update status in active cache (job stays visible in queue)
+    const unsubPaused = globalThis.api.onJobPaused((job: Job) => {
+      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
+        old.map((j) => (j.id === job.id ? { ...job, status: "paused" as const } : j))
+      );
+      queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
+      toast.info("Download paused", {
+        description: job.meta?.title || "Download was paused"
+      });
+    });
+    unsubscribes.push(unsubPaused);
+
     return () => {
       unsubscribes.forEach((unsub) => unsub());
     };

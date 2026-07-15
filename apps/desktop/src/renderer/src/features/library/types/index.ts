@@ -1,7 +1,7 @@
 export type LibrarySort = "title" | "date" | "size";
 export type SortOrder = "asc" | "desc";
 export type MediaType = "video" | "music";
-export type Quality = "1080p" | "4K" | "720p" | "FLAC" | "MP3";
+export type Quality = "1080p" | "4K" | "720p" | "FLAC" | "MP3" | (string & {});
 
 export interface LibraryItem {
   id: string;

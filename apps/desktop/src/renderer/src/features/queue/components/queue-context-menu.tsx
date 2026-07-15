@@ -7,7 +7,7 @@ import {
 } from "@vault/ui/components/context-menu";
 import { Play, Pause, RotateCcw, X, Link2, FolderOpen } from "lucide-react";
 import type { QueueItem } from "../types";
-import { useCancelDownload } from "@/lib/mutations/downloads";
+import { useCancelDownload, usePauseDownload, useResumeDownload, useRetryDownload } from "@/lib/mutations/downloads";
 import { filesApi } from "@/lib/api/files";
 import { toast } from "sonner";
 
@@ -18,6 +18,9 @@ interface QueueContextMenuProps {
 
 export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
   const { mutate: cancelDownload } = useCancelDownload();
+  const { mutate: pauseDownload } = usePauseDownload();
+  const { mutate: resumeDownload } = useResumeDownload();
+  const { mutate: retryDownload } = useRetryDownload();
   const isPaused = item.status === "paused";
   const isQueued = item.status === "queued";
   const isError = item.status === "error";
@@ -31,7 +34,7 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
       items.push(
         <ContextMenuItem
           key="resume"
-          onClick={() => toast.info("Resume not supported yet")}
+          onClick={() => resumeDownload(item.id)}
           className="flex items-center gap-2"
         >
           <Play className="w-3.5 h-3.5" />
@@ -44,8 +47,9 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
       items.push(
         <ContextMenuItem
           key="pause"
-          onClick={() => toast.info("Pause not supported yet")}
+          onClick={() => pauseDownload(item.id)}
           className="flex items-center gap-2"
+          disabled={isPaused || isQueued}
         >
           <Pause className="w-3.5 h-3.5" />
           Pause
@@ -57,7 +61,7 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
       items.push(
         <ContextMenuItem
           key="retry"
-          onClick={() => toast.info("Retry not supported yet")}
+          onClick={() => retryDownload(item.id)}
           className="flex items-center gap-2"
         >
           <RotateCcw className="w-3.5 h-3.5" />

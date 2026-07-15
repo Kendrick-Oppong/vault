@@ -9,6 +9,8 @@ import { Play, FolderOpen, Link2, Trash2 } from "lucide-react";
 import type { LibraryItem } from "../types";
 import { toast } from "sonner";
 import { useModalStore } from "@/stores/ui/modal.store";
+import { useDeleteHistory } from "@/lib/mutations/history";
+import { filesApi } from "@/lib/api/files";
 
 interface LibraryContextMenuProps {
   children: React.ReactNode;
@@ -17,12 +19,21 @@ interface LibraryContextMenuProps {
 
 export const LibraryContextMenu = ({ children, item }: LibraryContextMenuProps) => {
   const { openConfirmDialog } = useModalStore();
+  const deleteHistory = useDeleteHistory();
   return (
     <ContextMenu>
       <ContextMenuTrigger render={(props) => <div {...props}>{children}</div>} />
       <ContextMenuContent className="w-56">
         <ContextMenuItem
-          onClick={() => toast.success(`Playing: ${item.title}`)}
+          onClick={() => {
+            if (item.filePath) {
+              filesApi.openFile(item.filePath).then((err) => {
+                if (err) toast.error("Could not open file", { description: err });
+              });
+            } else {
+              toast.error("File path not available");
+            }
+          }}
           className="flex items-center gap-2"
         >
           <Play className="w-3.5 h-3.5" />
@@ -32,7 +43,7 @@ export const LibraryContextMenu = ({ children, item }: LibraryContextMenuProps) 
         <ContextMenuItem
           onClick={() => {
             if (item.filePath) {
-              globalThis.api.openInFolder(item.filePath);
+              filesApi.openInFolder(item.filePath);
             } else {
               toast.error("File path not available");
             }
@@ -66,7 +77,7 @@ export const LibraryContextMenu = ({ children, item }: LibraryContextMenuProps) 
               confirmText: "Delete",
               variant: "danger",
               onConfirm: () => {
-                toast.warning(`Deleted ${item.title} (mock)`);
+                deleteHistory.mutate(item.id);
               }
             });
           }}

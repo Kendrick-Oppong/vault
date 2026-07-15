@@ -8,15 +8,7 @@ import {
   CommandList,
   CommandSeparator
 } from "@vault/ui/components/command";
-import {
-  Library,
-  Link as LinkIcon,
-  ListOrdered,
-  Moon,
-  RefreshCw,
-  Settings,
-  Sun
-} from "lucide-react";
+import { Library, Link as LinkIcon, ListOrdered, Moon, Settings, Sun } from "lucide-react";
 import { useNavigationState } from "@/stores/navigation/navigation.selectors";
 import { useUIState } from "@/stores/ui/ui.selectors";
 import { Kbd } from "@vault/ui/components/kbd";
@@ -70,10 +62,6 @@ export const CommandMenu = ({ open, onOpenChange }: CommandMenuProps) => {
           <CommandItem onSelect={() => run(() => navigate("library"))}>
             <Library className="h-4 w-4" />
             <span>Go to Library</span>
-          </CommandItem>
-          <CommandItem onSelect={() => run(() => navigate("channel-sync"))}>
-            <RefreshCw className="h-4 w-4" />
-            <span>Go to Channel Sync</span>
           </CommandItem>
           <CommandItem onSelect={() => run(() => navigate("settings"))}>
             <Settings className="h-4 w-4" />

@@ -5,6 +5,17 @@ import { QueryKeys } from "@/lib/constants/query-keys";
 import { formatError } from "@/lib/utils/format-error";
 import type { JobInput, Job } from "@vault/types";
 
+export const useProbeFormatsMutation = () => {
+  return useMutation({
+    mutationFn: (url: string) => downloadsApi.probeFormats(url),
+    onError: (error: Error) => {
+      toast.error("Failed to fetch video information", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
 export const useQueueDownload = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -57,6 +68,83 @@ export const useSetConcurrency = () => {
     },
     onError: (error: Error) => {
       toast.error("Failed to update concurrency", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
+export const usePauseDownload = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) => downloadsApi.pauseDownload(jobId),
+    onSuccess: (success, jobId) => {
+      if (success) {
+        // The job:paused event from the main process will update the cache,
+        // but we optimistically update here for snappy UI.
+        queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
+          old.map((j) => (j.id === jobId ? { ...j, status: "paused" as const } : j))
+        );
+        queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(jobId) });
+        toast.info("Download paused");
+      } else {
+        toast.error("Failed to pause download", {
+          description: "Job not found or not active"
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to pause download", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
+export const useResumeDownload = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) => downloadsApi.resumeDownload(jobId),
+    onSuccess: (newJobId, oldJobId) => {
+      if (newJobId) {
+        // Remove the old paused entry — the new job:queued event will add the fresh one
+        queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
+          old.filter((j) => j.id !== oldJobId)
+        );
+        toast.success("Download resumed");
+      } else {
+        toast.error("Failed to resume download", {
+          description: "No stored input found for this job"
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to resume download", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
+export const useRetryDownload = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) => downloadsApi.retryDownload(jobId),
+    onSuccess: (newJobId, oldJobId) => {
+      if (newJobId) {
+        // Remove the old failed entry — the new job:queued event will add the fresh one
+        queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
+          old.filter((j) => j.id !== oldJobId)
+        );
+        toast.success("Retrying download");
+      } else {
+        toast.error("Failed to retry download", {
+          description: "No stored input found for this job"
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to retry download", {
         description: formatError(error)
       });
     }

@@ -8,5 +8,8 @@ export const QueryKeys = {
   jobs: {
     active: () => ["jobs", "active"] as const,
     progress: (jobId: string) => ["jobs", "progress", jobId] as const
+  },
+  auth: {
+    youtube: () => ["auth", "youtube"] as const
   }
 } as const;

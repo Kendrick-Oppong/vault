@@ -13,6 +13,7 @@ export interface QueueItem {
   thumbnail?: string;
   type: "video" | "music";
   format?: string;
+  filePath?: string;
   errorMessage?: string;
   errorDetails?: string;
 }

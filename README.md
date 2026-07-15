@@ -348,12 +348,20 @@ This installs all dependencies for all workspaces using pnpm's efficient linking
 
 **Option 1: Automated Script (Recommended for Windows)**
 
-Run the PowerShell script to automatically download yt-dlp, ffmpeg, and ffprobe:
+Run the PowerShell script to automatically download yt-dlp, ffmpeg, ffprobe, and plugins:
 
 ```powershell
 cd apps/desktop
 .\download-binaries.ps1
 ```
+
+This will download:
+- **yt-dlp.exe** - YouTube downloader
+- **ffmpeg.exe** - Video processing
+- **ffprobe.exe** - Media file analysis
+- **ChromeCookieUnlock plugin** - Fixes Chrome cookie database locking on Windows
+
+> **Note:** The ChromeCookieUnlock plugin automatically resolves the `ERROR: Unable to extract webpage` error when Chrome is running by unlocking the Chrome cookie database.
 
 If you get an execution policy error:
 ```powershell
@@ -368,6 +376,10 @@ Download and place the binaries in `apps/desktop/bin/<platform>/`:
 - **ffmpeg & ffprobe**: https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
   - Extract the zip file
   - Copy `bin/ffmpeg.exe` and `bin/ffprobe.exe` from the extracted folder
+- **ChromeCookieUnlock plugin** (optional but recommended): 
+  - Create folder: `apps/desktop/bin/win32/yt-dlp-plugins/yt_dlp_plugins/postprocessor/`
+  - Download: https://raw.githubusercontent.com/seproDev/yt-dlp-ChromeCookieUnlock/main/yt_dlp_plugins/postprocessor/chrome_cookie_unlock.py
+  - Create empty `__init__.py` files in `yt_dlp_plugins/` and `yt_dlp_plugins/postprocessor/`
 
 **Platform-specific paths:**
 ```

@@ -19,6 +19,10 @@ export const GlobalModals = () => {
           open={formatModal.isOpen}
           onOpenChange={(open) => !open && closeFormatModal()}
           data={formatModal.data}
+          isLoading={formatModal.isLoading}
+          isError={formatModal.isError}
+          error={formatModal.error}
+          onRetry={formatModal.onRetry}
           onConfirm={(options) => {
             formatModal.onConfirm?.(options);
             closeFormatModal();

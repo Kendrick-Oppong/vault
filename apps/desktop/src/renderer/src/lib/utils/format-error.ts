@@ -59,6 +59,25 @@ export function formatError(error: unknown): string {
       return "Not enough disk space.";
     }
 
+    // yt-dlp specific auth errors
+    if (
+      lowerMessage.includes("sign in") ||
+      lowerMessage.includes("verify your age") ||
+      lowerMessage.includes("this video is private") ||
+      lowerMessage.includes("members-only") ||
+      lowerMessage.includes("login required")
+    ) {
+      return "Authentication required. Use 'Sign in to YouTube' in Settings > Authentication.";
+    }
+
+    // Chromium-based browsers (Chrome, Edge, Brave) lock their cookie database on Windows
+    if (
+      lowerMessage.includes("could not copy chrome cookie") ||
+      lowerMessage.includes("could not copy") && lowerMessage.includes("cookie")
+    ) {
+      return "Browser is locking its cookie database. Go to Settings > Authentication and click 'Sign in' to log in directly — no browser or extension needed.";
+    }
+
     // Truncate very long messages
     if (message.length > 150) {
       return message.substring(0, 150).trim() + "...";
@@ -83,7 +102,7 @@ export function formatError(error: unknown): string {
       return "Resource not found (404)";
     }
     if (lowerMessage.includes("401") || lowerMessage.includes("403")) {
-      return "Authentication failed. Check credentials.";
+      return "Authentication failed. Use 'Sign in to YouTube' in Settings > Authentication.";
     }
     if (lowerMessage.includes("500")) {
       return "Server error (500). Please try again later.";

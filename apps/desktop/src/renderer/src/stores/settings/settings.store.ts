@@ -42,6 +42,7 @@ const baseDefaults: Settings = {
   proxy: "",
   geoBypass: false,
   importCookies: "None",
+  cookiesFilePath: "",
   embedThumbnail: true,
   embedMetadata: true,
   version: UNSET,

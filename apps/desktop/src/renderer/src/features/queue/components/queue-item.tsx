@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Checkbox } from "@vault/ui/components/checkbox";
 import { Button } from "@vault/ui/components/button";
 import { cn } from "@vault/ui/lib/utils";
@@ -16,9 +17,8 @@ import {
 import { QueueContextMenu } from "./queue-context-menu";
 import type { QueueItem as QueueItemType } from "../types";
 import { useJobProgress } from "@/lib/queries/jobs";
-import { useCancelDownload } from "@/lib/mutations/downloads";
+import { useCancelDownload, usePauseDownload, useResumeDownload, useRetryDownload } from "@/lib/mutations/downloads";
 import { formatBytes } from "@/lib/utils/platform";
-import { toast } from "sonner";
 
 interface QueueItemProps {
   item: QueueItemType;
@@ -47,9 +47,13 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const isQueued = item.status === "queued";
   const isError = item.status === "error";
   const isDownloading = item.status === "downloading";
+  const [imgError, setImgError] = useState(false);
 
   const { data: rawProgress } = useJobProgress(item.id);
   const { mutate: cancelDownload } = useCancelDownload();
+  const { mutate: pauseDownload } = usePauseDownload();
+  const { mutate: resumeDownload } = useResumeDownload();
+  const { mutate: retryDownload } = useRetryDownload();
 
   // Map raw progress to queue item format if available
   const progress =
@@ -68,13 +72,38 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
       : item.size;
 
   const getActions = () => {
-    if (isPaused || isDownloading) {
+    if (isDownloading) {
       return (
         <>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => toast.info("Resume not supported yet")}
+            onClick={() => pauseDownload(item.id)}
+            className="h-7 w-7 rounded hover:bg-accent transition-colors"
+            title="Pause"
+          >
+            <Pause className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => cancelDownload(item.id)}
+            className="h-7 w-7 rounded hover:bg-accent transition-colors"
+            title="Cancel"
+          >
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </>
+      );
+    }
+
+    if (isPaused) {
+      return (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => resumeDownload(item.id)}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Resume"
           >
@@ -113,7 +142,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => toast.info("Retry not supported yet")}
+            onClick={() => retryDownload(item.id)}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Retry"
           >
@@ -168,19 +197,32 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           />
 
           <div className="relative w-24 h-14 rounded-lg shrink-0 overflow-hidden bg-secondary">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-background" />
-            <div className="absolute inset-0 flex items-center justify-center text-foreground/30">
+            {item.thumbnail && !imgError ? (
+              <img
+                src={item.thumbnail}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-background" />
+                <div className="absolute inset-0 flex items-center justify-center text-foreground/30">
+                  {item.type === "video" ? (
+                    <Video className="w-6 h-6" />
+                  ) : (
+                    <AudioLines className="w-6 h-6" />
+                  )}
+                </div>
+              </>
+            )}
+            
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
+            <span className="absolute bottom-1 right-1 z-10 opacity-90 drop-shadow-md">
               {item.type === "video" ? (
-                <Video className="w-9 h-9" />
+                <Video className="w-3 h-3 text-white" />
               ) : (
-                <AudioLines className="w-9 h-9" />
-              )}
-            </div>
-            <span className="absolute top-1.5 left-1.5 z-10 opacity-80">
-              {item.type === "video" ? (
-                <Video className="w-3 h-3 text-foreground" />
-              ) : (
-                <Music className="w-3 h-3 text-foreground" />
+                <Music className="w-3 h-3 text-white" />
               )}
             </span>
           </div>

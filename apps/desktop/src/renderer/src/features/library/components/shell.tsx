@@ -20,10 +20,10 @@ export const LibraryView = () => {
       id: entry.job_id,
       title: entry.title || entry.url,
       channel: entry.channel || "Unknown",
-      type: "video", // Assuming everything is video for now, unless we can infer from path
-      quality: "1080p", // Mock quality
-      size: "Unknown", // We'd need to stat the file to get size
-      sizeBytes: 0,
+      type: (entry.media_type as "video" | "music") || "video",
+      quality: entry.quality || "—",
+      size: entry.file_size ? formatBytes(entry.file_size) : "—",
+      sizeBytes: entry.file_size || 0,
       addedAt: new Date(entry.completed_at || entry.created_at),
       thumbnail: entry.thumbnail_url || undefined,
       url: entry.url,

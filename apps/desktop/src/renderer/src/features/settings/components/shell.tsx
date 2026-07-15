@@ -18,19 +18,28 @@ import {
   ShieldAlert,
   RefreshCw,
   Minus,
-  Plus
+  Plus,
+  CheckCircle2,
+  LogIn,
+  LogOut,
+  Upload
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Settings } from "../types";
 import { useSettingsStore } from "@/stores/settings/settings.store";
 import { selectSettings, useSettingsActions } from "@/stores/settings/settings.selectors";
 import { useSetConcurrency } from "@/lib/mutations/downloads";
+import { useYoutubeAuth } from "@/lib/queries/auth";
+import { useYoutubeLogin, useYoutubeLogout } from "@/lib/mutations/auth";
 
 export const SettingsView = () => {
   const settings = useSettingsStore(selectSettings);
   const { updateSetting } = useSettingsActions();
   const [bandwidthError, setBandwidthError] = useState(false);
   const [proxyError, setProxyError] = useState(false);
+  const { data: ytSignedIn = false } = useYoutubeAuth();
+  const loginMutation = useYoutubeLogin();
+  const logoutMutation = useYoutubeLogout();
   const { mutate: setConcurrency } = useSetConcurrency();
 
   const handleConcurrentChange = (delta: number) => {
@@ -65,6 +74,32 @@ export const SettingsView = () => {
 
   const handleCheckUpdates = () => {
     toast.info("Checking for updates...");
+  };
+
+  const handleImportCookies = async () => {
+    try {
+      const filePath = await window.api.openFileDialog({
+        title: "Select cookies JSON file",
+        filters: [{ name: "JSON Files", extensions: ["json"] }]
+      });
+
+      if (!filePath) return;
+
+      const result = await window.api.importCookies(filePath);
+
+      if (result.success) {
+        toast.success("Cookies imported successfully! Restart any failed downloads to use them.");
+        // Update settings to show the cookies file path
+        if (result.filePath) {
+          updateSetting("cookiesFilePath", result.filePath);
+          updateSetting("importCookies", "File");
+        }
+      } else {
+        toast.error(`Failed to import cookies: ${result.error}`);
+      }
+    } catch (err) {
+      toast.error(`Error importing cookies: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   return (
@@ -131,9 +166,8 @@ export const SettingsView = () => {
                   value={settings.bandwidthLimit}
                   onChange={(e) => handleBandwidthChange(e.target.value)}
                   placeholder="e.g. 2M or 500K"
-                  className={`w-40 bg-secondary/60 border-border text-[12px] text-right ${
-                    bandwidthError ? "border-destructive" : ""
-                  }`}
+                  className={`w-40 bg-secondary/60 border-border text-[12px] text-right ${bandwidthError ? "border-destructive" : ""
+                    }`}
                 />
               </div>
               {bandwidthError && (
@@ -149,9 +183,8 @@ export const SettingsView = () => {
                   value={settings.proxy}
                   onChange={(e) => handleProxyChange(e.target.value)}
                   placeholder="host:port"
-                  className={`w-56 bg-secondary/60 border-border text-[12px] ${
-                    proxyError ? "border-destructive" : ""
-                  }`}
+                  className={`w-56 bg-secondary/60 border-border text-[12px] ${proxyError ? "border-destructive" : ""
+                    }`}
                 />
               </div>
               {proxyError && (
@@ -177,15 +210,84 @@ export const SettingsView = () => {
             Authentication
           </p>
           <div className="border border-border rounded-xl p-4 text-[13px] divide-y divide-border">
+            {/* Primary: Built-in YouTube sign-in */}
             <div className="flex items-center justify-between py-1.5">
-              <span>Import cookies from browser</span>
+              <div className="min-w-0">
+                <span>YouTube sign-in</span>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Opens a secure browser window to log in. No extensions needed.
+                </p>
+              </div>
+              {ytSignedIn ? (
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="flex items-center gap-1.5 text-[12px] text-green-500">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Signed in
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-[12px] text-muted-foreground hover:text-destructive"
+                    onClick={() => logoutMutation.mutate()}
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    Sign out
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[12px]"
+                    disabled={loginMutation.isPending}
+                    onClick={() => loginMutation.mutate()}
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    {loginMutation.isPending ? "Waiting for login..." : "Sign in"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[12px]"
+                    onClick={handleImportCookies}
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Import cookies
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Show cookies file path as readonly when signed in */}
+            {ytSignedIn && settings.cookiesFilePath && (
+              <div className="flex items-center justify-between py-1.5 gap-2">
+                <span className="shrink-0 text-muted-foreground">Cookies file</span>
+                <Input
+                  value={settings.cookiesFilePath}
+                  readOnly
+                  className="flex-1 max-w-[280px] bg-secondary/40 border-border text-[11px] text-muted-foreground cursor-default"
+                />
+              </div>
+            )}
+
+            {/* Advanced: Browser cookie import (fallback) */}
+            <div className="flex items-center justify-between py-1.5">
+              <div className="min-w-0">
+                <span>Advanced: import from browser</span>
+                {settings.importCookies !== "None" && settings.importCookies !== "File" && (
+                  <p className="text-[11.5px] text-amber-500/80 mt-0.5">
+                    Chrome/Edge lock their cookie database on Windows. Use sign-in above for reliability.
+                  </p>
+                )}
+              </div>
               <Select
-                value={settings.importCookies}
+                value={settings.importCookies === "File" ? "None" : settings.importCookies}
                 onValueChange={(value) =>
                   updateSetting("importCookies", value as Settings["importCookies"])
                 }
               >
-                <SelectTrigger className="w-40 h-8 rounded-md bg-secondary/60 border-border text-[12px]">
+                <SelectTrigger className="w-36 h-8 rounded-md bg-secondary/60 border-border text-[12px] shrink-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -198,8 +300,7 @@ export const SettingsView = () => {
               </Select>
             </div>
             <p className="text-[11.5px] text-muted-foreground pt-2">
-              Needed for private playlists, watch-later, and age-restricted videos. Vault will
-              prompt for this automatically the first time it&apos;s needed.
+              Needed for private playlists, watch-later, and age-restricted videos.
             </p>
           </div>
         </div>

@@ -1,9 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { FilterTabs } from "./filter-tabs";
 import { BulkActions } from "./bulk-actions";
 import { QueueList } from "./queue-list";
 import type { QueueFilter, QueueItem, QueueStats } from "../types";
 import { useActiveJobs } from "@/lib/queries/jobs";
+import {
+  usePauseDownload,
+  useResumeDownload,
+  useRetryDownload,
+  useCancelDownload
+} from "@/lib/mutations/downloads";
 import { Loader2 } from "lucide-react";
 
 export const QueueView = () => {
@@ -11,6 +17,10 @@ export const QueueView = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const { data: activeJobs = [], isLoading } = useActiveJobs();
+  const pauseMutation = usePauseDownload();
+  const resumeMutation = useResumeDownload();
+  const retryMutation = useRetryDownload();
+  const cancelMutation = useCancelDownload();
 
   // Map Job to QueueItem
   const items: QueueItem[] = useMemo(() => {
@@ -19,8 +29,7 @@ export const QueueView = () => {
       let status: QueueFilter = "queued";
       if (job.status === "active") status = "downloading";
       if (job.status === "failed") status = "error";
-      // We don't have paused jobs yet in the backend, but we map it here if it's added
-      if (job.status === ("paused" as unknown)) status = "paused";
+      if (job.status === "paused") status = "paused";
 
       return {
         id: job.id,
@@ -30,8 +39,9 @@ export const QueueView = () => {
         addedAt: new Date(job.createdAt),
         url: job.url,
         thumbnail: job.meta?.thumbnailUrl,
-        type: "video", // Defaulting to video
-        format: job.formatSelector || "best"
+        type: job.meta?.mediaType ?? "video",
+        format: job.formatSelector || "best",
+        errorMessage: job.error
       };
     });
   }, [activeJobs]);
@@ -55,16 +65,38 @@ export const QueueView = () => {
     setSelectedIds([]);
   };
 
-  const handleBulkAction = (action: "pause" | "resume" | "retry" | "cancel") => {
-    console.log(`Bulk ${action} on:`, selectedIds);
-    // Implement actual bulk action logic here
-    setSelectedIds([]);
-  };
+  const handleBulkAction = useCallback(
+    (action: "pause" | "resume" | "retry" | "cancel") => {
+      const jobs = selectedIds;
+      setSelectedIds([]);
 
-  const handlePauseAll = () => {
-    console.log("Pause all");
-    // Implement pause all logic
-  };
+      for (const id of jobs) {
+        switch (action) {
+          case "pause":
+            pauseMutation.mutate(id);
+            break;
+          case "resume":
+            resumeMutation.mutate(id);
+            break;
+          case "retry":
+            retryMutation.mutate(id);
+            break;
+          case "cancel":
+            cancelMutation.mutate(id);
+            break;
+        }
+      }
+    },
+    [selectedIds, pauseMutation, resumeMutation, retryMutation, cancelMutation]
+  );
+
+  const handlePauseAll = useCallback(() => {
+    // Pause all currently downloading (active) jobs
+    const activeIds = activeJobs.filter((j) => j.status === "active").map((j) => j.id);
+    for (const id of activeIds) {
+      pauseMutation.mutate(id);
+    }
+  }, [activeJobs, pauseMutation]);
 
   // Update stats based on actual items
   const stats: QueueStats = {

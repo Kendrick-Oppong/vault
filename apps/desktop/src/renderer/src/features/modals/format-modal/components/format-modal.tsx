@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,16 +19,31 @@ import {
   SelectValue
 } from "@vault/ui/components/select";
 import { Badge } from "@vault/ui/components/badge";
-import { Video, Music, ListOrdered, Download, Info } from "lucide-react";
+import {
+  Video,
+  Music,
+  ListOrdered,
+  Download,
+  Info,
+  AlertCircle,
+  RefreshCw,
+  AudioLines
+} from "lucide-react";
 import { cn } from "@vault/ui/lib/utils";
 import type { FormatModalData, MediaType, VideoFormat, AudioFormat } from "../types";
 import { useSettingsStore } from "@/stores/settings/settings.store";
 import { selectSettings } from "@/stores/settings/settings.selectors";
+import { formatBytes } from "@/lib/utils/platform";
+import { SkeletonLoader } from "@/features/ui/components/skeleton-loader";
 
 interface FormatModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   data: FormatModalData;
+  isLoading?: boolean;
+  isError?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   onConfirm: (options: FormatOptions) => void;
 }
 
@@ -55,6 +70,10 @@ export const FormatModal = ({
   open,
   onOpenChange,
   data = defaultData,
+  isLoading = false,
+  isError = false,
+  error = null,
+  onRetry,
   onConfirm
 }: FormatModalProps) => {
   const settings = useSettingsStore(selectSettings);
@@ -71,8 +90,43 @@ export const FormatModal = ({
   const [subtitles, setSubtitles] = useState<"none" | "external" | "burned">("none");
   const [destination, setDestination] = useState(settings.downloadPath);
   const [selectedItems, setSelectedItems] = useState<string[]>(
-    () => data.playlistItems?.slice(0, 12) ?? []
+    () => data.playlistItems?.map((i) => i.id) ?? []
   );
+
+  // Sync state when data changes (e.g. after loading finishes)
+  useEffect(() => {
+    if (!isLoading) {
+      // Use timeout to prevent synchronous state updates during render phase
+      setTimeout(() => {
+        // Validate or set video format
+        const isValidVideo =
+          selectedVideoFormat &&
+          data.videoFormats.some((f) => f.label === selectedVideoFormat.label);
+        if (data.videoFormats.length > 0 && !isValidVideo) {
+          setSelectedVideoFormat(data.videoFormats[Math.floor(data.videoFormats.length / 2)]);
+        }
+        // Validate or set audio format
+        const isValidAudio =
+          selectedAudioFormat &&
+          data.audioFormats.some((f) => f.label === selectedAudioFormat.label);
+        if (data.audioFormats.length > 0 && !isValidAudio) {
+          setSelectedAudioFormat(data.audioFormats[0]);
+        }
+        // Validate or set playlist items
+        const currentItemIds = new Set(data.playlistItems?.map((i) => i.id) || []);
+        const hasValidItems =
+          selectedItems.length > 0 && selectedItems.some((id) => currentItemIds.has(id));
+        if (data.playlistItems && !hasValidItems) {
+          setSelectedItems(data.playlistItems.map((i) => i.id));
+        }
+      }, 0);
+    }
+  }, [isLoading, data, selectedVideoFormat, selectedAudioFormat, selectedItems]);
+
+  const handleOpenChange = (openState: boolean) => {
+    if (isLoading) return; // Prevent dismissing while loading
+    onOpenChange(openState);
+  };
 
   const handleConfirm = () => {
     onConfirm({
@@ -88,52 +142,42 @@ export const FormatModal = ({
     onOpenChange(false);
   };
 
-  const formatSize = (bytes: number) => {
-    const gb = bytes / (1024 * 1024 * 1024);
-    if (gb >= 1) return `${gb.toFixed(2)} GB`;
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(0)} MB`;
-  };
-
   const getTotalSize = () => {
     const format = mediaType === "video" ? selectedVideoFormat : selectedAudioFormat;
-    if (!format) return "0 MB";
+    if (!format || format.sizeBytes === 0) return null;
 
     const itemSize = format.sizeBytes;
     const count = data.type === "playlist" ? selectedItems.length : 1;
-    const total = itemSize * count;
-    return formatSize(total);
+    return formatBytes(itemSize * count);
   };
 
   const getBadges = () => {
-    const badges: {
+    let badges: {
       label: string;
       variant: "default" | "secondary" | "destructive" | "outline";
     }[] = [];
     if (data.type === "playlist") {
-      badges.push({ label: "Playlist", variant: "default" });
-      badges.push({ label: `${data.videoCount} videos`, variant: "secondary" });
-    } else if (data.type === "channel") {
-      badges.push({ label: "Channel", variant: "default" });
+      badges = [
+        { label: "Playlist", variant: "default" },
+        { label: `${data.videoCount} videos`, variant: "secondary" }
+      ];
     } else {
-      badges.push({ label: data.duration || "Video", variant: "secondary" });
+      badges = [{ label: data.duration || "Video", variant: "secondary" }];
     }
     return badges;
   };
 
   const isPlaylist = data.type === "playlist";
-  const isChannel = data.type === "channel";
   const isAllSelected = selectedItems.length === data.playlistItems?.length;
 
   const handleToggleSelect = () => {
     if (isAllSelected) {
       setSelectedItems([]);
     } else {
-      setSelectedItems(data.playlistItems || []);
+      setSelectedItems(data.playlistItems?.map((i) => i.id) || []);
     }
   };
 
-  // Get the current selection count for display
   const getItemCount = () => {
     if (isPlaylist) {
       return selectedItems.length;
@@ -141,306 +185,380 @@ export const FormatModal = ({
     return 1;
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl! max-h-[75vh] flex flex-col p-0 overflow-hidden rounded-2xl border-border">
-        {/* Header */}
-        <DialogHeader className="flex items-start gap-4 p-5 border-b border-border shrink-0">
-          {/* Thumbnail */}
-          <div className="relative w-28 h-16 rounded-lg shrink-0 overflow-hidden bg-secondary">
-            <div className="absolute inset-0 bg-linear-to-br from-primary/20 to-background" />
-            <div className="absolute inset-0 flex items-center justify-center text-white/10">
-              {mediaType === "audio" ? <Music className="w-8" /> : <Video className="w-8" />}
+  // Error State Render
+  if (isError) {
+    return (
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="max-w-md flex flex-col p-8 overflow-hidden rounded-2xl border-border">
+          <div className="flex flex-col items-center justify-center text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-destructive" />
             </div>
-            <span className="absolute top-1.5 left-1.5 z-10 opacity-80">
-              {mediaType === "audio" ? (
-                <Music className="w-3 h-3 text-white" />
-              ) : (
-                <Video className="w-3 h-3 text-white" />
-              )}
-            </span>
-          </div>
-
-          {/* Title & Info */}
-          <div className="min-w-0 flex-1">
-            <DialogTitle className="font-medium text-sm truncate">{data.title}</DialogTitle>
-            <p className="text-[12px] text-muted-foreground mt-0.5">{data.channel}</p>
-            <div className="flex items-center gap-2 mt-2">
-              {getBadges().map((badge, i) => (
-                <Badge
-                  key={i.toString()}
-                  variant={badge.variant as "default" | "secondary"}
-                  className="text-[10px] px-2 py-0.5"
-                >
-                  {badge.label}
-                </Badge>
-              ))}
+            <div>
+              <DialogTitle className="text-lg font-medium">Failed to load info</DialogTitle>
+              <p className="text-[13px] text-muted-foreground mt-1.5">
+                {error || "An unknown error occurred."}
+              </p>
             </div>
-          </div>
-        </DialogHeader>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* Playlist Items */}
-          {isPlaylist && data.playlistItems && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                  <ListOrdered className="w-3.5 h-3.5" />
-                  Playlist items
-                </p>
-                <p className="text-[12px] text-muted-foreground">
-                  <span className="font-medium">{selectedItems.length}</span> of{" "}
-                  <span>{data.playlistItems.length}</span> selected
-                </p>
-              </div>
-              <div className="flex items-center gap-2 mb-1">
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="text-[12px] text-primary h-auto p-0"
-                  onClick={handleToggleSelect}
-                >
-                  {isAllSelected ? "Deselect all" : "Select all"}
+            <div className="flex items-center gap-3 mt-4 pt-2">
+              <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              {onRetry && (
+                <Button onClick={onRetry} className="bg-primary text-primary-foreground">
+                  <RefreshCw className="w-4 h-4 mr-2" /> Retry
                 </Button>
-              </div>
-              <div className="border border-border rounded-lg max-h-40 overflow-y-auto divide-y divide-border">
-                {data.playlistItems.slice(0, 12).map((item, index) => (
-                  <label
-                    key={item}
-                    className="flex items-center gap-2.5 p-3 text-[12.5px] cursor-pointer hover:bg-accent/60 transition-colors"
-                  >
-                    <Checkbox
-                      checked={selectedItems.includes(item)}
-                      onCheckedChange={() => {
-                        setSelectedItems((prev) =>
-                          prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
-                        );
-                      }}
-                      className="w-4 h-4 shrink-0"
-                    />
-                    <span className="text-muted-foreground w-6 text-[11px]">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="truncate flex-1">{item}</span>
-                  </label>
-                ))}
-                {data.playlistItems.length > 12 && (
-                  <div className="px-3 py-2 text-[11.5px] text-muted-foreground text-center">
-                    + {data.playlistItems.length - 12} more videos
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-          )}
-
-          {/* Media Type Toggle */}
-          <div className="flex items-center gap-1 bg-secondary/60 p-1 rounded-lg w-fit">
-            <Button
-              variant={mediaType === "video" ? "default" : "ghost"}
-              size="sm"
-              className="px-3.5 py-1.5 text-[12.5px] font-medium flex items-center gap-1.5 h-auto"
-              onClick={() => setMediaType("video")}
-            >
-              <Video className="w-3.5 h-3.5" />
-              Video
-            </Button>
-            <Button
-              variant={mediaType === "audio" ? "default" : "ghost"}
-              size="sm"
-              className="px-3.5 py-1.5 text-[12.5px] font-medium flex items-center gap-1.5 h-auto"
-              onClick={() => setMediaType("audio")}
-            >
-              <Music className="w-3.5 h-3.5" />
-              Audio only
-            </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
-          {/* Video Formats Section */}
-          {mediaType === "video" && data.videoFormats.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
-                Video quality
-              </p>
-              <div className="space-y-1.5">
-                {data.videoFormats.map((format) => (
-                  <label
-                    key={format.label}
-                    className={cn(
-                      "fm-format-row flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors",
-                      selectedVideoFormat === format
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-accent/50"
-                    )}
-                  >
-                    <RadioGroup
-                      value={selectedVideoFormat?.label || ""}
-                      onValueChange={() => setSelectedVideoFormat(format)}
-                    >
-                      <RadioGroupItem value={format.label} className="w-3.5 h-3.5" />
-                    </RadioGroup>
-                    <span className="text-[13px] font-medium w-14">{format.resolution}</span>
-                    <div className="flex gap-1">
-                      {format.fps.map((fps) => (
-                        <Badge key={fps} variant="secondary" className="text-[10px]">
-                          {fps}fps
-                        </Badge>
-                      ))}
-                    </div>
-                    <Badge variant="outline" className="text-[10px]">
-                      {format.codec}
-                    </Badge>
-                    <div className="flex-1" />
-                    <div className="w-14 h-1.5 rounded-full bg-secondary overflow-hidden shrink-0">
-                      <div
-                        className="h-full bg-primary/50 rounded-full"
-                        style={{
-                          width: `${(format.sizeBytes / data.videoFormats[0].sizeBytes) * 100}%`
-                        }}
-                      />
-                    </div>
-                    <span className="text-[11.5px] text-muted-foreground w-16 text-right">
-                      {format.size}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
+  const thumbnailFallback =
+    mediaType === "audio" ? (
+      <AudioLines className="w-6 h-6 text-white/40" />
+    ) : (
+      <Video className="w-6 h-6 text-white/40" />
+    );
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        showCloseButton={!isLoading}
+        className="max-w-2xl! max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-2xl border-border"
+      >
+        {/* Full Width Cinematic Header */}
+        <div className="relative w-full h-[180px] shrink-0 bg-black overflow-hidden">
+          {isLoading ? (
+            <div className="absolute inset-0 w-full h-full bg-secondary animate-pulse" />
+          ) : (
+            <>
+              {data.thumbnail ? (
+                <img
+                  src={data.thumbnail}
+                  alt={data.title}
+                  className="absolute inset-0 w-full h-full object-cover opacity-50"
+                  style={{
+                    maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)",
+                    WebkitMaskImage:
+                      "linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)"
+                  }}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center opacity-20">
+                  {thumbnailFallback}
+                </div>
+              )}
+              {/* Gradient overlay for smooth blending with background */}
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+            </>
           )}
 
-          {/* Audio Formats Section */}
-          {mediaType === "audio" && data.audioFormats.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
-                Audio quality
-              </p>
-              <div className="space-y-1.5">
-                {data.audioFormats.map((format) => (
-                  <label
-                    key={format.label}
-                    className={cn(
-                      "fm-format-row flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors",
-                      selectedAudioFormat === format
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-accent/50"
-                    )}
-                  >
-                    <RadioGroup
-                      value={selectedAudioFormat?.label || ""}
-                      onValueChange={() => setSelectedAudioFormat(format)}
-                    >
-                      <RadioGroupItem value={format.label} className="w-3.5 h-3.5" />
-                    </RadioGroup>
-                    <span className="text-[13px] font-medium w-14">{format.label}</span>
+          {/* Title & Info overlaid at the bottom of the banner */}
+          <DialogHeader className="absolute bottom-0 left-0 right-0 p-5 pt-12 flex flex-col justify-end text-left z-10 space-y-0">
+            {isLoading ? (
+              <SkeletonLoader type="format-modal-header" />
+            ) : (
+              <>
+                <DialogTitle className="font-semibold text-xl truncate leading-tight drop-shadow-md text-foreground">
+                  {data.title}
+                </DialogTitle>
+                <p className="text-[13px] text-foreground mt-1 drop-shadow-sm font-medium">
+                  {data.channel}
+                </p>
+                <div className="flex items-center gap-2 mt-2.5">
+                  {getBadges().map((badge, i) => (
                     <Badge
-                      variant={format.lossless ? "default" : "secondary"}
-                      className="text-[10px]"
+                      key={`badge-${i.toString()}`}
+                      variant={badge.variant as "default" | "secondary"}
+                      className="text-[10px] px-2 py-0.5 border-none shadow-sm backdrop-blur-md bg-background/80"
                     >
-                      {format.lossless ? "Lossless" : format.bitrate}
+                      {badge.label}
                     </Badge>
-                    <div className="flex-1" />
-                    <div className="w-14 h-1.5 rounded-full bg-secondary overflow-hidden shrink-0">
-                      <div
-                        className="h-full bg-primary/50 rounded-full"
-                        style={{
-                          width: `${(format.sizeBytes / data.audioFormats[0].sizeBytes) * 100}%`
-                        }}
-                      />
-                    </div>
-                    <span className="text-[11.5px] text-muted-foreground w-16 text-right">
-                      {format.size}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Post-processing */}
-          <div className="space-y-3">
-            <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
-              Post-processing
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex items-center gap-2 text-[13px] cursor-pointer">
-                <Checkbox
-                  checked={embedThumbnail}
-                  onCheckedChange={(checked) => setEmbedThumbnail(!!checked)}
-                  className="w-4 h-4"
-                />
-                Embed thumbnail as cover art
-              </label>
-              <label className="flex items-center gap-2 text-[13px] cursor-pointer">
-                <Checkbox
-                  checked={embedMetadata}
-                  onCheckedChange={(checked) => setEmbedMetadata(!!checked)}
-                  className="w-4 h-4"
-                />
-                Embed metadata &amp; chapters
-              </label>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Subtitles</Label>
-              <Select
-                value={subtitles}
-                onValueChange={(value) => setSubtitles(value as typeof subtitles)}
-              >
-                <SelectTrigger className="flex-1 bg-secondary/60 border-border text-[13px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="external">Save as .srt file</SelectItem>
-                  <SelectItem value="burned">Burn into video</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Save to</Label>
-              <Input
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className="flex-1 bg-secondary/60 border-border text-[12.5px]"
-              />
-            </div>
-          </div>
-
-          {/* Duplicate Warning */}
-          {data.duplicate && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20 text-[12.5px] text-primary">
-              <Info className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>This is already in your library. Adding it again saves a second copy.</span>
-            </div>
-          )}
+                  ))}
+                </div>
+              </>
+            )}
+          </DialogHeader>
         </div>
 
-        {/* Footer */}
-        <DialogFooter className="flex items-center justify-between m-0 p-4 border-t border-border shrink-0">
-          <p className="text-[12px] text-muted-foreground">
-            Estimated {getTotalSize()}
-            {isPlaylist && ` · ${getItemCount()} items`}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              className="px-3.5 py-2 rounded-lg text-[13px] h-auto"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirm}
-              className="px-4 py-2 rounded-lg text-[13px] font-medium bg-primary text-primary-foreground flex items-center gap-1.5 h-auto"
-              disabled={!selectedVideoFormat && !selectedAudioFormat}
-            >
-              <Download className="w-3.5 h-3.5" />
-              {isChannel ? "Sync channel" : "Add to queue"}
-            </Button>
+        {/* Content */}
+        {isLoading ? (
+          <SkeletonLoader type="format-modal" />
+        ) : (
+          <div className="flex-1 overflow-y-auto p-5 space-y-6">
+            {/* Playlist Items */}
+            {isPlaylist && data.playlistItems && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                    <ListOrdered className="w-3.5 h-3.5" />
+                    Playlist items
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">
+                    <span className="font-medium">{selectedItems.length}</span> of{" "}
+                    <span>{data.playlistItems.length}</span> selected
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="text-[12px] text-primary h-auto p-0"
+                    onClick={handleToggleSelect}
+                  >
+                    {isAllSelected ? "Deselect all" : "Select all"}
+                  </Button>
+                </div>
+                <div className="border border-border rounded-lg max-h-[300px] overflow-y-auto divide-y divide-border">
+                  {data.playlistItems.map((item, index) => (
+                    <label
+                      key={item.id}
+                      className="flex items-center gap-3 p-2.5 text-[12.5px] cursor-pointer hover:bg-accent/60 transition-colors"
+                    >
+                      <Checkbox
+                        checked={selectedItems.includes(item.id)}
+                        onCheckedChange={() => {
+                          const id = item.id;
+                          setSelectedItems((prev) =>
+                            prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+                          );
+                        }}
+                        className="w-4 h-4 shrink-0"
+                      />
+                      <span className="text-muted-foreground w-4 text-[10px] text-right shrink-0">
+                        {index + 1}
+                      </span>
+                      <div className="relative w-14 h-9 bg-secondary rounded flex items-center justify-center overflow-hidden shrink-0">
+                        {item.thumbnail ? (
+                          <img
+                            src={item.thumbnail}
+                            alt={item.title}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Video className="w-3.5 h-3.5 text-muted-foreground/50" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <span className="truncate">{item.title}</span>
+                        {item.duration && (
+                          <span className="text-[10px] text-muted-foreground mt-0.5">
+                            {item.duration}
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Media Type Toggle */}
+            <div className="flex items-center gap-1 bg-secondary/60 p-1 rounded-lg w-fit">
+              <Button
+                variant={mediaType === "video" ? "default" : "ghost"}
+                size="sm"
+                className="px-3.5 py-1.5 text-[12.5px] font-medium flex items-center gap-1.5 h-auto"
+                onClick={() => setMediaType("video")}
+              >
+                <Video className="w-3.5 h-3.5" />
+                Video
+              </Button>
+              <Button
+                variant={mediaType === "audio" ? "default" : "ghost"}
+                size="sm"
+                className="px-3.5 py-1.5 text-[12.5px] font-medium flex items-center gap-1.5 h-auto"
+                onClick={() => setMediaType("audio")}
+              >
+                <Music className="w-3.5 h-3.5" />
+                Audio only
+              </Button>
+            </div>
+
+            {/* Video Formats Section */}
+            {mediaType === "video" && data.videoFormats.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Video quality
+                </p>
+                <div className="space-y-1.5">
+                  {data.videoFormats.map((format) => (
+                    <label
+                      key={format.label}
+                      className={cn(
+                        "fm-format-row flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors",
+                        selectedVideoFormat?.label === format.label
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-accent/50"
+                      )}
+                    >
+                      <RadioGroup
+                        value={selectedVideoFormat?.label || ""}
+                        onValueChange={() => setSelectedVideoFormat(format)}
+                      >
+                        <RadioGroupItem value={format.label} className="w-3.5 h-3.5" />
+                      </RadioGroup>
+                      <span className="text-[13px] font-medium w-14">{format.resolution}</span>
+                      <div className="flex gap-1 w-20 flex-wrap">
+                        {format.fps.map((fps) => (
+                          <Badge key={fps} variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {fps}fps
+                          </Badge>
+                        ))}
+                      </div>
+                      <Badge variant="outline" className="text-[10px]">
+                        {format.codec}
+                      </Badge>
+                      <div className="flex-1" />
+                      <span className="text-[11.5px] text-muted-foreground text-right shrink-0">
+                        {format.size}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Audio Formats Section */}
+            {mediaType === "audio" && data.audioFormats.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Audio quality
+                </p>
+                <div className="space-y-1.5">
+                  {data.audioFormats.map((format) => (
+                    <label
+                      key={format.label}
+                      className={cn(
+                        "fm-format-row flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors",
+                        selectedAudioFormat?.label === format.label
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-accent/50"
+                      )}
+                    >
+                      <RadioGroup
+                        value={selectedAudioFormat?.label || ""}
+                        onValueChange={() => setSelectedAudioFormat(format)}
+                      >
+                        <RadioGroupItem value={format.label} className="w-3.5 h-3.5" />
+                      </RadioGroup>
+                      <span className="text-[13px] font-medium w-14">{format.label}</span>
+                      <Badge
+                        variant={format.lossless ? "default" : "secondary"}
+                        className="text-[10px]"
+                      >
+                        {format.lossless ? "Lossless" : format.bitrate}
+                      </Badge>
+                      <div className="flex-1" />
+                      <span className="text-[11.5px] text-muted-foreground text-right shrink-0">
+                        {format.size}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Post-processing */}
+            <div className="space-y-3 pt-2">
+              <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
+                Post-processing
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                  <Checkbox
+                    checked={embedThumbnail}
+                    onCheckedChange={(checked) => setEmbedThumbnail(!!checked)}
+                    className="w-4 h-4"
+                  />
+                  Embed thumbnail as cover art
+                </label>
+                <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                  <Checkbox
+                    checked={embedMetadata}
+                    onCheckedChange={(checked) => setEmbedMetadata(!!checked)}
+                    className="w-4 h-4"
+                  />
+                  Embed metadata &amp; chapters
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Subtitles</Label>
+                <Select
+                  value={subtitles}
+                  onValueChange={(value) => setSubtitles(value as typeof subtitles)}
+                >
+                  <SelectTrigger className="flex-1 bg-secondary/60 border-border text-[13px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="external">Save as .srt file</SelectItem>
+                    <SelectItem value="burned">Burn into video</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Save to</Label>
+                <Input
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  className="flex-1 bg-secondary/60 border-border text-[12.5px] h-9"
+                />
+              </div>
+            </div>
+
+            {/* Duplicate Warning */}
+            {!isLoading && data.duplicate && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20 text-[12.5px] text-primary">
+                <Info className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>This is already in your library. Adding it again saves a second copy.</span>
+              </div>
+            )}
           </div>
-        </DialogFooter>
+        )}
+
+        {/* Footer */}
+        {!isLoading && (
+          <DialogFooter className="flex items-center justify-between m-0 p-4 border-t border-border shrink-0 bg-card">
+            <p className="text-[12px] text-muted-foreground">
+              {isLoading
+                ? "Fetching formats..."
+                : getTotalSize()
+                  ? `Estimated ${getTotalSize()}`
+                  : "Size unknown"}
+              {!isLoading && isPlaylist && ` · ${getItemCount()} items`}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+                className="px-3.5 py-2 rounded-lg text-[13px] h-auto"
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirm}
+                className="px-4 py-2 rounded-lg text-[13px] font-medium bg-primary text-primary-foreground flex items-center gap-1.5 h-auto"
+                disabled={
+                  isLoading ||
+                  (!selectedVideoFormat && !selectedAudioFormat) ||
+                  (isPlaylist && selectedItems.length === 0)
+                }
+              >
+                <Download className="w-3.5 h-3.5" />
+                Add to queue
+              </Button>
+            </div>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
