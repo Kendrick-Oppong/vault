@@ -17,7 +17,12 @@ import {
 import { QueueContextMenu } from "./queue-context-menu";
 import type { QueueItem as QueueItemType } from "../types";
 import { useJobProgress } from "@/lib/queries/jobs";
-import { useCancelDownload, usePauseDownload, useResumeDownload, useRetryDownload } from "@/lib/mutations/downloads";
+import {
+  useCancelDownload,
+  usePauseDownload,
+  useResumeDownload,
+  useRetryDownload
+} from "@/lib/mutations/downloads";
 import { formatBytes } from "@/lib/utils/platform";
 
 interface QueueItemProps {
@@ -34,8 +39,8 @@ const statusColorMap: Record<string, string> = {
 };
 
 const statusIconMap = {
-  downloading: Play,
-  paused: Pause,
+  downloading: Pause,
+  paused: Play,
   queued: Clock,
   error: CircleAlert
 } as const;
@@ -216,7 +221,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                 </div>
               </>
             )}
-            
+
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
             <span className="absolute bottom-1 right-1 z-10 opacity-90 drop-shadow-md">
               {item.type === "video" ? (
