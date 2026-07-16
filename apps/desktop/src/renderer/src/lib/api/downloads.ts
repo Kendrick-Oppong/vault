@@ -10,7 +10,8 @@ export const downloadsApi = {
   setConcurrency: (n: number) => globalThis.api.setConcurrency(n),
   searchYoutube: (query: string, page?: number) => globalThis.api.searchYoutube(query, page),
   listSubtitles: (url: string) => globalThis.api.listSubtitles(url),
-  dependenciesCheck: () => globalThis.api.dependenciesCheck()
+  dependenciesCheck: () => globalThis.api.dependenciesCheck(),
+  dependenciesDownload: () => globalThis.api.dependenciesDownload()
 };
 
 export const appApi = {
