@@ -1,4 +1,3 @@
-import { useUIStore } from "@/stores/ui/ui.store";
 import { useLogsState, useLogsActions } from "@/stores/logs/logs.selectors";
 import {
   Dialog,
