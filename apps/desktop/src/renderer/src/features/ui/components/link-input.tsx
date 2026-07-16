@@ -94,18 +94,25 @@ export const LinkInput = () => {
               const quality =
                 options.videoFormat?.resolution || options.audioFormat?.label || undefined;
 
+              // Generate output template from destination path if it doesn't already contain template placeholders
+              let outputTemplate = options.destination;
+              if (!outputTemplate.includes("%(")) {
+                // If no template placeholders, assume it's a folder path and add default template
+                // Ensure path ends without separator, then add template
+                const separator = outputTemplate.endsWith("/") || outputTemplate.endsWith("\\") ? "" : "/";
+                outputTemplate = `${outputTemplate}${separator}%(title)s.%(ext)s`;
+              }
+
               if (linkType === "playlist" && options.selectedItems && data.playlistItems) {
                 const selectedSet = new Set(options.selectedItems);
                 const itemsToQueue = data.playlistItems.filter((item) => selectedSet.has(item.id));
 
                 for (const item of itemsToQueue) {
-                  // Determine item URL: if probe gave us a direct url use it, else fallback to targetUrl (which yt-dlp might resolve if it's a playlist but it's better if we have the specific video url).
-                  // Actually yt-dlp probe for playlist items gives 'url' or 'url' is mapped in format-probe.ts if we update it.
                   const itemUrl = item.url || targetUrl;
 
                   queueDownload.mutate({
                     url: itemUrl,
-                    outputTemplate: options.destination,
+                    outputTemplate,
                     formatSelector,
                     extra: extraPayload,
                     meta: {
@@ -122,7 +129,7 @@ export const LinkInput = () => {
                 // Single video
                 queueDownload.mutate({
                   url: targetUrl,
-                  outputTemplate: options.destination,
+                  outputTemplate,
                   formatSelector,
                   extra: extraPayload,
                   meta: {
