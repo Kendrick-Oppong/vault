@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import type { Job, YtDlpProgress } from "@vault/types";
 import { QueryKeys } from "@/lib/constants/query-keys";
 import { formatError } from "@/lib/utils/format-error";
@@ -28,15 +27,17 @@ export function useJobEvents() {
       queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
         old.map((j) => (j.id === job.id ? job : j))
       );
-      toast.info("Download started", {
-        description: job.meta?.title || job.url.slice(0, 50)
-      });
     });
     unsubscribes.push(unsubStarted);
 
-    // On progress, store progress separately
+    // On progress, store progress separately (only for active jobs)
     const unsubProgress = globalThis.api.onJobProgress((jobId: string, progress: YtDlpProgress) => {
-      queryClient.setQueryData(QueryKeys.jobs.progress(jobId), progress);
+      // Check if job is still active before updating progress
+      const activeJobs = queryClient.getQueryData<Job[]>(QueryKeys.jobs.active()) || [];
+      const job = activeJobs.find((j) => j.id === jobId);
+      if (job && job.status === "active") {
+        queryClient.setQueryData(QueryKeys.jobs.progress(jobId), progress);
+      }
     });
     unsubscribes.push(unsubProgress);
 
@@ -47,9 +48,6 @@ export function useJobEvents() {
       );
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
       queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
-      toast.success("Download completed", {
-        description: job.meta?.title || "Download finished successfully"
-      });
     });
     unsubscribes.push(unsubCompleted);
 
@@ -61,9 +59,6 @@ export function useJobEvents() {
       );
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
       queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
-      toast.error("Download failed", {
-        description: errorMessage
-      });
     });
     unsubscribes.push(unsubFailed);
 
@@ -74,9 +69,6 @@ export function useJobEvents() {
       );
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
       queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
-      toast.info("Download cancelled", {
-        description: job.meta?.title || "Download was cancelled"
-      });
     });
     unsubscribes.push(unsubCancelled);
 
@@ -86,9 +78,6 @@ export function useJobEvents() {
         old.map((j) => (j.id === job.id ? { ...job, status: "paused" as const } : j))
       );
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
-      toast.info("Download paused", {
-        description: job.meta?.title || "Download was paused"
-      });
     });
     unsubscribes.push(unsubPaused);
 
