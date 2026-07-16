@@ -4,20 +4,22 @@ import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import icon from "../../resources/icon.png?asset";
-import { YtDlpManager } from "./ytdlp-manager";
-import { WorkerPool } from "./worker-pool";
+import { createYtDlpManager, type YtDlpManager } from "./ytdlp-manager";
+import { createWorkerPool, type WorkerPool } from "./worker-pool";
 import { initDb, type VaultDb } from "./db";
 import { JobInput } from "@vault/types";
 import { validateYouTubeUrl, validateOutputTemplate, validateFormatSelector } from "./validators";
-import { checkDependencies, getDependencyErrorMessage } from "./dependencies";
+import { checkDependencies, getDependencyErrorMessage, downloadDependencies } from "./dependencies";
 import * as cookies from "./cookies";
 import { createTray } from "./tray";
 
 // Must be set before app.whenReady() — hides Electron automation signals from Google
 app.commandLine.appendSwitch("disable-blink-features", "AutomationControlled");
 
+const vaultApp = app as typeof app & { isQuitting: boolean };
+
 // Global flag so tray can allow a real quit
-(app as any).isQuitting = false;
+vaultApp.isQuitting = false;
 
 const execFileAsync = promisify(execFile);
 
@@ -174,10 +176,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(
     "dialog:openFile",
-    async (
-      _e,
-      opts: { title?: string; filters?: { name: string; extensions: string[] }[] }
-    ) => {
+    async (_e, opts: { title?: string; filters?: { name: string; extensions: string[] }[] }) => {
       const result = await dialog.showOpenDialog(mainWindow, {
         title: opts?.title || "Select file",
         properties: ["openFile"],
@@ -250,11 +249,31 @@ function registerIpcHandlers(): void {
     };
   });
 
+  ipcMain.handle("dependencies:download", async () => {
+    const { binaryPath, ffmpegPath } = resolveBinaryPaths();
+    const destDir = join(binaryPath, "..");
+
+    await downloadDependencies(destDir, (progress) => {
+      mainWindow?.webContents.send("dependency:download:progress", progress);
+    });
+
+    const status = await checkDependencies(binaryPath, ffmpegPath);
+    return {
+      ready: status.allReady,
+      ytDlp: status.ytDlp,
+      ffmpeg: status.ffmpeg,
+      errors: status.errors,
+      errorMessage: !status.allReady ? getDependencyErrorMessage(status) : null
+    };
+  });
+
   // YouTube search via yt-dlp ytsearch
   ipcMain.handle("search:youtube", async (_e, query: string, page: number = 0) => {
     const { binaryPath } = resolveBinaryPaths();
     const count = 20;
-    const searchQuery = `ytsearch${count}:${query}`;
+    const safePage = Math.max(0, page);
+    const requestedCount = count * (safePage + 1);
+    const searchQuery = `ytsearch${requestedCount}:${query}`;
     const cookieFile = cookies.getCookiesPath();
 
     const args = ["--dump-json", "--flat-playlist", "--no-playlist"];
@@ -283,10 +302,21 @@ function registerIpcHandlers(): void {
             return null;
           }
         })
-        .filter(Boolean);
-      return results;
-    } catch (err: any) {
-      throw new Error(`Search failed: ${err.message}`);
+        .filter(
+          (
+            item
+          ): item is {
+            id: string;
+            title: string;
+            url: string;
+            thumbnail: string | null;
+            duration: number | null;
+            channel: string;
+          } => item !== null
+        );
+      return results.slice(safePage * count, (safePage + 1) * count);
+    } catch (err: unknown) {
+      throw new Error(`Search failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   });
 
@@ -331,8 +361,10 @@ function registerIpcHandlers(): void {
       }
 
       return tracks;
-    } catch (err: any) {
-      throw new Error(`Failed to list subtitles: ${err.message}`);
+    } catch (err: unknown) {
+      throw new Error(
+        `Failed to list subtitles: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   });
 
@@ -386,7 +418,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("app:quit", () => {
-    (app as any).isQuitting = true;
+    vaultApp.isQuitting = true;
     app.quit();
   });
 
@@ -422,9 +454,9 @@ app.whenReady().then(async () => {
     console.log(`[Vault] ffmpeg: ${depStatus.ffmpeg.version}`);
   }
 
-  ytdlp = new YtDlpManager({ binaryPath, ffmpegPath, pluginPath });
+  ytdlp = createYtDlpManager({ binaryPath, ffmpegPath, pluginPath });
 
-  pool = new WorkerPool({ ytdlp, maxConcurrent: 3 });
+  pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
   db = initDb(join(app.getPath("userData"), "library.db"));
 
   registerIpcHandlers();
@@ -461,7 +493,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  (app as any).isQuitting = true;
+  vaultApp.isQuitting = true;
   // Gracefully close the SQLite connection
   if (db?.raw) {
     db.raw.close();
