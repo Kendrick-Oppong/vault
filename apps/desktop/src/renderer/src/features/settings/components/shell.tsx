@@ -120,6 +120,22 @@ export const SettingsView = () => {
                 className="w-1/2 bg-secondary/60 border-border-strong text-[12px]"
               />
             </div>
+            <div className="py-1.5">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <span>Output filename template</span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Use %(title)s for title, %(id)s for video ID, %(ext)s for extension
+                  </p>
+                </div>
+                <Input
+                  value={settings.outputTemplate || "%(title)s.%(ext)s"}
+                  onChange={(e) => updateSetting("outputTemplate", e.target.value)}
+                  placeholder="%(title)s.%(ext)s"
+                  className="w-56 bg-secondary/60 border-border-strong text-[12px]"
+                />
+              </div>
+            </div>
             <div className="flex items-center justify-between py-1.5">
               <span>Concurrent downloads</span>
               <div className="flex items-center gap-2">

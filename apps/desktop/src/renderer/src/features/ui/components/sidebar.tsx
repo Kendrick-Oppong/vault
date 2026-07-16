@@ -2,6 +2,7 @@ import { HardDrive, Library, Layers, Moon, Settings2, Sun } from "lucide-react";
 import { Button } from "@vault/ui/components/button";
 import { useNavigationState } from "@/stores/navigation/navigation.selectors";
 import { useUIState } from "@/stores/ui/ui.selectors";
+import { useSystemAlertsState } from "@/stores/system-alerts/system-alerts.selectors";
 import type { SidebarItem } from "../types";
 
 const sidebarItems: SidebarItem[] = [
@@ -16,11 +17,22 @@ import { useHistory } from "@/lib/queries/history";
 export const SideBar = () => {
   const { currentView, navigate } = useNavigationState();
   const { theme, setTheme } = useUIState();
+  const { diskSpaceFree } = useSystemAlertsState();
   const isDark = theme === "dark";
 
   // Fetch real counts
   const { data: activeJobs = [] } = useActiveJobs();
   const { data: history = [] } = useHistory();
+
+  // Format disk space display (bytes to GB)
+  const formatDiskSpace = (bytes: number): string => {
+    const gb = bytes / (1024 * 1024 * 1024);
+    return `${gb.toFixed(1)} GB free`;
+  };
+
+  // Calculate storage percentage used
+  const totalDiskSpace = 512 * 1024 * 1024 * 1024; // Assuming 512 GB total (user can override this)
+  const usedPercent = Math.round(((totalDiskSpace - diskSpaceFree) / totalDiskSpace) * 100);
 
   const getCount = (id: string) => {
     switch (id) {
@@ -91,10 +103,15 @@ export const SideBar = () => {
             <HardDrive className="size-3.5" />
             Storage
           </span>
-          <span className="font-mono tabular-nums">482 GB free</span>
+          <span className="font-mono tabular-nums">{formatDiskSpace(diskSpaceFree)}</span>
         </div>
         <div className="h-[3px] w-full overflow-hidden rounded-full bg-muted">
-          <div className="h-full rounded-full bg-primary" style={{ width: "62%" }} />
+          <div
+            className={`h-full rounded-full transition-colors ${
+              usedPercent > 80 ? "bg-destructive" : "bg-primary"
+            }`}
+            style={{ width: `${usedPercent}%` }}
+          />
         </div>
 
         <Button

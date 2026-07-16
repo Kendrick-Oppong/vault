@@ -5,7 +5,6 @@ import { AlertBanners } from "@/features/ui/components/alert-banners";
 import { GlobalModals } from "@/features/ui/components/global-modals";
 import { useJobEvents } from "@/lib/event-listeners/use-job-events";
 import { useAppInfoInit } from "@/lib/event-listeners/use-app-info-init";
-import { useSystemAlertsState, useSystemAlertsActions } from "@/stores/system-alerts/system-alerts.selectors";
 import { OnboardingScreen } from "@/features/onboarding/components/onboarding-screen";
 import { useOnboardingState } from "@/stores/onboarding/onboarding.selectors";
 
@@ -16,8 +15,6 @@ import { QueueView } from "@/features/queue/components/shell";
 
 function App(): React.JSX.Element {
   const currentView = useNavigationStore(selectCurrentView);
-  const { offline, lowDisk, updateAvailable } = useSystemAlertsState();
-  const { dismissUpdateAlert } = useSystemAlertsActions();
   const { completed: onboardingCompleted } = useOnboardingState();
 
   // Initialize app with real system data (app version, yt-dlp version, default path)
@@ -47,22 +44,7 @@ function App(): React.JSX.Element {
       <SideBar />
 
       <div className="flex flex-1 flex-col bg-background">
-        {/* Alert Banners */}
-        <AlertBanners
-          offline={offline}
-          disk={lowDisk}
-          update={updateAvailable}
-          onOfflineAction={() => {
-            // TODO: Implement retry/reconnect logic
-          }}
-          onDiskAction={() => {
-            // TODO: Open file manager to manage disk space
-          }}
-          onUpdateAction={() => {
-            // TODO: Trigger app update
-          }}
-          onUpdateDismiss={dismissUpdateAlert}
-        />
+        <AlertBanners />
 
         <div className="border border-l-0 border-r-0 border-border py-4">
           <div className="mx-auto w-full max-w-[97%]">
