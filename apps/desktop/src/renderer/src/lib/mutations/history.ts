@@ -8,7 +8,7 @@ export const useDeleteHistory = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (jobId: string) => historyApi.delete(jobId),
-    onSuccess: (_) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
       toast.success("Removed from library");
     },
