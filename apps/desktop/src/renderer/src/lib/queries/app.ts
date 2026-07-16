@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { appApi } from "@/lib/api/app";
 import { toast } from "sonner";
 import { formatError } from "@/lib/utils/format-error";
@@ -11,15 +11,19 @@ export const useAppInfo = () =>
   });
 
 export const useCheckForUpdates = () => {
+  const installUpdateMutation = useInstallUpdate();
+
   return useMutation({
     mutationFn: () => appApi.checkForUpdates(),
     onSuccess: (result) => {
       if (result.updateAvailable) {
         toast.success("Update available!", {
-          description: result.version ? `Version ${result.version} is ready to install` : "A new version is available",
+          description: result.version
+            ? `Version ${result.version} is ready to install`
+            : "A new version is available",
           action: {
             label: "Install & Restart",
-            onClick: () => appApi.installUpdate()
+            onClick: () => installUpdateMutation.mutate()
           },
           duration: 10000
         });
@@ -31,6 +35,17 @@ export const useCheckForUpdates = () => {
     },
     onError: (error: Error) => {
       toast.error("Could not check for updates", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
+export const useInstallUpdate = () => {
+  return useMutation({
+    mutationFn: () => appApi.installUpdate(),
+    onError: (error: Error) => {
+      toast.error("Could not install update", {
         description: formatError(error)
       });
     }
