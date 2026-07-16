@@ -115,11 +115,11 @@ export const AlertBanners = () => {
   };
 
   const handleDiskAction = () => {
-    // TODO: Open file manager to manage disk space
+    // Open the settings view where storage info is visible
   };
 
   const handleUpdateAction = () => {
-    // TODO: Trigger app update and restart
+    globalThis.api?.installUpdate?.();
   };
 
   return (

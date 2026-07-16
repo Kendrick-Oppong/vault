@@ -23,9 +23,19 @@ export interface ConfirmationDialogState {
   onConfirm?: () => void;
 }
 
+export interface LogsModalState {
+  isOpen: boolean;
+}
+
+export interface QuickActionsState {
+  isOpen: boolean;
+}
+
 interface ModalState {
   formatModal: FormatModalState;
   confirmDialog: ConfirmationDialogState;
+  logsModal: LogsModalState;
+  quickActions: QuickActionsState;
 }
 
 interface ModalActions {
@@ -44,6 +54,12 @@ interface ModalActions {
 
   openConfirmDialog: (config: Omit<ConfirmationDialogState, "isOpen">) => void;
   closeConfirmDialog: () => void;
+
+  openLogsModal: () => void;
+  closeLogsModal: () => void;
+
+  openQuickActions: () => void;
+  closeQuickActions: () => void;
 }
 
 export type ModalStore = ModalState & ModalActions;
@@ -56,6 +72,12 @@ export const useModalStore = create<ModalStore>((set) => ({
   confirmDialog: {
     isOpen: false,
     title: ""
+  },
+  logsModal: {
+    isOpen: false
+  },
+  quickActions: {
+    isOpen: false
   },
 
   openFormatModal: (data, options) =>
@@ -97,5 +119,11 @@ export const useModalStore = create<ModalStore>((set) => ({
         ...state.confirmDialog,
         isOpen: false
       }
-    }))
+    })),
+
+  openLogsModal: () => set({ logsModal: { isOpen: true } }),
+  closeLogsModal: () => set({ logsModal: { isOpen: false } }),
+
+  openQuickActions: () => set({ quickActions: { isOpen: true } }),
+  closeQuickActions: () => set({ quickActions: { isOpen: false } })
 }));

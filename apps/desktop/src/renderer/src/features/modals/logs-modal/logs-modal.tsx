@@ -81,10 +81,12 @@ export const LogsModal = ({ open, onOpenChange }: LogsModalProps) => {
               <SelectItem value="debug">Debug</SelectItem>
             </SelectContent>
           </Select>
-          <span className="text-xs text-muted-foreground ml-auto">{filteredEntries.length} entries</span>
+          <span className="text-xs text-muted-foreground ml-auto">
+            {filteredEntries.length} entries
+          </span>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-secondary/20 rounded-md border border-border p-3 font-mono text-xs space-y-1">
+        <div className="flex-1 overflow-y-auto bg-secondary/20 rounded-md border border-border p-3 text-xs space-y-1">
           {filteredEntries.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">No logs to display</div>
           ) : (

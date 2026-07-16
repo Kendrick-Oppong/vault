@@ -237,3 +237,19 @@ function defaultAudioFormats(): AudioFormat[] {
     { label: "OPUS", codec: "OPUS", bitrate: "160 kbps", size: "Varies", sizeBytes: 0 }
   ];
 }
+
+/**
+ * Convenience wrapper: determines link type from the raw probe data and
+ * delegates to mapProbeToFormatModalData. Use this from the renderer.
+ */
+export function formatProbeToModalData(
+  raw: RawFormat[],
+  _url: string
+): FormatModalData {
+  const first = raw[0] ?? {};
+  const linkType: FormatModalData["type"] =
+    first["_type"] === "playlist" || Array.isArray(first["entries"]) || raw.length > 1
+      ? "playlist"
+      : "video";
+  return mapProbeToFormatModalData(raw, linkType);
+}

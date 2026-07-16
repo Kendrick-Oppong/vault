@@ -22,7 +22,9 @@ import {
   Trash2,
   CheckCircle2,
   AlertTriangle,
-  Loader2
+  Loader2,
+  FolderOpen,
+  Cpu
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSettingsStore } from "@/stores/settings/settings.store";
@@ -31,6 +33,8 @@ import { useSetConcurrency } from "@/lib/mutations/downloads";
 import { useUIState } from "@/stores/ui/ui.selectors";
 import { useCookieInfo } from "@/lib/queries/cookies";
 import { useSetCookieBrowser, useRefreshCookies, useClearCookies } from "@/lib/mutations/cookies";
+import { useCheckForUpdates } from "@/lib/queries/app";
+import { DependencyChecker } from "./dependency-checker";
 
 export const SettingsView = () => {
   const settings = useSettingsStore(selectSettings);
@@ -45,8 +49,10 @@ export const SettingsView = () => {
   const setBrowserMutation = useSetCookieBrowser();
   const refreshMutation = useRefreshCookies();
   const clearMutation = useClearCookies();
+  const checkUpdatesMutation = useCheckForUpdates();
 
-  const cookieBusy = setBrowserMutation.isPending || refreshMutation.isPending || clearMutation.isPending;
+  const cookieBusy =
+    setBrowserMutation.isPending || refreshMutation.isPending || clearMutation.isPending;
   const cookieFailed = Boolean(cookieInfo?.effectiveBrowser && !cookieInfo.cached && !cookieBusy);
 
   const handleConcurrentChange = (delta: number) => {
@@ -57,7 +63,6 @@ export const SettingsView = () => {
 
   const handleBandwidthChange = (value: string) => {
     updateSetting("bandwidthLimit", value);
-    // Simple validation for K/M format
     if (value && !/^\d+[KM]$/i.test(value)) {
       setBandwidthError(true);
     } else {
@@ -67,7 +72,6 @@ export const SettingsView = () => {
 
   const handleProxyChange = (value: string) => {
     updateSetting("proxy", value);
-    // Simple validation for host:port
     if (value && !/^.+:\d+$/.test(value)) {
       setProxyError(true);
     } else {
@@ -80,7 +84,7 @@ export const SettingsView = () => {
   };
 
   const handleCheckUpdates = () => {
-    toast.info("Checking for updates...");
+    checkUpdatesMutation.mutate();
   };
 
   const handleSetCookieBrowser = (browser: string | null) => {
@@ -116,69 +120,124 @@ export const SettingsView = () => {
             General
           </p>
           <div className="border border-border rounded-xl p-4 text-[13px] divide-y divide-border">
-            <div className="flex items-center justify-between py-1.5">
-              <span>Default destination folder</span>
-              <Input
-                value={settings.downloadPath}
-                onChange={(e) => updateSetting("downloadPath", e.target.value)}
-                className="w-1/2 bg-secondary/60 border-border-strong text-[12px]"
-              />
-            </div>
-            <div className="py-1.5">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <span>Output filename template</span>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Use %(title)s for title, %(id)s for video ID, %(ext)s for extension
-                  </p>
-                </div>
-                <Input
-                  value={settings.outputTemplate || "%(title)s.%(ext)s"}
-                  onChange={(e) => updateSetting("outputTemplate", e.target.value)}
-                  placeholder="%(title)s.%(ext)s"
-                  className="w-56 bg-secondary/60 border-border-strong text-[12px]"
-                />
+            {/* Download Path */}
+            <div className="flex items-center justify-between py-2 gap-4">
+              <div>
+                <span className="font-medium">Download folder</span>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Where downloaded files are saved
+                </p>
               </div>
-            </div>
-            <div className="flex items-center justify-between py-1.5">
-              <span>Concurrent downloads</span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0 flex-1 max-w-xs">
+                <Input
+                  value={settings.downloadPath}
+                  onChange={(e) => updateSetting("downloadPath", e.target.value)}
+                  placeholder="~/Downloads"
+                />
                 <Button
                   variant="outline"
                   size="icon"
-                  className="w-7 h-7 rounded-md border-border hover:bg-accent"
+                  className="h-8 w-8 shrink-0"
+                  onClick={async () => {
+                    const folder = await globalThis.api?.openFolderDialog?.();
+                    if (folder) updateSetting("downloadPath", folder);
+                  }}
+                  title="Browse…"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Concurrent Downloads */}
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="font-medium">Concurrent downloads</span>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Max simultaneous downloads
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
                   onClick={() => handleConcurrentChange(-1)}
+                  disabled={settings.concurrentDownloads <= 1}
                 >
                   <Minus className="w-3 h-3" />
                 </Button>
-                <span className="w-6 text-center text-[12px]">{settings.concurrentDownloads}</span>
+                <span className="w-6 text-center font-medium tabular-nums">
+                  {settings.concurrentDownloads}
+                </span>
                 <Button
                   variant="outline"
                   size="icon"
-                  className="w-7 h-7 rounded-md border-border hover:bg-accent"
+                  className="h-7 w-7"
                   onClick={() => handleConcurrentChange(1)}
+                  disabled={settings.concurrentDownloads >= 10}
                 >
                   <Plus className="w-3 h-3" />
                 </Button>
               </div>
             </div>
-            <div className="flex items-center justify-between py-1.5">
-              <span>Minimize to tray instead of closing</span>
+
+            {/* Minimize to Tray */}
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="font-medium">Minimize to tray</span>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Keep Vault running in the system tray when closed
+                </p>
+              </div>
               <Switch
                 checked={settings.minimizeToTray}
                 onCheckedChange={(checked) => updateSetting("minimizeToTray", checked)}
               />
             </div>
-            <div className="flex items-center justify-between py-1.5">
-              <span>Appearance</span>
-              <Select value={theme} onValueChange={(value) => setTheme(value as any)}>
-                <SelectTrigger className="w-40 bg-secondary/60 border-border text-[12px]">
+
+            {/* Embed Thumbnail */}
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="font-medium">Embed thumbnail</span>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Default setting for new downloads
+                </p>
+              </div>
+              <Switch
+                checked={settings.embedThumbnail}
+                onCheckedChange={(checked) => updateSetting("embedThumbnail", checked)}
+              />
+            </div>
+
+            {/* Embed Metadata */}
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="font-medium">Embed metadata</span>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Write title, channel, and date tags into the file
+                </p>
+              </div>
+              <Switch
+                checked={settings.embedMetadata}
+                onCheckedChange={(checked) => updateSetting("embedMetadata", checked)}
+              />
+            </div>
+
+            {/* Theme */}
+            <div className="flex items-center justify-between py-2">
+              <span className="font-medium">Theme</span>
+              <Select
+                value={theme}
+                onValueChange={(value) => setTheme(value as "dark" | "light" | "system")}
+              >
+                <SelectTrigger className="h-8 w-32 text-[12px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="dark">Dark</SelectItem>
                   <SelectItem value="system">System</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="light">Light</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -192,42 +251,56 @@ export const SettingsView = () => {
             Network
           </p>
           <div className="border border-border rounded-xl p-4 text-[13px] divide-y divide-border">
-            <div className="py-1.5">
-              <div className="flex items-center justify-between">
-                <span>Bandwidth limit</span>
+            {/* Bandwidth Limit */}
+            <div className="flex items-center justify-between py-2 gap-4">
+              <div>
+                <span className="font-medium">Bandwidth limit</span>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Cap download speed, e.g. <code>5M</code> or <code>500K</code>
+                </p>
+              </div>
+              <div>
                 <Input
                   value={settings.bandwidthLimit}
                   onChange={(e) => handleBandwidthChange(e.target.value)}
-                  placeholder="e.g. 2M or 500K"
-                  className={`w-40 bg-secondary/60 border-border text-[12px] text-right ${bandwidthError ? "border-destructive" : ""
-                    }`}
+                  className={`text-right ${bandwidthError ? "border-destructive" : ""}`}
+                  placeholder="unlimited"
                 />
+                {bandwidthError && (
+                  <p className="text-[11px] text-destructive mt-0.5">Format: 5M or 500K</p>
+                )}
               </div>
-              {bandwidthError && (
-                <p className="text-[11px] text-destructive mt-1">
-                  Expected a number followed by K or M, e.g. 2M
-                </p>
-              )}
             </div>
-            <div className="py-1.5">
-              <div className="flex items-center justify-between">
-                <span>Proxy</span>
+
+            {/* Proxy */}
+            <div className="flex items-center justify-between py-2 gap-4">
+              <div>
+                <span className="font-medium">Proxy</span>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                  SOCKS5/HTTP proxy, e.g. <code>127.0.0.1:1080</code>
+                </p>
+              </div>
+              <div>
                 <Input
                   value={settings.proxy}
                   onChange={(e) => handleProxyChange(e.target.value)}
+                  className={`${proxyError ? "border-destructive" : ""}`}
                   placeholder="host:port"
-                  className={`w-56 bg-secondary/60 border-border text-[12px] ${proxyError ? "border-destructive" : ""
-                    }`}
                 />
+                {proxyError && (
+                  <p className="text-[11px] text-destructive mt-0.5">Format: host:port</p>
+                )}
               </div>
-              {proxyError && (
-                <p className="text-[11px] text-destructive mt-1 text-right">
-                  Expected host:port, e.g. 127.0.0.1:8080
-                </p>
-              )}
             </div>
-            <div className="flex items-center justify-between py-1.5">
-              <span>Geo-bypass</span>
+
+            {/* Geo-bypass */}
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="font-medium">Geo-bypass</span>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Try to bypass region-locked content
+                </p>
+              </div>
               <Switch
                 checked={settings.geoBypass}
                 onCheckedChange={(checked) => updateSetting("geoBypass", checked)}
@@ -240,143 +313,89 @@ export const SettingsView = () => {
         <div>
           <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
             <KeyRound className="w-3.5 h-3.5" />
-            Cookies
+            Authentication
           </p>
           <div className="border border-border rounded-xl p-4 text-[13px] divide-y divide-border">
-            <div className="py-1.5">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <span className="block text-sm">Import cookies from browser</span>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Access private, age-restricted, and members-only videos by reusing your browser session
-                  </p>
-                </div>
+            {/* Cookie Browser */}
+            <div className="flex items-center justify-between py-2 gap-4">
+              <div>
+                <span className="font-medium">Cookies browser</span>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Extract cookies from your browser to authenticate downloads
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
                 <Select
-                  value={settings.cookiesFromBrowser || ""}
-                  onValueChange={handleSetCookieBrowser}
-                  disabled={cookieBusy}
+                  value={settings.cookiesFromBrowser || "none"}
+                  onValueChange={(value) => handleSetCookieBrowser(value === "none" ? null : value)}
                 >
-                  <SelectTrigger className="w-40 bg-secondary/60 border-border text-[12px] shrink-0">
+                  <SelectTrigger className="h-8 w-32 text-[12px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Disabled</SelectItem>
-                    <SelectItem value="auto">Auto-detect</SelectItem>
-                    {cookieInfo?.detected.map((browser) => (
-                      <SelectItem key={browser.name} value={browser.name}>
-                        {browser.label}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="chrome">Chrome</SelectItem>
+                    <SelectItem value="firefox">Firefox</SelectItem>
+                    <SelectItem value="safari">Safari</SelectItem>
+                    <SelectItem value="edge">Edge</SelectItem>
                   </SelectContent>
                 </Select>
+                {settings.cookiesFromBrowser && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={handleRefreshCookies}
+                      disabled={cookieBusy}
+                      title="Refresh cookies"
+                    >
+                      {refreshMutation.isPending ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={handleClearCookies}
+                      disabled={cookieBusy}
+                      title="Clear cookies"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
 
-            {cookieInfo && cookieInfo.detected.length === 0 ? (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/90 mt-3">
-                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-                <span>No supported browsers detected on this machine</span>
-              </div>
-            ) : settings.cookiesFromBrowser ? (
-              <>
-                {/* Cookie Status */}
-                <div className="py-3">
-                  {cookieBusy ? (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>Exporting cookies...</span>
-                    </div>
-                  ) : cookieFailed || (!cookieInfo?.cached && cookieInfo?.effectiveBrowser) ? (
-                    <div className="flex items-center gap-2 text-xs text-amber-300">
-                      <AlertTriangle size={14} />
-                      <span>No cookies imported yet</span>
-                    </div>
-                  ) : cookieInfo?.cached ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-xs">
-                        <CheckCircle2 size={14} className="text-emerald-400" />
-                        <span className="text-emerald-300">
-                          Cookies ready (imported {formatCookieAge(cookieInfo.ageMs)})
-                        </span>
-                      </div>
-                      {cookieInfo.effectiveLabel && (
-                        <p className="pl-6 text-xs text-muted-foreground">
-                          Using {cookieInfo.effectiveLabel}
-                        </p>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* Help Text */}
-                <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/20 px-3 py-2 text-xs text-muted-foreground mt-3">
-                  <Info size={13} className="mt-0.5 shrink-0" />
-                  <span>
-                    Tip: close {cookieInfo?.effectiveLabel || "your browser"} completely before
-                    refreshing. A running browser locks its cookie database and the export will fail.
-                  </span>
-                </div>
-
-                {cookieFailed && (
-                  <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/90 mt-3">
-                    <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-                    <span>
-                      Couldn't read cookies. Make sure {cookieInfo?.effectiveLabel || "your browser"}{" "}
-                      is fully closed (check the system tray), then press Refresh.
-                    </span>
-                  </div>
+            {/* Cookie status */}
+            {cookieInfo?.effectiveBrowser && (
+              <div className="py-2 flex items-center gap-2 text-[11.5px]">
+                {cookieInfo.cached ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 )}
-
-                {/* Action Buttons */}
-                <div className="flex items-center justify-end gap-2 pt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRefreshCookies}
-                    disabled={cookieBusy}
-                    className="h-8 text-[12px]"
-                  >
-                    <RefreshCw size={13} className={cookieBusy ? "animate-spin" : ""} />
-                    Refresh
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleClearCookies}
-                    disabled={cookieBusy}
-                    className="h-8 text-[12px] hover:border-destructive/40 hover:text-destructive"
-                  >
-                    <Trash2 size={13} />
-                    Clear
-                  </Button>
-                </div>
-              </>
-            ) : null}
+                <span className="text-muted-foreground">
+                  {cookieInfo.cached
+                    ? `Cached from ${cookieInfo.effectiveLabel} · ${formatCookieAge(cookieInfo.ageMs)}`
+                    : `Could not extract cookies from ${cookieInfo.effectiveLabel}`}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Defaults Section */}
+        {/* Dependencies Section */}
         <div>
           <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
-            Defaults
+            <Cpu className="w-3.5 h-3.5" />
+            Dependencies
           </p>
-          <div className="border border-border rounded-xl p-4 text-[13px] divide-y divide-border">
-            <div className="flex items-center justify-between py-1.5">
-              <span>Embed thumbnail</span>
-              <Switch
-                checked={settings.embedThumbnail}
-                onCheckedChange={(checked) => updateSetting("embedThumbnail", checked)}
-              />
-            </div>
-            <div className="flex items-center justify-between py-1.5">
-              <span>Embed metadata &amp; chapters</span>
-              <Switch
-                checked={settings.embedMetadata}
-                onCheckedChange={(checked) => updateSetting("embedMetadata", checked)}
-              />
-            </div>
-          </div>
+          <DependencyChecker />
         </div>
 
         {/* About Section */}
@@ -394,14 +413,21 @@ export const SettingsView = () => {
               <span>yt-dlp engine</span>
               <span className="text-muted-foreground">{settings.ytDlpVersion}</span>
             </div>
-            <Button
-              variant="link"
-              className="mt-1 text-[12.5px] text-primary hover:underline flex items-center gap-1.5 p-0 h-auto"
-              onClick={handleCheckUpdates}
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Check for updates
-            </Button>
+            <div className="py-1.5">
+              <Button
+                variant="link"
+                className="text-[12.5px] text-primary hover:underline flex items-center gap-1.5 p-0 h-auto"
+                onClick={handleCheckUpdates}
+                disabled={checkUpdatesMutation.isPending}
+              >
+                {checkUpdatesMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3.5 h-3.5" />
+                )}
+                Check for updates
+              </Button>
+            </div>
           </div>
         </div>
 

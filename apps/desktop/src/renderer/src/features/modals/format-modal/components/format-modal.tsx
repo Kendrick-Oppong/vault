@@ -54,6 +54,8 @@ export interface FormatOptions {
   embedThumbnail: boolean;
   embedMetadata: boolean;
   subtitles: "none" | "external" | "burned";
+  subtitleLanguages?: string[];
+  reencodeFormat?: "none" | "h264-aac" | "h265-aac";
   destination: string;
   selectedItems?: string[];
 }
@@ -88,6 +90,8 @@ export const FormatModal = ({
   const [embedThumbnail, setEmbedThumbnail] = useState(settings.embedThumbnail);
   const [embedMetadata, setEmbedMetadata] = useState(settings.embedMetadata);
   const [subtitles, setSubtitles] = useState<"none" | "external" | "burned">("none");
+  const [subtitleLanguages, setSubtitleLanguages] = useState<string[]>(["en"]);
+  const [reencodeFormat, setReencodeFormat] = useState<"none" | "h264-aac" | "h265-aac">("none");
   const [destination, setDestination] = useState(settings.downloadPath);
   const [selectedItems, setSelectedItems] = useState<string[]>(
     () => data.playlistItems?.map((i) => i.id) ?? []
@@ -136,6 +140,8 @@ export const FormatModal = ({
       embedThumbnail,
       embedMetadata,
       subtitles,
+      subtitleLanguages: subtitles !== "none" ? subtitleLanguages : undefined,
+      reencodeFormat: reencodeFormat !== "none" ? reencodeFormat : undefined,
       destination,
       selectedItems: data.type === "playlist" ? selectedItems : undefined
     });
@@ -499,6 +505,49 @@ export const FormatModal = ({
                     <SelectItem value="none">None</SelectItem>
                     <SelectItem value="external">Save as .srt file</SelectItem>
                     <SelectItem value="burned">Burn into video</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Subtitle language picker — shown when subtitles are enabled */}
+              {subtitles !== "none" && (
+                <div className="flex items-center gap-3">
+                  <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Languages</Label>
+                  <div className="flex-1">
+                    <Input
+                      value={subtitleLanguages.join(",")}
+                      onChange={(e) =>
+                        setSubtitleLanguages(
+                          e.target.value
+                            .split(",")
+                            .map((l) => l.trim())
+                            .filter(Boolean)
+                        )
+                      }
+                      className="h-9 bg-secondary/60 border-border text-[12.5px]"
+                      placeholder="en, zh, fr (comma-separated)"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Comma-separated language codes, e.g. <code>en,zh-Hans</code>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Re-encode option */}
+              <div className="flex items-center gap-3">
+                <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Re-encode</Label>
+                <Select
+                  value={reencodeFormat}
+                  onValueChange={(value) => setReencodeFormat(value as typeof reencodeFormat)}
+                >
+                  <SelectTrigger className="flex-1 bg-secondary/60 border-border text-[13px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No re-encoding</SelectItem>
+                    <SelectItem value="h264-aac">H.264 + AAC (MP4)</SelectItem>
+                    <SelectItem value="h265-aac">H.265 + AAC (MKV)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

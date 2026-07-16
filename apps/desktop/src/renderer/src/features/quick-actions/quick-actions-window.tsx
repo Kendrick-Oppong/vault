@@ -95,7 +95,7 @@ export const QuickActionsWindow = ({ onClose }: QuickActionsWindowProps) => {
           variant="ghost"
           size="icon"
           className="w-6 h-6"
-          onClick={onClose || (() => window.api.closeQuickActionsWindow?.())}
+          onClick={onClose}
         >
           <X className="w-3.5 h-3.5" />
         </Button>
