@@ -53,9 +53,12 @@ export interface FormatOptions {
   audioFormat?: AudioFormat;
   embedThumbnail: boolean;
   embedMetadata: boolean;
+  embedChapters: boolean;
+  sponsorBlock: boolean;
   subtitles: "none" | "external" | "burned";
   subtitleLanguages?: string[];
   reencodeFormat?: "none" | "h264-aac" | "h265-aac";
+  videoContainer?: "mp4" | "mkv";
   destination: string;
   selectedItems?: string[];
 }
@@ -89,9 +92,12 @@ export const FormatModal = ({
   );
   const [embedThumbnail, setEmbedThumbnail] = useState(settings.embedThumbnail);
   const [embedMetadata, setEmbedMetadata] = useState(settings.embedMetadata);
+  const [embedChapters, setEmbedChapters] = useState(settings.embedChapters);
+  const [sponsorBlock, setSponsorBlock] = useState(settings.sponsorBlock);
   const [subtitles, setSubtitles] = useState<"none" | "external" | "burned">("none");
-  const [subtitleLanguages, setSubtitleLanguages] = useState<string[]>(["en"]);
+  const [subtitleLanguages, setSubtitleLanguages] = useState<string[]>(settings.subtitleLangs);
   const [reencodeFormat, setReencodeFormat] = useState<"none" | "h264-aac" | "h265-aac">("none");
+  const [videoContainer, setVideoContainer] = useState<"mp4" | "mkv">(settings.videoContainer);
   const [destination, setDestination] = useState(settings.downloadPath);
   const [selectedItems, setSelectedItems] = useState<string[]>(
     () => data.playlistItems?.map((i) => i.id) ?? []
@@ -139,9 +145,12 @@ export const FormatModal = ({
       audioFormat: mediaType === "audio" ? selectedAudioFormat || undefined : undefined,
       embedThumbnail,
       embedMetadata,
+      embedChapters,
+      sponsorBlock,
       subtitles,
       subtitleLanguages: subtitles !== "none" ? subtitleLanguages : undefined,
       reencodeFormat: reencodeFormat !== "none" ? reencodeFormat : undefined,
+      videoContainer,
       destination,
       selectedItems: data.type === "playlist" ? selectedItems : undefined
     });
@@ -488,7 +497,23 @@ export const FormatModal = ({
                     onCheckedChange={(checked) => setEmbedMetadata(!!checked)}
                     className="w-4 h-4"
                   />
-                  Embed metadata &amp; chapters
+                  Embed metadata
+                </label>
+                <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                  <Checkbox
+                    checked={embedChapters}
+                    onCheckedChange={(checked) => setEmbedChapters(!!checked)}
+                    className="w-4 h-4"
+                  />
+                  Embed chapters
+                </label>
+                <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                  <Checkbox
+                    checked={sponsorBlock}
+                    onCheckedChange={(checked) => setSponsorBlock(!!checked)}
+                    className="w-4 h-4"
+                  />
+                  Remove sponsored segments
                 </label>
               </div>
 
@@ -512,7 +537,9 @@ export const FormatModal = ({
               {/* Subtitle language picker — shown when subtitles are enabled */}
               {subtitles !== "none" && (
                 <div className="flex items-center gap-3">
-                  <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Languages</Label>
+                  <Label className="text-[13px] text-muted-foreground w-24 shrink-0">
+                    Languages
+                  </Label>
                   <div className="flex-1">
                     <Input
                       value={subtitleLanguages.join(",")}
@@ -548,6 +575,23 @@ export const FormatModal = ({
                     <SelectItem value="none">No re-encoding</SelectItem>
                     <SelectItem value="h264-aac">H.264 + AAC (MP4)</SelectItem>
                     <SelectItem value="h265-aac">H.265 + AAC (MKV)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Container option */}
+              <div className="flex items-center gap-3">
+                <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Container</Label>
+                <Select
+                  value={videoContainer}
+                  onValueChange={(value) => setVideoContainer(value as typeof videoContainer)}
+                >
+                  <SelectTrigger className="flex-1 bg-secondary/60 border-border text-[13px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mp4">MP4</SelectItem>
+                    <SelectItem value="mkv">MKV</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
