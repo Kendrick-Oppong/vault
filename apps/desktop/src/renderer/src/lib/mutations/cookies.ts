@@ -11,16 +11,12 @@ export const useSetCookieBrowser = () => {
 
   return useMutation({
     mutationFn: (browser: string) => cookiesApi.setBrowser(browser),
-    onMutate: async (browser) => {
-      // Optimistically update the setting
-      updateSetting("cookiesFromBrowser", browser || null);
+    onMutate: async (browser: string) => {
+      updateSetting("cookiesFromBrowser", browser.length > 0 ? browser : null);
     },
     onSuccess: (cookieInfo) => {
       // Invalidate and refetch cookie info
-      queryClient.setQueryData(
-        QueryKeys.cookies.info(cookieInfo.browser || null),
-        cookieInfo
-      );
+      queryClient.setQueryData(QueryKeys.cookies.info(cookieInfo.browser || null), cookieInfo);
 
       if (cookieInfo.cached) {
         toast.success("Cookies exported successfully!");
@@ -42,10 +38,7 @@ export const useRefreshCookies = () => {
   return useMutation({
     mutationFn: (browserSetting: string | null) => cookiesApi.refresh(browserSetting),
     onSuccess: (cookieInfo) => {
-      queryClient.setQueryData(
-        QueryKeys.cookies.info(cookieInfo.browser || null),
-        cookieInfo
-      );
+      queryClient.setQueryData(QueryKeys.cookies.info(cookieInfo.browser || null), cookieInfo);
 
       if (cookieInfo.cached) {
         toast.success("Cookies refreshed successfully!");
@@ -67,10 +60,7 @@ export const useClearCookies = () => {
   return useMutation({
     mutationFn: (browserSetting: string | null) => cookiesApi.clear(browserSetting),
     onSuccess: (cookieInfo) => {
-      queryClient.setQueryData(
-        QueryKeys.cookies.info(cookieInfo.browser || null),
-        cookieInfo
-      );
+      queryClient.setQueryData(QueryKeys.cookies.info(cookieInfo.browser || null), cookieInfo);
       toast.info("Cookies cleared");
     },
     onError: (error: Error) => {
