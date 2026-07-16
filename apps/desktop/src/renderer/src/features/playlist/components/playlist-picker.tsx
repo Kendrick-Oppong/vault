@@ -8,7 +8,7 @@ import {
 } from "@vault/ui/components/dialog";
 import { Button } from "@vault/ui/components/button";
 import { Checkbox } from "@vault/ui/components/checkbox";
-import { ScrollArea } from "@vault/ui/components/scroll-area";
+import { formatDuration } from "@/lib/utils/format";
 
 interface PlaylistPickerProps {
   isOpen: boolean;
@@ -21,7 +21,7 @@ export const PlaylistPicker = ({ isOpen, onClose, onConfirm }: PlaylistPickerPro
   const { toggleItem, toggleAllItems } = usePlaylistActions();
 
   const handleConfirm = () => {
-    onConfirm(Array.from(selectedItemIds));
+    onConfirm(selectedItemIds);
     onClose();
   };
 
@@ -44,12 +44,12 @@ export const PlaylistPicker = ({ isOpen, onClose, onConfirm }: PlaylistPickerPro
               className="h-4 w-4"
             />
             <span className="text-sm font-medium">
-              {isAllSelected ? "Deselect All" : "Select All"} ({selectedItemIds.size}/{items.length})
+              {isAllSelected ? "Deselect All" : "Select All"} ({selectedItemIds.length}/{items.length})
             </span>
           </div>
 
           {/* Items List */}
-          <ScrollArea className="h-96 rounded-lg border">
+          <div className="h-96 overflow-y-auto rounded-lg border">
             <div className="space-y-1 p-4">
               {items.map((item) => (
                 <div
@@ -57,7 +57,7 @@ export const PlaylistPicker = ({ isOpen, onClose, onConfirm }: PlaylistPickerPro
                   className="flex items-start gap-3 p-2 rounded hover:bg-secondary/50 transition-colors"
                 >
                   <Checkbox
-                    checked={selectedItemIds.has(item.id)}
+                    checked={selectedItemIds.includes(item.id)}
                     onCheckedChange={() => toggleItem(item.id)}
                     className="mt-1 h-4 w-4"
                   />
@@ -68,14 +68,14 @@ export const PlaylistPicker = ({ isOpen, onClose, onConfirm }: PlaylistPickerPro
                     )}
                     {item.duration && (
                       <p className="text-xs text-muted-foreground">
-                        {Math.floor(item.duration / 60)}:{(item.duration % 60).toString().padStart(2, "0")}
+                        {formatDuration(item.duration)}
                       </p>
                     )}
                   </div>
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* Footer */}
@@ -83,8 +83,8 @@ export const PlaylistPicker = ({ isOpen, onClose, onConfirm }: PlaylistPickerPro
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleConfirm} disabled={selectedItemIds.size === 0}>
-            Download {selectedItemIds.size > 0 ? `(${selectedItemIds.size})` : ""}
+          <Button onClick={handleConfirm} disabled={selectedItemIds.length === 0}>
+            Download {selectedItemIds.length > 0 ? `(${selectedItemIds.length})` : ""}
           </Button>
         </div>
       </DialogContent>
