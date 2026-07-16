@@ -6,7 +6,6 @@ import { selectSettings } from "@/stores/settings/settings.selectors";
 
 export const useCookieInfo = () => {
   const settings = useSettingsStore(selectSettings);
-  
   return useQuery({
     queryKey: QueryKeys.cookies.info(settings.cookiesFromBrowser),
     queryFn: () => cookiesApi.getInfo(settings.cookiesFromBrowser),
