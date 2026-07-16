@@ -2,32 +2,23 @@ import { useModalStore } from "@/stores/ui/modal.store";
 import {
   selectFormatModal,
   selectConfirmDialog,
-  selectLogsModal,
   selectQuickActions,
   useModalActions
 } from "@/stores/ui/modal.selectors";
 import { FormatModal } from "@/features/modals/format-modal/components/format-modal";
 import { ConfirmationDialog } from "@/features/ui/components/confirmation-dialog";
-import { LogsModal } from "@/features/modals/logs-modal/logs-modal";
 import { VideoPreviewModal } from "@/features/modals/video-preview-modal/video-preview-modal";
 import { QuickActionsWindow } from "@/features/quick-actions/quick-actions-window";
 
 export const GlobalModals = () => {
   const formatModal = useModalStore(selectFormatModal);
   const confirmDialog = useModalStore(selectConfirmDialog);
-  const logsModal = useModalStore(selectLogsModal);
   const quickActions = useModalStore(selectQuickActions);
-  const {
-    closeFormatModal,
-    closeConfirmDialog,
-    closeLogsModal,
-    closeQuickActions
-  } = useModalActions();
+  const { closeFormatModal, closeConfirmDialog, closeQuickActions } = useModalActions();
 
   return (
     <>
-      {/* Format picker modal – triggered when probing a URL.
-          Renders even when data is null so the loading skeleton shows. */}
+      {/* Format picker modal – triggered when probing a URL */}
       {formatModal.isOpen && (
         <FormatModal
           open={formatModal.isOpen}
@@ -66,9 +57,6 @@ export const GlobalModals = () => {
           closeConfirmDialog();
         }}
       />
-
-      {/* Logs modal – view application logs */}
-      <LogsModal open={logsModal.isOpen} onOpenChange={(open) => !open && closeLogsModal()} />
 
       {/* Video preview modal – self-contained, reads from video-preview store */}
       <VideoPreviewModal />
