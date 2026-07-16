@@ -41,7 +41,7 @@ const baseDefaults: Settings = {
   bandwidthLimit: "",
   proxy: "",
   geoBypass: false,
-  importCookies: "None",
+  cookiesFromBrowser: null,
   cookiesFilePath: "",
   embedThumbnail: true,
   embedMetadata: true,
