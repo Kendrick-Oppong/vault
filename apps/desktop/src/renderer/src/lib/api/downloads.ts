@@ -7,5 +7,7 @@ export const downloadsApi = {
   pauseDownload: (jobId: string) => globalThis.api.pauseDownload(jobId),
   resumeDownload: (jobId: string) => globalThis.api.resumeDownload(jobId),
   retryDownload: (jobId: string) => globalThis.api.retryDownload(jobId),
-  setConcurrency: (n: number) => globalThis.api.setConcurrency(n)
+  setConcurrency: (n: number) => globalThis.api.setConcurrency(n),
+  searchYoutube: (query: string, page?: number) => globalThis.api.searchYoutube(query, page),
+  checkDependencies: () => globalThis.api.checkDependencies?.()
 };

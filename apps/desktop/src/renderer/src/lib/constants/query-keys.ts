@@ -11,5 +11,8 @@ export const QueryKeys = {
   },
   auth: {
     youtube: () => ["auth", "youtube"] as const
+  },
+  search: {
+    youtube: (query: string, page?: number) => ["search", "youtube", query, page] as const
   }
 } as const;

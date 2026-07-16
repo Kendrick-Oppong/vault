@@ -35,9 +35,11 @@ export interface DownloadExtras {
   geoBypass?: boolean;
   embedThumbnail?: boolean;
   embedMetadata?: boolean;
-  subtitles?: "external" | "burned";
+  subtitles?: "none" | "external" | "burned";
+  subtitleLanguages?: string[];
   downloadArchive?: string;
   archiveKey?: string;
+  reencodeFormat?: "none" | "h264-aac" | "h265-aac";
 }
 
 export interface YtDlpProgress {

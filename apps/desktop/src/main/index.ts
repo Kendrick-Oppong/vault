@@ -10,6 +10,9 @@ import { YtDlpManager } from "./ytdlp-manager";
 import { WorkerPool } from "./worker-pool";
 import { initDb, type VaultDb } from "./db";
 import { JobInput } from "@vault/types";
+import { validateYouTubeUrl, validateOutputTemplate, validateFormatSelector } from "./validators";
+import { checkDependencies, getDependencyErrorMessage } from "./dependencies";
+import { FfmpegManager } from "./ffmpeg-manager";
 
 // Must be set before app.whenReady() — hides Electron automation signals from Google
 app.commandLine.appendSwitch("disable-blink-features", "AutomationControlled");
@@ -22,6 +25,8 @@ let mainWindow: BrowserWindow;
 let pool: WorkerPool;
 let db: VaultDb;
 let ytdlp: YtDlpManager;
+let ffmpeg: FfmpegManager;
+let dependenciesReady = false;
 
 function resolveBinaryPaths(): { binaryPath: string; ffmpegPath: string; pluginPath: string } {
   let base: string;
@@ -168,10 +173,29 @@ function registerIpcHandlers(): void {
     return formats;
   });
 
-  // Intercept downloads: if the app's cookies file exists (from built-in sign-in),
-  // always use it — takes priority over --cookies-from-browser and avoids the
-  // Chrome database lock issue entirely.
+  // Intercept downloads: validate URL and format, inject cookies if available
   ipcMain.handle("queue:add", (_e, jobInput: JobInput) => {
+    // Validate URL
+    const urlValidation = validateYouTubeUrl(jobInput.url);
+    if (!urlValidation.valid) {
+      throw new Error(`Invalid URL: ${urlValidation.error}`);
+    }
+
+    // Validate output template
+    const templateValidation = validateOutputTemplate(jobInput.outputTemplate);
+    if (!templateValidation.valid) {
+      throw new Error(`Invalid output template: ${templateValidation.error}`);
+    }
+
+    // Validate format selector
+    const formatValidation = validateFormatSelector(jobInput.formatSelector);
+    if (!formatValidation.valid) {
+      throw new Error(`Invalid format selector: ${formatValidation.error}`);
+    }
+
+    // If the app's cookies file exists (from built-in sign-in),
+    // always use it — takes priority over --cookies-from-browser and avoids the
+    // Chrome database lock issue entirely.
     if (existsSync(COOKIES_FILE_PATH)) {
       jobInput = {
         ...jobInput,
@@ -182,6 +206,7 @@ function registerIpcHandlers(): void {
         }
       };
     }
+
     return pool.enqueue(jobInput);
   });
 
@@ -486,10 +511,22 @@ function registerIpcHandlers(): void {
       defaultDownloadPath: app.getPath("videos")
     };
   });
+
+  ipcMain.handle("dependencies:check", async () => {
+    const { binaryPath, ffmpegPath } = resolveBinaryPaths();
+    const status = await checkDependencies(binaryPath, ffmpegPath);
+    return {
+      ready: status.allReady,
+      ytDlp: status.ytDlp,
+      ffmpeg: status.ffmpeg,
+      errors: status.errors,
+      errorMessage: !status.allReady ? getDependencyErrorMessage(status) : null
+    };
+  });
 }
 
 // Initialize the app when ready
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId("com.vault.app");
 
   app.on("browser-window-created", (_, window) => {
@@ -497,7 +534,21 @@ app.whenReady().then(() => {
   });
 
   const { binaryPath, ffmpegPath, pluginPath } = resolveBinaryPaths();
+  
+  // Check dependencies before starting
+  const depStatus = await checkDependencies(binaryPath, ffmpegPath);
+  if (!depStatus.allReady) {
+    console.error("[Vault] Dependencies missing:", depStatus.errors);
+    dependenciesReady = false;
+  } else {
+    console.log("[Vault] All dependencies ready");
+    console.log(`[Vault] yt-dlp: ${depStatus.ytDlp.version}`);
+    console.log(`[Vault] ffmpeg: ${depStatus.ffmpeg.version}`);
+    dependenciesReady = true;
+  }
+
   ytdlp = new YtDlpManager({ binaryPath, ffmpegPath, pluginPath });
+  ffmpeg = new FfmpegManager({ ffmpegPath });
 
   pool = new WorkerPool({ ytdlp, maxConcurrent: 3 });
   db = initDb(join(app.getPath("userData"), "library.db"));

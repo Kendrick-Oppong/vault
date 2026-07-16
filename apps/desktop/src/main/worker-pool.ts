@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { ChildProcess } from "node:child_process";
 import type { Job, JobInput, YtDlpProgress } from "@vault/types";
 import type { YtDlpManager } from "./ytdlp-manager";
+import { ProgressTracker } from "./progress-tracker";
 
 export interface WorkerPoolOptions {
   ytdlp: YtDlpManager;
@@ -13,6 +14,7 @@ interface ActiveJob {
   job: Job;
   process: ChildProcess;
   promise: Promise<void>;
+  tracker?: ProgressTracker;
 }
 
 interface StoredJobInput {
@@ -145,17 +147,27 @@ export class WorkerPool extends EventEmitter {
     job.status = "active";
     this.emit("job:started", job);
 
+    // Initialize progress tracker
+    const tracker = new ProgressTracker(job.meta?.expectedPath ? 0 : undefined);
+
     const { process: proc, promise } = this.opts.ytdlp.download(
       job.url,
       job.outputTemplate,
       job.formatSelector,
       job.extra,
       (progress: YtDlpProgress) => {
-        this.emit("job:progress", job.id, progress);
+        // Track progress and emit enriched data
+        const enriched = tracker.track(progress);
+        this.emit("job:progress", job.id, enriched);
+
+        // Detect stalls and warn
+        if (tracker.isStalled(15000)) {
+          console.warn(`[WorkerPool] Job ${job.id} appears stalled (no progress in 15s)`);
+        }
       }
     );
 
-    this.active.set(job.id, { job, process: proc, promise });
+    this.active.set(job.id, { job, process: proc, promise, tracker });
 
     promise
       .then(() => {
@@ -174,6 +186,12 @@ export class WorkerPool extends EventEmitter {
           this.intentionallyKilled.delete(job.id);
           return;
         }
+
+        // Log stall status for debugging
+        if (tracker.isStalled()) {
+          console.error(`[WorkerPool] Job ${job.id} failed after appearing stalled`);
+        }
+
         job.status = "failed";
         // Store input so retry() can re-enqueue it
         this.storedInputs.set(job.id, {
