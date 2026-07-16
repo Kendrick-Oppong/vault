@@ -7,6 +7,8 @@ import { useJobEvents } from "@/lib/event-listeners/use-job-events";
 import { useAppInfoInit } from "@/lib/event-listeners/use-app-info-init";
 import { OnboardingScreen } from "@/features/onboarding/components/onboarding-screen";
 import { useOnboardingState } from "@/stores/onboarding/onboarding.selectors";
+import { CustomTitlebar } from "@/features/ui/components/custom-titlebar";
+import { NotificationCenter } from "@/features/notifications/notification-center";
 
 import { LibraryView } from "@/features/library/components/shell";
 import { SettingsView } from "@/features/settings/components/shell";
@@ -40,8 +42,10 @@ function App(): React.JSX.Element {
   };
 
   return (
-    <main className="flex h-full overflow-hidden">
-      <SideBar />
+    <div className="flex flex-col h-full">
+      <CustomTitlebar title="Vault - YouTube Downloader" />
+      <main className="flex flex-1 overflow-hidden">
+        <SideBar />
 
       <div className="flex flex-1 flex-col bg-background">
         <AlertBanners />
@@ -56,8 +60,10 @@ function App(): React.JSX.Element {
           <div className="mx-auto w-full max-w-[97%] pb-5 pt-2">{renderView()}</div>
         </div>
       </div>
-      <GlobalModals />
-    </main>
+        <GlobalModals />
+      </main>
+      <NotificationCenter />
+    </div>
   );
 }
 
