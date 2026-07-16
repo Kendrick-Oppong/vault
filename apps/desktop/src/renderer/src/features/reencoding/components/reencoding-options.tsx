@@ -29,14 +29,8 @@ const AUDIO_BITRATES: { value: AudioBitrate; label: string }[] = [
 ];
 
 export const ReencodeOptions = () => {
-  const {
-    enableReencoding,
-    format,
-    videoPreset,
-    videoCrf,
-    audioBitrate,
-    stripAudio
-  } = useReencodeState();
+  const { enableReencoding, format, videoPreset, videoCrf, audioBitrate, stripAudio } =
+    useReencodeState();
 
   const {
     setEnableReencoding,
@@ -47,16 +41,19 @@ export const ReencodeOptions = () => {
     setStripAudio
   } = useReencodeActions();
 
-  const handleFormatChange = (value: string) => {
-    setFormat(value as ReencodeFormat);
+  const handleFormatChange = (value: ReencodeFormat | null) => {
+    if (!value) return;
+    setFormat(value);
   };
 
-  const handlePresetChange = (value: string) => {
-    setVideoPreset(value as VideoPreset);
+  const handlePresetChange = (value: VideoPreset | null) => {
+    if (!value) return;
+    setVideoPreset(value);
   };
 
-  const handleBitrateChange = (value: string) => {
-    setAudioBitrate(value as AudioBitrate);
+  const handleBitrateChange = (value: AudioBitrate | null) => {
+    if (!value) return;
+    setAudioBitrate(value);
   };
 
   return (
@@ -138,11 +135,7 @@ export const ReencodeOptions = () => {
                 <Label htmlFor="strip-audio" className="text-sm">
                   Remove Audio
                 </Label>
-                <Switch
-                  id="strip-audio"
-                  checked={stripAudio}
-                  onCheckedChange={setStripAudio}
-                />
+                <Switch id="strip-audio" checked={stripAudio} onCheckedChange={setStripAudio} />
               </div>
 
               {!stripAudio && (
