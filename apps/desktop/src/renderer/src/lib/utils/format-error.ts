@@ -73,7 +73,7 @@ export function formatError(error: unknown): string {
     // Chromium-based browsers (Chrome, Edge, Brave) lock their cookie database on Windows
     if (
       lowerMessage.includes("could not copy chrome cookie") ||
-      lowerMessage.includes("could not copy") && lowerMessage.includes("cookie")
+      (lowerMessage.includes("could not copy") && lowerMessage.includes("cookie"))
     ) {
       return "Browser is locking its cookie database. Go to Settings > Authentication and click 'Sign in' to log in directly — no browser or extension needed.";
     }
