@@ -23,6 +23,7 @@ export interface Job extends JobInput {
   status: JobStatus;
   createdAt: number;
   error?: string;
+  resume?: boolean;
 }
 
 export type JobStatus = "pending" | "active" | "paused" | "completed" | "failed" | "cancelled";
@@ -35,11 +36,14 @@ export interface DownloadExtras {
   geoBypass?: boolean;
   embedThumbnail?: boolean;
   embedMetadata?: boolean;
+  embedChapters?: boolean;
+  sponsorBlock?: boolean;
   subtitles?: "none" | "external" | "burned";
   subtitleLanguages?: string[];
   downloadArchive?: string;
   archiveKey?: string;
   reencodeFormat?: "none" | "h264-aac" | "h265-aac";
+  videoContainer?: "mp4" | "mkv";
 }
 
 export interface YtDlpProgress {
