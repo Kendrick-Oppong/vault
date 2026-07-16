@@ -1,15 +1,15 @@
-import { Library, Layers, Moon, Settings2, Sun, ScrollText, Search } from "lucide-react";
+import { Library, Layers, Moon, Settings2, Sun, ScrollText } from "lucide-react";
 import { Button } from "@vault/ui/components/button";
 import { useNavigationState } from "@/stores/navigation/navigation.selectors";
 import { useUIState } from "@/stores/ui/ui.selectors";
-import { useModalActions } from "@/stores/ui/modal.selectors";
 import { StorageIndicator } from "@/features/ui/components/storage-indicator";
 import type { SidebarItem } from "../types";
+import type { NavigationView } from "@/stores/navigation/navigation.store";
 
 const sidebarItems: SidebarItem[] = [
   { id: "queue", label: "Queue", icon: Layers },
   { id: "library", label: "Library", icon: Library },
-  { id: "search", label: "Search", icon: Search },
+  { id: "logs", label: "Logs", icon: ScrollText },
   { id: "settings", label: "Settings", icon: Settings2 }
 ];
 
@@ -19,14 +19,13 @@ import { useHistory } from "@/lib/queries/history";
 export const SideBar = () => {
   const { currentView, navigate } = useNavigationState();
   const { theme, setTheme } = useUIState();
-  const { openLogsModal } = useModalActions();
   const isDark = theme === "dark";
 
   // Fetch real counts
   const { data: activeJobs = [] } = useActiveJobs();
   const { data: history = [] } = useHistory();
 
-  const getCount = (id: string) => {
+  const getCount = (id: NavigationView) => {
     switch (id) {
       case "queue":
         return activeJobs.length || undefined;
@@ -48,7 +47,7 @@ export const SideBar = () => {
             <Button
               key={item.id}
               variant="ghost"
-              onClick={() => navigate(item.id as any)}
+              onClick={() => navigate(item.id)}
               className={`group relative h-10 w-full justify-between rounded-md pl-3 pr-2 text-sm font-normal transition-colors duration-150 ${
                 active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
@@ -68,18 +67,6 @@ export const SideBar = () => {
           );
         })}
       </nav>
-
-      {/* Logs button */}
-      <div className="px-2 mt-1">
-        <Button
-          variant="ghost"
-          onClick={openLogsModal}
-          className="group h-10 w-full justify-start gap-2.5 rounded-md pl-3 pr-2 text-sm font-normal text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors duration-150"
-        >
-          <ScrollText className="h-4 w-4 shrink-0" />
-          Logs
-        </Button>
-      </div>
 
       {/* Bottom controls */}
       <div className="mt-auto flex flex-col gap-2 px-2 pb-4 pt-2">
