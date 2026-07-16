@@ -1,3 +1,4 @@
-apps/desktop/bin
+bin
 tsconfig.node.tsbuildinfo
 tsconfig.web.tsbuildinfo
+youtube-downloader

@@ -12,7 +12,8 @@ const vaultApi = {
   probeFormats: (url: string): Promise<Record<string, unknown>[]> =>
     ipcRenderer.invoke("formats:probe", url),
 
-  queueDownload: (jobInput: JobInput): Promise<string> => ipcRenderer.invoke("queue:add", jobInput),
+  queueDownload: (jobInput: JobInput): Promise<string> => 
+    ipcRenderer.invoke("queue:add", jobInput),
 
   cancelDownload: (jobId: string): Promise<boolean> => ipcRenderer.invoke("queue:cancel", jobId),
 
@@ -40,22 +41,42 @@ const vaultApi = {
     filters?: { name: string; extensions: string[] }[];
   }): Promise<string | null> => ipcRenderer.invoke("dialog:openFile", opts),
 
-  youtubeLogin: (): Promise<{ success: boolean; filePath: string | null; error?: string }> =>
-    ipcRenderer.invoke("auth:youtubeLogin"),
+  // Cookie management (browser-based)
+  getCookieInfo: (browserSetting: string | null): Promise<{
+    browser: string;
+    effectiveBrowser: string | null;
+    effectiveLabel: string | null;
+    cached: boolean;
+    ageMs: number | null;
+    detected: { name: string; label: string }[];
+  }> => ipcRenderer.invoke("cookies:info", browserSetting),
 
-  checkYoutubeCookies: (): Promise<boolean> => ipcRenderer.invoke("auth:checkCookies"),
+  setCookieBrowser: (browserSetting: string): Promise<{
+    browser: string;
+    effectiveBrowser: string | null;
+    effectiveLabel: string | null;
+    cached: boolean;
+    ageMs: number | null;
+    detected: { name: string; label: string }[];
+  }> => ipcRenderer.invoke("cookies:set", browserSetting),
 
-  clearYoutubeCookies: (): Promise<boolean> => ipcRenderer.invoke("auth:clearCookies"),
+  refreshCookies: (browserSetting: string | null): Promise<{
+    browser: string;
+    effectiveBrowser: string | null;
+    effectiveLabel: string | null;
+    cached: boolean;
+    ageMs: number | null;
+    detected: { name: string; label: string }[];
+  }> => ipcRenderer.invoke("cookies:refresh", browserSetting),
 
-  getYoutubeCookiesPath: (): Promise<string | null> => ipcRenderer.invoke("auth:getCookiesPath"),
-
-  saveCookies: (cookiesText: string): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke("cookies:save", cookiesText),
-
-  importCookies: (
-    jsonFilePath: string
-  ): Promise<{ success: boolean; filePath?: string; error?: string }> =>
-    ipcRenderer.invoke("cookies:import", jsonFilePath),
+  clearCookies: (browserSetting: string | null): Promise<{
+    browser: string;
+    effectiveBrowser: string | null;
+    effectiveLabel: string | null;
+    cached: boolean;
+    ageMs: number | null;
+    detected: { name: string; label: string }[];
+  }> => ipcRenderer.invoke("cookies:clear", browserSetting),
 
   clearFormatCache: (url?: string): Promise<void> => ipcRenderer.invoke("cache:clearFormats", url),
 

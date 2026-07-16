@@ -19,20 +19,18 @@ import {
   RefreshCw,
   Minus,
   Plus,
+  Trash2,
   CheckCircle2,
-  LogIn,
-  LogOut,
-  Upload,
-  Palette
+  AlertTriangle,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Settings } from "../types";
 import { useSettingsStore } from "@/stores/settings/settings.store";
 import { selectSettings, useSettingsActions } from "@/stores/settings/settings.selectors";
 import { useSetConcurrency } from "@/lib/mutations/downloads";
-import { useYoutubeAuth } from "@/lib/queries/auth";
-import { useYoutubeLogin, useYoutubeLogout } from "@/lib/mutations/auth";
 import { useUIState } from "@/stores/ui/ui.selectors";
+import { useCookieInfo } from "@/lib/queries/cookies";
+import { useSetCookieBrowser, useRefreshCookies, useClearCookies } from "@/lib/mutations/cookies";
 
 export const SettingsView = () => {
   const settings = useSettingsStore(selectSettings);
@@ -40,10 +38,16 @@ export const SettingsView = () => {
   const { theme, setTheme } = useUIState();
   const [bandwidthError, setBandwidthError] = useState(false);
   const [proxyError, setProxyError] = useState(false);
-  const { data: ytSignedIn = false } = useYoutubeAuth();
-  const loginMutation = useYoutubeLogin();
-  const logoutMutation = useYoutubeLogout();
   const { mutate: setConcurrency } = useSetConcurrency();
+
+  // React Query hooks for cookie management
+  const { data: cookieInfo } = useCookieInfo();
+  const setBrowserMutation = useSetCookieBrowser();
+  const refreshMutation = useRefreshCookies();
+  const clearMutation = useClearCookies();
+
+  const cookieBusy = setBrowserMutation.isPending || refreshMutation.isPending || clearMutation.isPending;
+  const cookieFailed = Boolean(cookieInfo?.effectiveBrowser && !cookieInfo.cached && !cookieBusy);
 
   const handleConcurrentChange = (delta: number) => {
     const newValue = Math.max(1, Math.min(10, settings.concurrentDownloads + delta));
@@ -79,30 +83,27 @@ export const SettingsView = () => {
     toast.info("Checking for updates...");
   };
 
-  const handleImportCookies = async () => {
-    try {
-      const filePath = await window.api.openFileDialog({
-        title: "Select cookies JSON file",
-        filters: [{ name: "JSON Files", extensions: ["json"] }]
-      });
+  const handleSetCookieBrowser = (browser: string | null) => {
+    setBrowserMutation.mutate(browser || "");
+  };
 
-      if (!filePath) return;
+  const handleRefreshCookies = () => {
+    if (!settings.cookiesFromBrowser) return;
+    refreshMutation.mutate(settings.cookiesFromBrowser);
+  };
 
-      const result = await window.api.importCookies(filePath);
+  const handleClearCookies = () => {
+    clearMutation.mutate(settings.cookiesFromBrowser);
+  };
 
-      if (result.success) {
-        toast.success("Cookies imported successfully! Restart any failed downloads to use them.");
-        // Update settings to show the cookies file path
-        if (result.filePath) {
-          updateSetting("cookiesFilePath", result.filePath);
-          updateSetting("importCookies", "File");
-        }
-      } else {
-        toast.error(`Failed to import cookies: ${result.error}`);
-      }
-    } catch (err) {
-      toast.error(`Error importing cookies: ${err instanceof Error ? err.message : String(err)}`);
-    }
+  const formatCookieAge = (ms: number | null): string => {
+    if (ms == null) return "never";
+    const mins = Math.floor(ms / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
   };
 
   return (
@@ -239,101 +240,118 @@ export const SettingsView = () => {
         <div>
           <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
             <KeyRound className="w-3.5 h-3.5" />
-            Authentication
+            Cookies
           </p>
           <div className="border border-border rounded-xl p-4 text-[13px] divide-y divide-border">
-            {/* Primary: Built-in YouTube sign-in */}
-            <div className="flex items-center justify-between py-1.5">
-              <div className="min-w-0">
-                <span>YouTube sign-in</span>
-                <p className="text-[11.5px] text-muted-foreground mt-0.5">
-                  Opens a secure browser window to log in. No extensions needed.
-                </p>
-              </div>
-              {ytSignedIn ? (
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="flex items-center gap-1.5 text-[12px] text-green-500">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Signed in
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[12px] text-muted-foreground hover:text-destructive"
-                    onClick={() => logoutMutation.mutate()}
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    Sign out
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-[12px]"
-                    disabled={loginMutation.isPending}
-                    onClick={() => loginMutation.mutate()}
-                  >
-                    <LogIn className="w-3.5 h-3.5" />
-                    {loginMutation.isPending ? "Waiting for login..." : "Sign in"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-[12px]"
-                    onClick={handleImportCookies}
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    Import cookies
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Show cookies file path as readonly when signed in */}
-            {ytSignedIn && settings.cookiesFilePath && (
-              <div className="flex items-center justify-between py-1.5 gap-2">
-                <span className="shrink-0 text-muted-foreground">Cookies file</span>
-                <Input
-                  value={settings.cookiesFilePath}
-                  readOnly
-                  className="flex-1 max-w-[280px] bg-secondary/40 border-border text-[11px] text-muted-foreground cursor-default"
-                />
-              </div>
-            )}
-
-            {/* Advanced: Browser cookie import (fallback) */}
-            <div className="flex items-center justify-between py-1.5">
-              <div className="min-w-0">
-                <span>Advanced: import from browser</span>
-                {settings.importCookies !== "None" && settings.importCookies !== "File" && (
-                  <p className="text-[11.5px] text-amber-500/80 mt-0.5">
-                    Chrome/Edge lock their cookie database on Windows. Use sign-in above for reliability.
+            <div className="py-1.5">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <span className="block text-sm">Import cookies from browser</span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Access private, age-restricted, and members-only videos by reusing your browser session
                   </p>
-                )}
+                </div>
+                <Select
+                  value={settings.cookiesFromBrowser || ""}
+                  onValueChange={handleSetCookieBrowser}
+                  disabled={cookieBusy}
+                >
+                  <SelectTrigger className="w-40 bg-secondary/60 border-border text-[12px] shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Disabled</SelectItem>
+                    <SelectItem value="auto">Auto-detect</SelectItem>
+                    {cookieInfo?.detected.map((browser) => (
+                      <SelectItem key={browser.name} value={browser.name}>
+                        {browser.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Select
-                value={settings.importCookies === "File" ? "None" : settings.importCookies}
-                onValueChange={(value) =>
-                  updateSetting("importCookies", value as Settings["importCookies"])
-                }
-              >
-                <SelectTrigger className="w-36 h-8 rounded-md bg-secondary/60 border-border text-[12px] shrink-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="None">None</SelectItem>
-                  <SelectItem value="Chrome">Chrome</SelectItem>
-                  <SelectItem value="Firefox">Firefox</SelectItem>
-                  <SelectItem value="Edge">Edge</SelectItem>
-                  <SelectItem value="Safari">Safari</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
-            <p className="text-[11.5px] text-muted-foreground pt-2">
-              Needed for private playlists, watch-later, and age-restricted videos.
-            </p>
+
+            {cookieInfo && cookieInfo.detected.length === 0 ? (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/90 mt-3">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                <span>No supported browsers detected on this machine</span>
+              </div>
+            ) : settings.cookiesFromBrowser ? (
+              <>
+                {/* Cookie Status */}
+                <div className="py-3">
+                  {cookieBusy ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Exporting cookies...</span>
+                    </div>
+                  ) : cookieFailed || (!cookieInfo?.cached && cookieInfo?.effectiveBrowser) ? (
+                    <div className="flex items-center gap-2 text-xs text-amber-300">
+                      <AlertTriangle size={14} />
+                      <span>No cookies imported yet</span>
+                    </div>
+                  ) : cookieInfo?.cached ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-xs">
+                        <CheckCircle2 size={14} className="text-emerald-400" />
+                        <span className="text-emerald-300">
+                          Cookies ready (imported {formatCookieAge(cookieInfo.ageMs)})
+                        </span>
+                      </div>
+                      {cookieInfo.effectiveLabel && (
+                        <p className="pl-6 text-xs text-muted-foreground">
+                          Using {cookieInfo.effectiveLabel}
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Help Text */}
+                <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/20 px-3 py-2 text-xs text-muted-foreground mt-3">
+                  <Info size={13} className="mt-0.5 shrink-0" />
+                  <span>
+                    Tip: close {cookieInfo?.effectiveLabel || "your browser"} completely before
+                    refreshing. A running browser locks its cookie database and the export will fail.
+                  </span>
+                </div>
+
+                {cookieFailed && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/90 mt-3">
+                    <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                    <span>
+                      Couldn't read cookies. Make sure {cookieInfo?.effectiveLabel || "your browser"}{" "}
+                      is fully closed (check the system tray), then press Refresh.
+                    </span>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefreshCookies}
+                    disabled={cookieBusy}
+                    className="h-8 text-[12px]"
+                  >
+                    <RefreshCw size={13} className={cookieBusy ? "animate-spin" : ""} />
+                    Refresh
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearCookies}
+                    disabled={cookieBusy}
+                    className="h-8 text-[12px] hover:border-destructive/40 hover:text-destructive"
+                  >
+                    <Trash2 size={13} />
+                    Clear
+                  </Button>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
 

@@ -12,6 +12,9 @@ export const QueryKeys = {
   auth: {
     youtube: () => ["auth", "youtube"] as const
   },
+  cookies: {
+    info: (browserSetting: string | null) => ["cookies", "info", browserSetting] as const
+  },
   search: {
     youtube: (query: string, page?: number) => ["search", "youtube", query, page] as const
   }

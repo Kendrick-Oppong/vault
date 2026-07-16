@@ -67,24 +67,11 @@ export const LinkInput = () => {
               // Read settings at click time (not probe time) to avoid stale closure
               const currentSettings = useSettingsStore.getState().settings;
 
-              // Map settings "None"|"Chrome"|"Firefox"|"Edge"|"Safari"|"File" → yt-dlp flags
-              const browserMap: Record<string, DownloadExtras["cookiesFromBrowser"]> = {
-                Chrome: "chrome",
-                Firefox: "firefox",
-                Edge: "edge",
-                Safari: "safari"
-              };
-
               const extraPayload: DownloadExtras = {
                 embedThumbnail: options.embedThumbnail,
                 embedMetadata: options.embedMetadata,
                 subtitles: options.subtitles === "none" ? undefined : options.subtitles,
-                // Cookies file takes priority over browser cookies (avoids Chrome DB lock issue)
-                cookiesFile:
-                  currentSettings.importCookies === "File" && currentSettings.cookiesFilePath
-                    ? currentSettings.cookiesFilePath
-                    : undefined,
-                cookiesFromBrowser: browserMap[currentSettings.importCookies],
+                // Cookies file is automatically injected by the backend if browser cookies are configured
                 rateLimit: currentSettings.bandwidthLimit || undefined,
                 proxy: currentSettings.proxy || undefined,
                 geoBypass: currentSettings.geoBypass || undefined
@@ -98,7 +85,7 @@ export const LinkInput = () => {
 
               // Generate output template: prioritize user settings, fallback to default
               let outputTemplate = settings.outputTemplate || "%(title)s.%(ext)s";
-              
+
               // Combine with destination folder path
               const destinationFolder = options.destination;
               if (!outputTemplate.includes("/") && !outputTemplate.includes("\\")) {

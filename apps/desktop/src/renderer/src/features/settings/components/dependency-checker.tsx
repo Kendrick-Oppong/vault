@@ -2,7 +2,6 @@ import { Button } from "@vault/ui/components/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { useDependenciesCheck } from "@/lib/queries/dependencies";
-import type { DependenciesCheckResult } from "@/features/dependency-checker/types";
 import { cn } from "@vault/ui/lib/utils";
 
 export const DependencyChecker = () => {
