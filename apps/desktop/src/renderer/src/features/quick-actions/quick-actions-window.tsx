@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@vault/ui/components/button";
 import { Input } from "@vault/ui/components/input";
-import { Download, Plus, X } from "lucide-react";
+import { Download, X } from "lucide-react";
 import { useModalActions } from "@/stores/ui/modal.selectors";
 import { useProbeFormatsMutation, useQueueDownload } from "@/lib/mutations/downloads";
 import { useSettingsStore } from "@/stores/settings/settings.store";
 import { selectSettings } from "@/stores/settings/settings.selectors";
-import { mapProbeToFormatModalData } from "@/lib/utils/format-probe";
+import { formatProbeToModalData } from "@/lib/utils/format-probe";
 import { toast } from "sonner";
+import type { DownloadExtras, JobInput } from "@vault/types";
 
 interface QuickActionsWindowProps {
   onClose?: () => void;
@@ -16,22 +17,9 @@ interface QuickActionsWindowProps {
 export const QuickActionsWindow = ({ onClose }: QuickActionsWindowProps) => {
   const [url, setUrl] = useState("");
   const settings = useSettingsStore(selectSettings);
-  const { openFormatModal, updateFormatModal, closeFormatModal } = useModalActions();
+  const { openFormatModal } = useModalActions();
   const probeMutation = useProbeFormatsMutation();
-  const queueDownload = useQueueDownload();
-
-  useEffect(() => {
-    // Listen for quick actions window open event from main process
-    const handleOpenQuickActions = () => {
-      // Window will already be shown by main process
-    };
-
-    window.api?.onOpenQuickActions?.(handleOpenQuickActions);
-
-    return () => {
-      // Cleanup
-    };
-  }, []);
+  const queueMutation = useQueueDownload();
 
   const handleDownload = async () => {
     if (!url.trim()) {
@@ -40,35 +28,58 @@ export const QuickActionsWindow = ({ onClose }: QuickActionsWindowProps) => {
     }
 
     try {
-      // Open format modal instantly in loading state
-      openFormatModal(
-        {
-          title: "Loading...",
-          channel: "",
-          type: "video",
-          videoFormats: [],
-          audioFormats: []
-        },
-        { isLoading: true }
-      );
+      const targetUrl = url.trim();
+      openFormatModal(null, { isLoading: true });
 
-      // Probe the URL
-      probeMutation.mutate(url, {
-        onSuccess: (rawFormats) => {
+      probeMutation.mutate(targetUrl, {
+        onSuccess: (formats) => {
           try {
-            const data = mapProbeToFormatModalData(rawFormats, "video");
-            updateFormatModal(data);
+            const modalData = formatProbeToModalData(formats);
+            openFormatModal(modalData, {
+              onConfirm: (options) => {
+                const jobInput = {
+                  url: targetUrl,
+                  outputTemplate: settings.downloadPath
+                    ? `${settings.downloadPath}/%(title)s.%(ext)s`
+                    : "%(title)s.%(ext)s",
+                  formatSelector:
+                    options.mediaType === "video"
+                      ? options.videoFormat?.formatId || "bestvideo+bestaudio/best"
+                      : options.audioFormat?.formatId || "bestaudio/best",
+                  meta: {
+                    title: modalData.title,
+                    channel: modalData.channel,
+                    thumbnailUrl: modalData.thumbnail,
+                    mediaType: options.mediaType === "audio" ? "music" : "video",
+                    quality: options.videoFormat?.label || options.audioFormat?.label
+                  },
+                  extra: {
+                    embedThumbnail: options.embedThumbnail,
+                    embedMetadata: options.embedMetadata,
+                    subtitles: options.subtitles,
+                    subtitleLanguages: options.subtitleLanguages,
+                    reencodeFormat: options.reencodeFormat,
+                    proxy: settings.proxy || undefined,
+                    rateLimit: settings.bandwidthLimit || undefined,
+                    geoBypass: settings.geoBypass,
+                    cookiesFromBrowser: (settings.cookiesFromBrowser ||
+                      undefined) as DownloadExtras["cookiesFromBrowser"]
+                  } satisfies DownloadExtras
+                } satisfies JobInput;
+
+                queueMutation.mutate(jobInput);
+              },
+              isLoading: false
+            });
           } catch (err) {
-            updateFormatModal({
-              isLoading: false,
+            openFormatModal(null, {
               isError: true,
               error: "Failed to parse video information"
             });
           }
         },
         onError: (err) => {
-          updateFormatModal({
-            isLoading: false,
+          openFormatModal(null, {
             isError: true,
             error: err instanceof Error ? err.message : "Failed to fetch video information"
           });
@@ -91,12 +102,7 @@ export const QuickActionsWindow = ({ onClose }: QuickActionsWindowProps) => {
     <div className="flex flex-col h-full bg-background">
       <div className="flex items-center justify-between p-3 border-b border-border">
         <h2 className="text-sm font-semibold text-foreground">Quick Download</h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="w-6 h-6"
-          onClick={onClose}
-        >
+        <Button variant="ghost" size="icon" className="w-6 h-6" onClick={onClose}>
           <X className="w-3.5 h-3.5" />
         </Button>
       </div>
