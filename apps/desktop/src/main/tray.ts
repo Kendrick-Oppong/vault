@@ -1,7 +1,8 @@
-import { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain } from "electron";
-import path from "path";
+import { app, BrowserWindow, Menu, Tray, nativeImage } from "electron";
+import path from "node:path";
 
 let tray: Tray | null = null;
+const vaultApp = app as typeof app & { isQuitting?: boolean };
 
 export function createTray(mainWindow: BrowserWindow) {
   // Create tray icon from app icon
@@ -51,7 +52,7 @@ export function createTray(mainWindow: BrowserWindow) {
 
   // Handle minimize to tray
   mainWindow.on("close", (event) => {
-    if (!app.isQuitting) {
+    if (!vaultApp.isQuitting) {
       event.preventDefault();
       mainWindow.hide();
     }
