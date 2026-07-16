@@ -200,17 +200,17 @@ export const SettingsView = () => {
             />
           </Row>
 
-          <Row
-            label="Embed chapters"
-            description="Include YouTube chapter markers when available"
-          >
+          <Row label="Embed chapters" description="Include YouTube chapter markers when available">
             <Switch
               checked={settings.embedChapters}
               onCheckedChange={(checked) => updateSetting("embedChapters", checked)}
             />
           </Row>
 
-          <Row label="Write subtitles" description="Download available subtitles alongside the video">
+          <Row
+            label="Write subtitles"
+            description="Download available subtitles alongside the video"
+          >
             <Switch
               checked={settings.writeSubtitles}
               onCheckedChange={(checked) => updateSetting("writeSubtitles", checked)}
@@ -227,7 +227,10 @@ export const SettingsView = () => {
                 onChange={(e) =>
                   updateSetting(
                     "subtitleLangs",
-                    e.target.value.split(",").map((l) => l.trim()).filter(Boolean)
+                    e.target.value
+                      .split(",")
+                      .map((l) => l.trim())
+                      .filter(Boolean)
                   )
                 }
                 placeholder="en, zh, fr"
