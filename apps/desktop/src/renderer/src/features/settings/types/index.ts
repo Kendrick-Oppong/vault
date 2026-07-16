@@ -1,16 +1,23 @@
+export type VideoContainer = "mp4" | "mkv";
+
 export interface Settings {
   downloadPath: string;
-  outputTemplate?: string;
+  outputTemplate: string;
+  playlistFetchLimit: number;
   concurrentDownloads: number;
   minimizeToTray: boolean;
   bandwidthLimit: string;
   proxy: string;
   geoBypass: boolean;
-  // Browser cookie import: 'auto', browser name, or null/'' for disabled
   cookiesFromBrowser: string | null;
   cookiesFilePath: string;
   embedThumbnail: boolean;
   embedMetadata: boolean;
+  embedChapters: boolean;
+  sponsorBlock: boolean;
+  writeSubtitles: boolean;
+  subtitleLangs: string[];
+  videoContainer: VideoContainer;
   version: string;
   ytDlpVersion: string;
 }
