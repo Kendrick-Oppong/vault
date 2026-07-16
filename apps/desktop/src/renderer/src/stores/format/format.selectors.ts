@@ -33,4 +33,4 @@ export const selectAudioBitrate = (state: FormatStore) => state.audioBitrate;
 export const selectIsCustomMode = (state: FormatStore) => state.isCustomMode;
 
 export const useFormatPresets = () => getPresets();
-export const useFormatPresetById = (id: string) => getPresetById(id as any);
+export const useFormatPresetById = (id: PresetType) => getPresetById(id);
