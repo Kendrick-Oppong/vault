@@ -19,7 +19,7 @@ export const useLogsActions = () =>
     }))
   );
 
-export const selectFilteredLogs = (state: typeof useLogsStore.getState()) => {
+export const selectFilteredLogs = (state: ReturnType<typeof useLogsStore.getState>) => {
   const { entries, filter } = state;
   if (filter === "all") return entries;
   return entries.filter((entry) => entry.level === filter);
