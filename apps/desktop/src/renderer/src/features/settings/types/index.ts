@@ -1,5 +1,6 @@
 export interface Settings {
   downloadPath: string;
+  outputTemplate?: string;
   concurrentDownloads: number;
   minimizeToTray: boolean;
   bandwidthLimit: string;

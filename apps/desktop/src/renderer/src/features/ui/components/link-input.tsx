@@ -7,6 +7,7 @@ import { Kbd } from "@vault/ui/components/kbd";
 import { getModifierKey } from "@/lib/utils/platform";
 import { useModalActions } from "@/stores/ui/modal.selectors";
 import { useSettingsStore } from "@/stores/settings/settings.store";
+import { selectSettings } from "@/stores/settings/settings.selectors";
 import { mapProbeToFormatModalData } from "@/lib/utils/format-probe";
 import { toast } from "sonner";
 import { useProbeFormatsMutation, useQueueDownload } from "@/lib/mutations/downloads";
@@ -25,6 +26,7 @@ export const LinkInput = () => {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const { openFormatModal, updateFormatModal, closeFormatModal } = useModalActions();
+  const settings = useSettingsStore(selectSettings);
   const queueDownload = useQueueDownload();
   const probeMutation = useProbeFormatsMutation();
 
@@ -94,13 +96,15 @@ export const LinkInput = () => {
               const quality =
                 options.videoFormat?.resolution || options.audioFormat?.label || undefined;
 
-              // Generate output template from destination path if it doesn't already contain template placeholders
-              let outputTemplate = options.destination;
-              if (!outputTemplate.includes("%(")) {
-                // If no template placeholders, assume it's a folder path and add default template
-                // Ensure path ends without separator, then add template
-                const separator = outputTemplate.endsWith("/") || outputTemplate.endsWith("\\") ? "" : "/";
-                outputTemplate = `${outputTemplate}${separator}%(title)s.%(ext)s`;
+              // Generate output template: prioritize user settings, fallback to default
+              let outputTemplate = settings.outputTemplate || "%(title)s.%(ext)s";
+              
+              // Combine with destination folder path
+              const destinationFolder = options.destination;
+              if (!outputTemplate.includes("/") && !outputTemplate.includes("\\")) {
+                // Template is just filename pattern, append to destination folder
+                const separator = destinationFolder.endsWith("/") || destinationFolder.endsWith("\\") ? "" : "/";
+                outputTemplate = `${destinationFolder}${separator}${outputTemplate}`;
               }
 
               if (linkType === "playlist" && options.selectedItems && data.playlistItems) {

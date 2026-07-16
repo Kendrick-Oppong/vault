@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@vault/ui/components/button";
 import { WifiOff, AlertTriangle, Sparkles, X } from "lucide-react";
 import { cn } from "@vault/ui/lib/utils";
+import { useSystemAlertsState, useSystemAlertsActions } from "@/stores/system-alerts/system-alerts.selectors";
 
 interface AlertBannerProps {
   type: "offline" | "disk" | "update";
@@ -43,16 +44,6 @@ const alertConfig = {
     defaultActionText: "Restart now"
   }
 };
-
-interface AlertBannersProps {
-  offline?: boolean;
-  disk?: boolean;
-  update?: boolean;
-  onOfflineAction?: () => void;
-  onDiskAction?: () => void;
-  onUpdateAction?: () => void;
-  onUpdateDismiss?: () => void;
-}
 
 export const AlertBanner = ({ type, onDismiss, onAction, actionText }: AlertBannerProps) => {
   const config = alertConfig[type];
@@ -98,15 +89,10 @@ export const AlertBanner = ({ type, onDismiss, onAction, actionText }: AlertBann
   );
 };
 
-export const AlertBanners = ({
-  offline = false,
-  disk = false,
-  update = false,
-  onOfflineAction,
-  onDiskAction,
-  onUpdateAction,
-  onUpdateDismiss
-}: AlertBannersProps) => {
+export const AlertBanners = () => {
+  const { offline, lowDisk, updateAvailable } = useSystemAlertsState();
+  const { dismissUpdateAlert } = useSystemAlertsActions();
+
   const [dismissedOffline, setDismissedOffline] = useState(false);
   const [dismissedDisk, setDismissedDisk] = useState(false);
   const [dismissedUpdate, setDismissedUpdate] = useState(false);
@@ -121,24 +107,36 @@ export const AlertBanners = ({
 
   const handleUpdateDismiss = () => {
     setDismissedUpdate(true);
-    if (onUpdateDismiss) onUpdateDismiss();
+    dismissUpdateAlert();
+  };
+
+  const handleOfflineAction = () => {
+    // Retry connection - would be called when network comes back online
+  };
+
+  const handleDiskAction = () => {
+    // TODO: Open file manager to manage disk space
+  };
+
+  const handleUpdateAction = () => {
+    // TODO: Trigger app update and restart
   };
 
   return (
     <div className="flex flex-col">
       {offline && !dismissedOffline && (
-        <AlertBanner type="offline" onDismiss={handleOfflineDismiss} onAction={onOfflineAction} />
+        <AlertBanner type="offline" onDismiss={handleOfflineDismiss} onAction={handleOfflineAction} />
       )}
 
-      {disk && !dismissedDisk && (
-        <AlertBanner type="disk" onDismiss={handleDiskDismiss} onAction={onDiskAction} />
+      {lowDisk && !dismissedDisk && (
+        <AlertBanner type="disk" onDismiss={handleDiskDismiss} onAction={handleDiskAction} />
       )}
 
-      {update && !dismissedUpdate && (
+      {updateAvailable && !dismissedUpdate && (
         <AlertBanner
           type="update"
           onDismiss={handleUpdateDismiss}
-          onAction={onUpdateAction}
+          onAction={handleUpdateAction}
           actionText="Restart now"
         />
       )}

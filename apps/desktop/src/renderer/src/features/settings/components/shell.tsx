@@ -22,7 +22,8 @@ import {
   CheckCircle2,
   LogIn,
   LogOut,
-  Upload
+  Upload,
+  Palette
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Settings } from "../types";
@@ -31,10 +32,12 @@ import { selectSettings, useSettingsActions } from "@/stores/settings/settings.s
 import { useSetConcurrency } from "@/lib/mutations/downloads";
 import { useYoutubeAuth } from "@/lib/queries/auth";
 import { useYoutubeLogin, useYoutubeLogout } from "@/lib/mutations/auth";
+import { useUIState } from "@/stores/ui/ui.selectors";
 
 export const SettingsView = () => {
   const settings = useSettingsStore(selectSettings);
   const { updateSetting } = useSettingsActions();
+  const { theme, setTheme } = useUIState();
   const [bandwidthError, setBandwidthError] = useState(false);
   const [proxyError, setProxyError] = useState(false);
   const { data: ytSignedIn = false } = useYoutubeAuth();
@@ -120,6 +123,22 @@ export const SettingsView = () => {
                 className="w-1/2 bg-secondary/60 border-border-strong text-[12px]"
               />
             </div>
+            <div className="py-1.5">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <span>Output filename template</span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Use %(title)s for title, %(id)s for video ID, %(ext)s for extension
+                  </p>
+                </div>
+                <Input
+                  value={settings.outputTemplate || "%(title)s.%(ext)s"}
+                  onChange={(e) => updateSetting("outputTemplate", e.target.value)}
+                  placeholder="%(title)s.%(ext)s"
+                  className="w-56 bg-secondary/60 border-border-strong text-[12px]"
+                />
+              </div>
+            </div>
             <div className="flex items-center justify-between py-1.5">
               <span>Concurrent downloads</span>
               <div className="flex items-center gap-2">
@@ -148,6 +167,19 @@ export const SettingsView = () => {
                 checked={settings.minimizeToTray}
                 onCheckedChange={(checked) => updateSetting("minimizeToTray", checked)}
               />
+            </div>
+            <div className="flex items-center justify-between py-1.5">
+              <span>Appearance</span>
+              <Select value={theme} onValueChange={(value) => setTheme(value as any)}>
+                <SelectTrigger className="w-40 bg-secondary/60 border-border text-[12px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>

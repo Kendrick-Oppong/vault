@@ -170,12 +170,36 @@ export function validateOutputTemplate(template: string): { valid: boolean; erro
   }
 
   // Check for invalid characters in path (platform-specific)
-  const invalidChars = process.platform === 'win32' ? /[<>:"|?*]/ : /\0/;
-  if (invalidChars.test(template)) {
-    return {
-      valid: false,
-      error: `Output template contains invalid characters for ${process.platform}`
-    };
+  // Windows: exclude <>":|?* but allow : in drive letters (e.g., C:)
+  // Allow backslashes as path separators, but not other special chars used in filenames
+  const hasPathPrefix = /^[A-Za-z]:/.test(template);
+  if (process.platform === 'win32') {
+    // Check for genuinely invalid chars (excluding those that are path-safe: \/:.)
+    const invalidChars = /[<>"|?*]/;
+    if (invalidChars.test(template)) {
+      return {
+        valid: false,
+        error: 'Output template contains invalid characters: < > " | ? *'
+      };
+    }
+    // Allow colons only in drive letter prefix (e.g., C:)
+    const colonIndices = [...template.matchAll(/:/g)].map(m => m.index);
+    for (const idx of colonIndices) {
+      if (idx !== 1 || !hasPathPrefix) {
+        return {
+          valid: false,
+          error: 'Output template can only contain colons in drive letters (e.g., C:)'
+        };
+      }
+    }
+  } else if (process.platform !== 'win32') {
+    // Unix: reject only null characters
+    if (/\0/.test(template)) {
+      return {
+        valid: false,
+        error: 'Output template contains invalid null characters'
+      };
+    }
   }
 
   return { valid: true };
