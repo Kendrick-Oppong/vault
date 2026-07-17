@@ -52,10 +52,10 @@ export function initDb(dbPath: string): VaultDb {
 
   // Migration: add columns if they don't exist (for users upgrading from older schema)
   const cols = db.prepare("PRAGMA table_info(history)").all() as { name: string }[];
-  const colNames = cols.map((c) => c.name);
-  if (!colNames.includes("media_type")) db.exec("ALTER TABLE history ADD COLUMN media_type TEXT");
-  if (!colNames.includes("quality")) db.exec("ALTER TABLE history ADD COLUMN quality TEXT");
-  if (!colNames.includes("file_size")) db.exec("ALTER TABLE history ADD COLUMN file_size INTEGER");
+  const colNames = new Set(cols.map((c) => c.name));
+  if (!colNames.has("media_type")) db.exec("ALTER TABLE history ADD COLUMN media_type TEXT");
+  if (!colNames.has("quality")) db.exec("ALTER TABLE history ADD COLUMN quality TEXT");
+  if (!colNames.has("file_size")) db.exec("ALTER TABLE history ADD COLUMN file_size INTEGER");
 
   return {
     raw: db,
