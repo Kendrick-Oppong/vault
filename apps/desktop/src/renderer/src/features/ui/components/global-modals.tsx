@@ -22,11 +22,12 @@ export const GlobalModals = () => {
           onOpenChange={(open) => !open && closeFormatModal()}
           data={
             formatModal.data ?? {
+              id: "",
               title: "Loading…",
               channel: "",
               type: "video" as const,
-              videoFormats: [],
-              audioFormats: []
+              videoPresets: [],
+              audioPresets: []
             }
           }
           isLoading={formatModal.isLoading}
