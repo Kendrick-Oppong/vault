@@ -51,6 +51,7 @@ function mapProbeToFormatModalData(
   if (linkType === "playlist") {
     const items = raw
       .filter((e) => e["_type"] !== "playlist")
+      .filter((e) => e["url"] || e["webpage_url"]) // Filter out items without URLs
       .map((e) => ({
         id: str(e["id"], ""),
         title: str(e["title"], "Untitled"),
@@ -97,6 +98,27 @@ function buildVideoFormats(rawFormats: RawFormat[]): VideoFormat[] {
     (f) => f["vcodec"] && f["vcodec"] !== "none" && f["height"] && f["ext"] !== "mhtml"
   );
 
+  // Get best audio format for size estimation
+  const audioFormats = rawFormats.filter(
+    (f) =>
+      (f["vcodec"] === "none" ||
+        f["vcodec"] === undefined ||
+        f["vcodec"] === null ||
+        f["vcodec"] === "") &&
+      f["acodec"] &&
+      f["acodec"] !== "none"
+  );
+
+  // Find the best audio format by bitrate
+  let bestAudioSize = 0;
+  for (const f of audioFormats) {
+    const size = num(f["filesize"]) ?? num(f["filesize_approx"]) ?? 0;
+    if (size > bestAudioSize) bestAudioSize = size;
+  }
+
+  // If no audio size found, estimate ~5MB for audio
+  if (bestAudioSize === 0) bestAudioSize = 5 * 1024 * 1024;
+
   const byHeight = new Map<number, RawFormat>();
   for (const f of videoOnly) {
     const h = num(f["height"]) ?? 0;
@@ -110,10 +132,13 @@ function buildVideoFormats(rawFormats: RawFormat[]): VideoFormat[] {
     .sort(([a], [b]) => b - a)
     .map(([height, f]) => {
       const fps = Math.round(num(f["fps"]) ?? 30);
-      const { size, sizeBytes } = approxSize(num(f["filesize"]) ?? num(f["filesize_approx"]));
+      const videoSize = num(f["filesize"]) ?? num(f["filesize_approx"]) ?? 0;
+      const totalSize = videoSize + bestAudioSize;
+      const { size, sizeBytes } = approxSize(totalSize);
       const codec = str(f["vcodec"], "MP4").split(".")[0].toUpperCase();
       const label = resolutionLabel(height);
-      return { label, resolution: label, fps: [fps], codec, size, sizeBytes };
+      const formatId = str(f["format_id"], "");
+      return { label, resolution: label, fps: [fps], codec, size, sizeBytes, formatId };
     });
 }
 
@@ -157,7 +182,8 @@ function buildAudioFormats(rawFormats: RawFormat[]): AudioFormat[] {
       bitrate = abr !== undefined ? `${Math.round(abr)} kbps` : "Unknown";
     }
     const label = codec === "M4A" ? "AAC" : codec;
-    return { label, codec, bitrate, size, sizeBytes, lossless };
+    const formatId = str(f["format_id"], "");
+    return { label, codec, bitrate, size, sizeBytes, lossless, formatId };
   });
 }
 
