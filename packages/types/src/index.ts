@@ -1,5 +1,7 @@
 // Shared types between main and renderer
 
+export * from "./presets";
+
 export interface JobMeta {
   videoId?: string;
   title?: string;
@@ -46,6 +48,7 @@ export interface DownloadExtras {
   reencodeFormat?: "none" | "h264-aac" | "h265-aac";
   videoContainer?: "mp4" | "mkv";
   audioFormat?: string; // e.g., "mp3", "m4a", "opus", "flac", "wav"
+  audioBitrate?: number; // e.g., 320, 256, 192, 128, 96 (kbps)
   useDownloadArchive?: boolean;
 }
 
