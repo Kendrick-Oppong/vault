@@ -1,15 +1,15 @@
-import { useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, Copy, Trash2 } from "lucide-react";
-import { useLogsState, useLogsActions } from "@/stores/logs/logs.selectors";
-import type { LogEntry } from "@/stores/logs/logs.store";
+import { useMemo, useRef, useState, useEffect } from "react";
+import { ArrowDownToLine, Copy, Check } from "lucide-react";
+import { Button } from "@vault/ui/components/button";
+import { useLogsHistory } from "@/lib/queries/logs";
 
-type Level = LogEntry["level"];
+type Level = "info" | "warn" | "error" | "debug";
 const LEVELS: Level[] = ["debug", "info", "warn", "error"];
 
 const LEVEL_STYLE: Record<Level, string> = {
   debug: "text-muted-foreground",
   info: "text-sky-400",
-  warn: "text-amber-400",
+  warn: "text-primary",
   error: "text-destructive"
 };
 
@@ -18,25 +18,21 @@ function formatTime(ms: number): string {
 }
 
 export const LogsView = () => {
-  const { entries } = useLogsState();
-  const { clearLogs } = useLogsActions();
+  const { data: entries = [], isLoading } = useLogsHistory();
   const [active, setActive] = useState<Set<Level>>(new Set(LEVELS));
   const [follow, setFollow] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [followJustToggled, setFollowJustToggled] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const visible = useMemo(() => entries.filter((l) => active.has(l.level)), [entries, active]);
 
   // Scroll to bottom when follow is on and new entries arrive
-  const prevLenRef = useRef(0);
-  if (follow && visible.length !== prevLenRef.current) {
-    prevLenRef.current = visible.length;
-    // Use a ref callback instead of useEffect
-    requestAnimationFrame(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      }
-    });
-  }
+  useEffect(() => {
+    if (follow && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [visible.length, follow]);
 
   const toggleLevel = (level: Level) => {
     setActive((prev) => {
@@ -47,11 +43,19 @@ export const LogsView = () => {
     });
   };
 
+  const toggleFollow = () => {
+    setFollow((v) => !v);
+    setFollowJustToggled(true);
+    setTimeout(() => setFollowJustToggled(false), 1500);
+  };
+
   const copyAll = () => {
     const text = visible
       .map((l) => `[${formatTime(l.timestamp)}] ${l.level.toUpperCase()} ${l.message}`)
       .join("\n");
     void navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -60,47 +64,41 @@ export const LogsView = () => {
         <h1 className="text-base font-semibold">Logs</h1>
         <div className="flex items-center gap-1.5">
           {LEVELS.map((level) => (
-            <button
+            <Button
               key={level}
+              variant={active.has(level) ? "secondary" : "ghost"}
+              size="sm"
               onClick={() => toggleLevel(level)}
-              className={`rounded-md px-2 py-1 text-xs font-medium capitalize transition-colors ${
-                active.has(level)
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className="text-xs capitalize"
             >
               {level}
-            </button>
+            </Button>
           ))}
           <span className="mx-1 h-4 w-px bg-border" />
-          <button
-            onClick={() => setFollow((v) => !v)}
-            title="Follow new logs"
-            className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
-              follow
-                ? "bg-secondary text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+          <Button
+            variant={follow ? "secondary" : "ghost"}
+            size="sm"
+            onClick={toggleFollow}
+            title={follow ? "Stop following new logs" : "Follow new logs"}
+            className="text-xs"
           >
-            <ArrowDownToLine size={13} />
-            Tail
-          </button>
-          <button
+            <ArrowDownToLine size={13} className="mr-1" />
+            {followJustToggled ? (follow ? "Following" : "Paused") : "Tail"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={copyAll}
             title="Copy visible logs"
-            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+            className="text-xs"
           >
-            <Copy size={13} />
-            Copy
-          </button>
-          <button
-            onClick={clearLogs}
-            title="Clear logs"
-            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 size={13} />
-            Clear
-          </button>
+            {copied ? (
+              <Check size={13} className="mr-1 text-green-500" />
+            ) : (
+              <Copy size={13} className="mr-1" />
+            )}
+            {copied ? "Copied!" : "Copy"}
+          </Button>
         </div>
       </div>
 
@@ -108,20 +106,22 @@ export const LogsView = () => {
         ref={scrollRef}
         className="flex-1 overflow-y-auto rounded-xl border border-border bg-black/30 p-3 font-mono text-xs leading-relaxed"
       >
-        {visible.length === 0 ? (
+        {isLoading ? (
+          <p className="text-muted-foreground">Loading logs...</p>
+        ) : visible.length === 0 ? (
           <p className="text-muted-foreground">No log entries.</p>
         ) : (
-          visible.map((entry) => (
-            <div key={entry.id} className="flex gap-2 whitespace-pre-wrap break-all">
+          visible.map((entry, index) => (
+            <div
+              key={`${entry.timestamp}-${index}`}
+              className="flex gap-2 whitespace-pre-wrap break-all"
+            >
               <span className="shrink-0 text-muted-foreground/60">
                 {formatTime(entry.timestamp)}
               </span>
               <span className={`shrink-0 uppercase font-bold ${LEVEL_STYLE[entry.level]}`}>
                 {entry.level}
               </span>
-              {entry.context && (
-                <span className="shrink-0 text-muted-foreground/60">[{entry.context}]</span>
-              )}
               <span className="text-foreground/80">{entry.message}</span>
             </div>
           ))
