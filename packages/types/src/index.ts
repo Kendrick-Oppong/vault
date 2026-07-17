@@ -8,6 +8,7 @@ export interface JobMeta {
   expectedPath?: string;
   mediaType?: "video" | "music";
   quality?: string;
+  duration?: string;
 }
 
 export interface JobInput {
@@ -44,6 +45,8 @@ export interface DownloadExtras {
   archiveKey?: string;
   reencodeFormat?: "none" | "h264-aac" | "h265-aac";
   videoContainer?: "mp4" | "mkv";
+  audioFormat?: string; // e.g., "mp3", "m4a", "opus", "flac", "wav"
+  useDownloadArchive?: boolean;
 }
 
 export interface YtDlpProgress {
