@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,6 @@ import {
 import { Button } from "@vault/ui/components/button";
 import { Input } from "@vault/ui/components/input";
 import { Checkbox } from "@vault/ui/components/checkbox";
-import { RadioGroup, RadioGroupItem } from "@vault/ui/components/radio-group";
 import { Label } from "@vault/ui/components/label";
 import {
   Select,
@@ -18,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@vault/ui/components/select";
-import { mapCodecToYtdlpFormat } from "@/lib/utils/format";
 import { Badge } from "@vault/ui/components/badge";
 import {
   Video,
@@ -29,28 +27,26 @@ import {
   AlertCircle,
   RefreshCw,
   AudioLines,
-  FolderOpen
+  FolderOpen,
+  Volume2
 } from "lucide-react";
 import { cn } from "@vault/ui/lib/utils";
-import type {
-  FormatModalData,
-  FormatModalProps,
-  MediaType,
-  VideoFormat,
-  AudioFormat
-} from "../types";
+import type { FormatModalData, FormatModalProps, MediaType, Preset } from "../types";
 import { useSettingsStore } from "@/stores/settings/settings.store";
 import { selectSettings } from "@/stores/settings/settings.selectors";
-import { formatBytes } from "@/lib/utils/platform";
 import { SkeletonLoader } from "@/features/ui/components/skeleton-loader";
 import { useOpenFolderDialog } from "@/lib/mutations/files";
+import type { VideoContainer, AudioFormat } from "@vault/types";
+import { formatBytes } from "@/lib/utils/platform";
+import { VIDEO_CONTAINERS, AUDIO_FORMATS, AUDIO_BITRATES } from "@/features/modals/lib/constants";
 
 const defaultData: FormatModalData = {
+  id: "",
   title: "Loading...",
   channel: "",
   type: "video",
-  videoFormats: [],
-  audioFormats: []
+  videoPresets: [],
+  audioPresets: []
 };
 
 export const FormatModal = ({
@@ -66,13 +62,33 @@ export const FormatModal = ({
   const settings = useSettingsStore(selectSettings);
   const openFolderMutation = useOpenFolderDialog();
   const [mediaType, setMediaType] = useState<MediaType>("video");
-  const [selectedVideoFormat, setSelectedVideoFormat] = useState<VideoFormat | null>(() => {
-    if (data.videoFormats.length === 0) return null;
-    return data.videoFormats[Math.floor(data.videoFormats.length / 2)];
+  const [selectedPreset, setSelectedPreset] = useState<Preset | null>(() => {
+    const presets = mediaType === "video" ? data.videoPresets : data.audioPresets;
+    if (presets.length === 0) return null;
+    // Default to 1080p for video, or first audio preset
+    if (mediaType === "video") {
+      return presets.find((p) => p.id === "1080p") || presets[0];
+    }
+    return presets[0];
   });
-  const [selectedAudioFormat, setSelectedAudioFormat] = useState<AudioFormat | null>(
-    () => data.audioFormats[0] ?? null
+  const [formatId, setFormatId] = useState<string>("");
+  const [videoContainer, setVideoContainer] = useState<VideoContainer>(
+    settings.videoContainer || "mp4"
   );
+  const [audioFormat, setAudioFormat] = useState<AudioFormat>("mp3");
+
+  // Helper to extract height from resolution string
+  const extractHeight = (resolution: string): number => {
+    // Handle "1920x1080" format
+    const xMatch = resolution.match(/(\d+)x(\d+)/);
+    if (xMatch) return Number.parseInt(xMatch[2], 10);
+    // Handle "1080p" format
+    const pMatch = resolution.match(/(\d+)p/);
+    return pMatch ? Number.parseInt(pMatch[1], 10) : 0;
+  };
+  const [audioBitrate, setAudioBitrate] = useState<number>(320);
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const lastPlaylistId = useRef<string | null>(null);
   const [embedThumbnail, setEmbedThumbnail] = useState(settings.embedThumbnail);
   const [embedMetadata, setEmbedMetadata] = useState(settings.embedMetadata);
   const [embedChapters, setEmbedChapters] = useState(settings.embedChapters);
@@ -81,76 +97,99 @@ export const FormatModal = ({
   const [subtitleLanguages, setSubtitleLanguages] = useState<string[]>(
     settings.subtitleLangs || ["en"]
   );
-  const [videoContainer, setVideoContainer] = useState<"mp4" | "mkv">(
-    settings.videoContainer || "mp4"
-  );
   const [destination, setDestination] = useState(settings.downloadPath);
-  const [selectedItems, setSelectedItems] = useState<string[]>(
-    () => data.playlistItems?.map((i) => i.id) ?? []
-  );
+
+  // Auto-select all playlist items when a new playlist loads
+  useEffect(() => {
+    if (data.type !== "playlist") {
+      lastPlaylistId.current = null;
+      setTimeout(() => {
+        setSelectedItems(new Set());
+      }, 0);
+      return;
+    }
+    if (lastPlaylistId.current !== data.id) {
+      lastPlaylistId.current = data.id;
+      setTimeout(() => {
+        setSelectedItems(new Set(data.playlistItems?.map((_, i) => i + 1) || []));
+      }, 0);
+    }
+  }, [data.id, data.type, data.playlistItems]);
 
   // Sync state when data changes (e.g. after loading finishes)
   useEffect(() => {
     if (!isLoading) {
       // Use timeout to prevent synchronous state updates during render phase
       setTimeout(() => {
-        // Validate or set video format
-        const isValidVideo =
-          selectedVideoFormat &&
-          data.videoFormats.some((f) => f.label === selectedVideoFormat.label);
-        if (data.videoFormats.length > 0 && !isValidVideo) {
-          setSelectedVideoFormat(data.videoFormats[Math.floor(data.videoFormats.length / 2)]);
+        const presets = mediaType === "video" ? data.videoPresets : data.audioPresets;
+        // Validate or set preset
+        const isValidPreset = selectedPreset && presets.some((p) => p.id === selectedPreset.id);
+        if (presets.length > 0 && !isValidPreset) {
+          if (mediaType === "video") {
+            setSelectedPreset(presets.find((p) => p.id === "1080p") || presets[0]);
+          } else {
+            setSelectedPreset(presets[0]);
+          }
         }
-        // Validate or set audio format
-        const isValidAudio =
-          selectedAudioFormat &&
-          data.audioFormats.some((f) => f.label === selectedAudioFormat.label);
-        if (data.audioFormats.length > 0 && !isValidAudio) {
-          setSelectedAudioFormat(data.audioFormats[0]);
-        }
-        // Validate or set playlist items
-        const currentItemIds = new Set(data.playlistItems?.map((i) => i.id) || []);
-        const hasValidItems =
-          selectedItems.length > 0 && selectedItems.some((id) => currentItemIds.has(id));
-        if (data.playlistItems && !hasValidItems) {
-          setSelectedItems(data.playlistItems.map((i) => i.id));
+        // Reset format ID when switching media type
+        if (mediaType === "audio") {
+          setFormatId("");
         }
       }, 0);
     }
-  }, [isLoading, data, selectedVideoFormat, selectedAudioFormat]);
+  }, [isLoading, data, selectedPreset, mediaType]);
 
   const handleOpenChange = (openState: boolean) => {
     if (isLoading) return; // Prevent dismissing while loading
     onOpenChange(openState);
   };
 
+  const toggleItem = (index: number) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  const toggleAllItems = () => {
+    if (!data.playlistItems) return;
+    setSelectedItems((prev) =>
+      prev.size === data.playlistItems!.length
+        ? new Set()
+        : new Set(data.playlistItems!.map((_, i) => i + 1))
+    );
+  };
+
   const handleConfirm = () => {
+    if (!selectedPreset) return;
     onConfirm({
       mediaType,
-      videoFormat: mediaType === "video" ? selectedVideoFormat || undefined : undefined,
-      audioFormat: mediaType === "audio" ? selectedAudioFormat || undefined : undefined,
+      preset: selectedPreset,
+      formatId: formatId || undefined,
+      videoContainer,
+      audioFormat,
+      audioBitrate:
+        mediaType === "audio" && audioFormat !== "flac" && audioFormat !== "wav"
+          ? audioBitrate
+          : undefined,
       embedThumbnail,
       embedMetadata,
       embedChapters,
       sponsorBlock,
       subtitles,
       subtitleLanguages: subtitles !== "none" ? subtitleLanguages : undefined,
-      videoContainer,
+      reencodeFormat: undefined,
       destination,
-      selectedItems: data.type === "playlist" ? selectedItems : undefined,
-      audioCodec:
-        mediaType === "audio" ? mapCodecToYtdlpFormat(selectedAudioFormat?.codec) : undefined
+      selectedItems: data.type === "playlist" ? [...selectedItems].map(String) : undefined
     });
     onOpenChange(false);
   };
 
   const getTotalSize = () => {
-    const format = mediaType === "video" ? selectedVideoFormat : selectedAudioFormat;
-    if (!format || format.sizeBytes === 0) return null;
-
-    const itemSize = format.sizeBytes;
-    const count = data.type === "playlist" ? selectedItems.length : 1;
-    return formatBytes(itemSize * count);
+    // Presets don't have size info since they depend on the actual video
+    return null;
   };
 
   const getBadges = () => {
@@ -161,19 +200,10 @@ export const FormatModal = ({
   };
 
   const isPlaylist = data.type === "playlist";
-  const isAllSelected = selectedItems.length === data.playlistItems?.length;
-
-  const handleToggleSelect = () => {
-    if (isAllSelected) {
-      setSelectedItems([]);
-    } else {
-      setSelectedItems(data.playlistItems?.map((i) => i.id) || []);
-    }
-  };
 
   const getItemCount = () => {
     if (isPlaylist) {
-      return selectedItems.length;
+      return selectedItems.size;
     }
     return 1;
   };
@@ -290,7 +320,7 @@ export const FormatModal = ({
                     Playlist items
                   </p>
                   <p className="text-[12px] text-muted-foreground">
-                    <span className="font-medium">{selectedItems.length}</span> of{" "}
+                    <span className="font-medium">{selectedItems.size}</span> of{" "}
                     <span>{data.playlistItems.length}</span> selected
                   </p>
                 </div>
@@ -299,28 +329,25 @@ export const FormatModal = ({
                     variant="link"
                     size="sm"
                     className="text-[12px] text-primary h-auto p-0"
-                    onClick={handleToggleSelect}
+                    onClick={toggleAllItems}
                   >
-                    {isAllSelected ? "Deselect all" : "Select all"}
+                    {selectedItems.size === data.playlistItems.length
+                      ? "Deselect all"
+                      : "Select all"}
                   </Button>
                 </div>
-                <div className="border border-border rounded-lg max-h-[300px] overflow-y-auto divide-y divide-border">
+                <div className="border border-border rounded-lg max-h-75 overflow-y-auto divide-y divide-border">
                   {data.playlistItems.map((item, index) => (
                     <label
                       key={item.id}
                       className="flex items-center gap-3 p-2.5 text-[12.5px] cursor-pointer hover:bg-accent/60 transition-colors"
                     >
                       <Checkbox
-                        checked={selectedItems.includes(item.id)}
-                        onCheckedChange={() => {
-                          const id = item.id;
-                          setSelectedItems((prev) =>
-                            prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-                          );
-                        }}
+                        checked={selectedItems.has(index + 1)}
+                        onCheckedChange={() => toggleItem(index + 1)}
                         className="w-4 h-4 shrink-0"
                       />
-                      <span className="text-muted-foreground w-4 text-[10px] text-right shrink-0">
+                      <span className="text-muted-foreground w-4 text-[12px] font-medium text-right shrink-0">
                         {index + 1}
                       </span>
                       <div className="relative w-14 h-9 bg-secondary rounded flex items-center justify-center overflow-hidden shrink-0">
@@ -335,9 +362,9 @@ export const FormatModal = ({
                         )}
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
-                        <span className="truncate">{item.title}</span>
+                        <span className="truncate font-medium">{item.title}</span>
                         {item.duration && (
-                          <span className="text-[10px] text-muted-foreground mt-0.5">
+                          <span className="text-[10px] font-medium text-muted-foreground mt-0.5">
                             {item.duration}
                           </span>
                         )}
@@ -349,7 +376,7 @@ export const FormatModal = ({
             )}
 
             {/* Media Type Toggle */}
-            <div className="flex items-center gap-1 bg-secondary/60 p-1 rounded-lg w-fit">
+            <div className="flex items-center gap-1 bg-secondary/60 border p-1 rounded-lg w-fit">
               <Button
                 variant={mediaType === "video" ? "default" : "ghost"}
                 size="sm"
@@ -370,87 +397,221 @@ export const FormatModal = ({
               </Button>
             </div>
 
-            {/* Video Formats Section */}
-            {mediaType === "video" && data.videoFormats.length > 0 && (
-              <div className="space-y-3">
+            {/* Preset Badges */}
+            <div className="flex flex-wrap gap-1.5">
+              {data.videoPresets.map((preset) => (
+                <Button
+                  key={preset.id}
+                  variant="outline"
+                  size="xs"
+                  onClick={() => {
+                    setSelectedPreset(preset);
+                    setMediaType("video");
+                    // Auto-select format based on preset height
+                    if (preset.maxHeight != null && data.videoFormats) {
+                      const maxHeight = preset.maxHeight;
+                      const match = data.videoFormats.find(
+                        (f) => extractHeight(f.resolution) <= maxHeight
+                      );
+                      setFormatId(match?.formatId || "");
+                    } else {
+                      setFormatId("");
+                    }
+                  }}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-sm uppercase transition-all duration-150",
+                    selectedPreset?.id === preset.id && mediaType === "video"
+                      ? "border-primary bg-primary/20 hover:bg-primary/20 text-primary"
+                      : "border-border bg-secondary/60 hover:bg-primary/10"
+                  )}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+              {data.audioPresets.map((preset) => (
+                <Button
+                  key={preset.id}
+                  variant="outline"
+                  size="xs"
+                  onClick={() => {
+                    setSelectedPreset(preset);
+                    setMediaType("audio");
+                    setFormatId("");
+                    // Auto-select audio format based on preset
+                    if (preset.audioFormat) {
+                      setAudioFormat(preset.audioFormat);
+                    }
+                  }}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-sm uppercase transition-all duration-150",
+                    selectedPreset?.id === preset.id && mediaType === "audio"
+                      ? "border-primary bg-primary/20 hover:bg-primary/20 text-primary"
+                      : "border-border bg-secondary/60 hover:bg-primary/10"
+                  )}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+
+            {/* Format Selection */}
+            {mediaType === "video" && (
+              <div className="space-y-2">
                 <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
-                  Video quality
+                  Video format
                 </p>
-                <div className="space-y-1.5">
-                  {data.videoFormats.map((format) => (
-                    <label
-                      key={format.label}
+                <Select
+                  value={formatId}
+                  onValueChange={(v) => {
+                    setFormatId(v || "");
+                    // Auto-select preset based on selected format
+                    if (v && data.videoFormats) {
+                      const selectedFormat = data.videoFormats.find((f) => f.formatId === v);
+                      if (selectedFormat) {
+                        const height = extractHeight(selectedFormat.resolution);
+                        const matchingPreset = data.videoPresets.find(
+                          (p) => p.maxHeight && height <= p.maxHeight
+                        );
+                        if (matchingPreset) {
+                          setSelectedPreset(matchingPreset);
+                        }
+                      }
+                    } else if (!v) {
+                      // Reset to "Best" preset when auto is selected
+                      const bestPreset = data.videoPresets.find((p) => p.id === "best");
+                      if (bestPreset) setSelectedPreset(bestPreset);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    {formatId ? (
+                      <span className="text-sm">
+                        {(() => {
+                          const selectedFormat = data.videoFormats?.find(
+                            (f) => f.formatId === formatId
+                          );
+                          return selectedFormat ? (
+                            <>
+                              {selectedFormat.resolution}
+                              {selectedFormat.fps && `@${selectedFormat.fps}`}
+                            </>
+                          ) : null;
+                        })()}
+                      </span>
+                    ) : (
+                      <SelectValue placeholder="Best quality (auto)" />
+                    )}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Best quality (auto)</SelectItem>
+                    {data.videoFormats?.map((f) => (
+                      <SelectItem key={f.formatId} value={f.formatId}>
+                        <span className="flex flex-col">
+                          <span>
+                            {f.resolution}
+                            {f.fps && `@${f.fps}`}
+                          </span>
+                          <span className="text-muted-foreground text-xs">
+                            {f.ext} · {formatBytes(f.filesize || 0)} · + audio
+                          </span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Volume2 className="w-3 h-3 text-primary" />
+                  Best available audio is automatically merged into the video.
+                </p>
+              </div>
+            )}
+
+            {/* Container Selection (Video) */}
+            {mediaType === "video" && (
+              <div className="space-y-2">
+                <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Container
+                </p>
+                <div className="flex items-center gap-2">
+                  {VIDEO_CONTAINERS.map((container) => (
+                    <Button
+                      key={container}
+                      variant="outline"
+                      size="xs"
+                      onClick={() => setVideoContainer(container as VideoContainer)}
                       className={cn(
-                        "fm-format-row flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors",
-                        selectedVideoFormat?.label === format.label
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:bg-accent/50"
+                        "rounded-lg border px-3 py-1.5 text-sm uppercase transition-all duration-150",
+                        videoContainer === container
+                          ? "border-primary bg-primary/20 hover:bg-primary/20 text-primary"
+                          : "border-border bg-secondary/60 hover:bg-primary/10"
                       )}
                     >
-                      <RadioGroup
-                        value={selectedVideoFormat?.label || ""}
-                        onValueChange={() => setSelectedVideoFormat(format)}
-                      >
-                        <RadioGroupItem value={format.label} className="w-3.5 h-3.5" />
-                      </RadioGroup>
-                      <span className="text-[13px] font-medium w-14">{format.resolution}</span>
-                      <div className="flex gap-1 w-20 flex-wrap">
-                        {format.fps.map((fps) => (
-                          <Badge key={fps} variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {fps}fps
-                          </Badge>
-                        ))}
-                      </div>
-                      <Badge variant="outline" className="text-[10px]">
-                        {format.codec}
-                      </Badge>
-                      <div className="flex-1" />
-                      <span className="text-[11.5px] text-muted-foreground text-right shrink-0">
-                        {format.size}
-                      </span>
-                    </label>
+                      {container}
+                    </Button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Audio Formats Section */}
-            {mediaType === "audio" && data.audioFormats.length > 0 && (
-              <div className="space-y-3">
+            {/* Audio Format Selection */}
+            {mediaType === "audio" && (
+              <div className="space-y-2">
                 <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
-                  Audio quality
+                  Audio format
                 </p>
-                <div className="space-y-1.5">
-                  {data.audioFormats.map((format) => (
-                    <label
-                      key={format.label}
+                <div className="flex flex-wrap gap-2">
+                  {AUDIO_FORMATS.map((format) => (
+                    <Button
+                      key={format}
+                      variant="secondary"
+                      size="xs"
+                      onClick={() => {
+                        setAudioFormat(format);
+                        // Auto-select preset based on audio format
+                        const matchingPreset = data.audioPresets.find(
+                          (p) => p.audioFormat === format
+                        );
+                        if (matchingPreset) {
+                          setSelectedPreset(matchingPreset);
+                        }
+                      }}
                       className={cn(
-                        "fm-format-row flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors",
-                        selectedAudioFormat?.label === format.label
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:bg-accent/50"
+                        "rounded-lg border px-3 py-1.5 text-sm uppercase transition-all duration-150",
+                        audioFormat === format
+                          ? "border-primary bg-primary/20 hover:bg-primary/20 text-primary"
+                          : "border-border bg-secondary/60 hover:bg-primary/10"
                       )}
                     >
-                      <RadioGroup
-                        value={selectedAudioFormat?.label || ""}
-                        onValueChange={() => setSelectedAudioFormat(format)}
-                      >
-                        <RadioGroupItem value={format.label} className="w-3.5 h-3.5" />
-                      </RadioGroup>
-                      <span className="text-[13px] font-medium w-14">{format.label}</span>
-                      <Badge
-                        variant={format.lossless ? "default" : "secondary"}
-                        className="text-[10px]"
-                      >
-                        {format.lossless ? "Lossless" : format.bitrate}
-                      </Badge>
-                      <div className="flex-1" />
-                      <span className="text-[11.5px] text-muted-foreground text-right shrink-0">
-                        {format.size}
-                      </span>
-                    </label>
+                      {format}
+                    </Button>
                   ))}
                 </div>
+                {audioFormat !== "flac" && audioFormat !== "wav" && (
+                  <div className="space-y-2 mt-5">
+                    <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Bitrate
+                    </p>
+                    <Select
+                      value={String(audioBitrate)}
+                      onValueChange={(v) => setAudioBitrate(Number(v))}
+                    >
+                      <SelectTrigger className="w-36">
+                        {audioBitrate ? (
+                          <span className="text-sm">{audioBitrate} kbps</span>
+                        ) : (
+                          <SelectValue />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {AUDIO_BITRATES.map((b) => (
+                          <SelectItem key={b} value={String(b)}>
+                            {b} kbps
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             )}
 
@@ -629,14 +790,12 @@ export const FormatModal = ({
               <Button
                 onClick={handleConfirm}
                 className="px-4 py-2 rounded-lg text-[13px] font-medium bg-primary text-primary-foreground flex items-center gap-1.5 h-auto"
-                disabled={
-                  isLoading ||
-                  (!selectedVideoFormat && !selectedAudioFormat) ||
-                  (isPlaylist && selectedItems.length === 0)
-                }
+                disabled={isLoading || !selectedPreset || (isPlaylist && selectedItems.size === 0)}
               >
                 <Download className="w-3.5 h-3.5" />
-                Add to queue
+                {isPlaylist && selectedItems.size > 0
+                  ? `Download ${selectedItems.size} items`
+                  : "Add to queue"}
               </Button>
             </div>
           </DialogFooter>
