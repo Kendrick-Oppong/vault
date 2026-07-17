@@ -107,9 +107,10 @@ export const useResumeDownload = () => {
     mutationFn: (jobId: string) => downloadsApi.resumeDownload(jobId),
     onSuccess: (newJobId, oldJobId) => {
       if (newJobId) {
-        // Remove the old paused entry — the new job:queued event will add the fresh one
+        // The job:queued event will add the new job and we'll handle the transition
+        // Optimistically update the old job status to indicate it's being resumed
         queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-          old.filter((j) => j.id !== oldJobId)
+          old.map((j) => (j.id === oldJobId ? { ...j, status: "pending" } : j))
         );
         toast.success("Download resumed");
       } else {
@@ -132,9 +133,10 @@ export const useRetryDownload = () => {
     mutationFn: (jobId: string) => downloadsApi.retryDownload(jobId),
     onSuccess: (newJobId, oldJobId) => {
       if (newJobId) {
-        // Remove the old failed entry — the new job:queued event will add the fresh one
+        //
+        // Optimistically update the old job status to indicate it's being retried
         queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-          old.filter((j) => j.id !== oldJobId)
+          old.map((j) => (j.id === oldJobId ? { ...j, status: "pending" } : j))
         );
         toast.success("Retrying download");
       } else {
