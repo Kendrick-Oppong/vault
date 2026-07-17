@@ -2,19 +2,16 @@ import { useModalStore } from "@/stores/ui/modal.store";
 import {
   selectFormatModal,
   selectConfirmDialog,
-  selectQuickActions,
   useModalActions
 } from "@/stores/ui/modal.selectors";
 import { FormatModal } from "@/features/modals/format-modal/components/format-modal";
 import { ConfirmationDialog } from "@/features/ui/components/confirmation-dialog";
 import { VideoPreviewModal } from "@/features/modals/video-preview-modal/video-preview-modal";
-import { QuickActionsWindow } from "@/features/quick-actions/quick-actions-window";
 
 export const GlobalModals = () => {
   const formatModal = useModalStore(selectFormatModal);
   const confirmDialog = useModalStore(selectConfirmDialog);
-  const quickActions = useModalStore(selectQuickActions);
-  const { closeFormatModal, closeConfirmDialog, closeQuickActions } = useModalActions();
+  const { closeFormatModal, closeConfirmDialog } = useModalActions();
 
   return (
     <>
@@ -60,15 +57,6 @@ export const GlobalModals = () => {
 
       {/* Video preview modal – self-contained, reads from video-preview store */}
       <VideoPreviewModal />
-
-      {/* Quick actions mini-window – triggered from tray or keyboard */}
-      {quickActions.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-80 rounded-xl border border-border bg-card shadow-2xl overflow-hidden">
-            <QuickActionsWindow onClose={closeQuickActions} />
-          </div>
-        </div>
-      )}
     </>
   );
 };
