@@ -86,14 +86,20 @@ export const useSettingsStore = create<SettingsStore>()(
             downloadPath:
               state.settings.downloadPath === UNSET
                 ? defaultDownloadPath
-                : state.settings.downloadPath
+                : state.settings.downloadPath,
+            // Ensure outputTemplate and playlistFetchLimit have defaults if empty
+            outputTemplate: state.settings.outputTemplate || baseDefaults.outputTemplate,
+            playlistFetchLimit:
+              state.settings.playlistFetchLimit === 0
+                ? 0
+                : state.settings.playlistFetchLimit || baseDefaults.playlistFetchLimit
           }
         }))
     }),
     {
       name: "vault-settings",
       storage: createJSONStorage(() => localStorage),
-      // Don't persist isReady — we always re-initialize on boot
+      //re-initialize on boot
       partialize: (state) => ({ settings: state.settings })
     }
   )
