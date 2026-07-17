@@ -1,4 +1,4 @@
-export type QueueFilter = "all" | "downloading" | "paused" | "queued" | "error";
+export type QueueFilter = "all" | "downloading" | "paused" | "queued" | "completed" | "error";
 
 export interface QueueItem {
   id: string;
@@ -16,6 +16,7 @@ export interface QueueItem {
   filePath?: string;
   errorMessage?: string;
   errorDetails?: string;
+  duration?: string;
 }
 
 export interface QueueStats {
@@ -23,6 +24,7 @@ export interface QueueStats {
   downloading: number;
   paused: number;
   queued: number;
+  completed: number;
   error: number;
 }
 

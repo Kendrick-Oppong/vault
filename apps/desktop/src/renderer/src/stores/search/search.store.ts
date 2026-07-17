@@ -3,6 +3,7 @@ import type { SearchResult } from "@/features/search/types";
 
 export interface SearchState {
   query: string;
+  inputValue: string;
   results: SearchResult[];
   isLoading: boolean;
   error: string | null;
@@ -12,6 +13,7 @@ export interface SearchState {
 
 export interface SearchActions {
   setQuery: (query: string) => void;
+  setInputValue: (inputValue: string) => void;
   setResults: (results: SearchResult[]) => void;
   appendResults: (results: SearchResult[]) => void;
   setIsLoading: (loading: boolean) => void;
@@ -26,6 +28,7 @@ export type SearchStore = SearchState & SearchActions;
 
 const initialState: SearchState = {
   query: "",
+  inputValue: "",
   results: [],
   isLoading: false,
   error: null,
@@ -37,6 +40,7 @@ export const useSearchStore = create<SearchStore>((set) => ({
   ...initialState,
 
   setQuery: (query: string) => set({ query }),
+  setInputValue: (inputValue: string) => set({ inputValue }),
   setResults: (results: SearchResult[]) => set({ results }),
   appendResults: (results: SearchResult[]) =>
     set((state) => ({ results: [...state.results, ...results] })),
@@ -48,6 +52,7 @@ export const useSearchStore = create<SearchStore>((set) => ({
   clearSearch: () =>
     set({
       query: "",
+      inputValue: "",
       results: [],
       error: null,
       hasMore: false,

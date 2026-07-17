@@ -4,6 +4,7 @@ import { useSearchStore } from "./search.store";
 
 const selectSearchState = (state: SearchStore) => ({
   query: state.query,
+  inputValue: state.inputValue,
   results: state.results,
   isLoading: state.isLoading,
   error: state.error,
@@ -13,6 +14,7 @@ const selectSearchState = (state: SearchStore) => ({
 
 const selectSearchActions = (state: SearchStore) => ({
   setQuery: state.setQuery,
+  setInputValue: state.setInputValue,
   setResults: state.setResults,
   appendResults: state.appendResults,
   setIsLoading: state.setIsLoading,
@@ -27,6 +29,7 @@ export const useSearchState = () => useSearchStore(useShallow(selectSearchState)
 export const useSearchActions = () => useSearchStore(useShallow(selectSearchActions));
 
 export const selectSearchQuery = (state: SearchStore) => state.query;
+export const selectSearchInputValue = (state: SearchStore) => state.inputValue;
 export const selectSearchResults = (state: SearchStore) => state.results;
 export const selectSearchIsLoading = (state: SearchStore) => state.isLoading;
 export const selectSearchError = (state: SearchStore) => state.error;

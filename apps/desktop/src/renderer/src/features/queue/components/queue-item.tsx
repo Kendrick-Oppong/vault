@@ -17,7 +17,12 @@ import {
 import { QueueContextMenu } from "./queue-context-menu";
 import type { QueueItem as QueueItemType } from "../types";
 import { useJobProgress } from "@/lib/queries/jobs";
-import { useCancelDownload, usePauseDownload, useResumeDownload, useRetryDownload } from "@/lib/mutations/downloads";
+import {
+  useCancelDownload,
+  usePauseDownload,
+  useResumeDownload,
+  useRetryDownload
+} from "@/lib/mutations/downloads";
 import { formatBytes } from "@/lib/utils/platform";
 
 interface QueueItemProps {
@@ -30,23 +35,26 @@ const statusColorMap: Record<string, string> = {
   downloading: "text-blue-500",
   paused: "text-primary",
   queued: "text-muted-foreground",
-  error: "text-destructive"
+  error: "text-destructive",
+  completed: "text-green-500"
 };
 
 const statusIconMap = {
-  downloading: Play,
-  paused: Pause,
+  downloading: Pause,
+  paused: Play,
   queued: Clock,
-  error: CircleAlert
+  error: CircleAlert,
+  completed: CircleAlert
 } as const;
 
 export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
-  const StatusIcon = statusIconMap[item.status];
+  const StatusIcon = statusIconMap[item.status] || CircleAlert;
   const statusColor = statusColorMap[item.status] || "text-muted-foreground";
   const isPaused = item.status === "paused";
   const isQueued = item.status === "queued";
   const isError = item.status === "error";
   const isDownloading = item.status === "downloading";
+  const isCompleted = item.status === "completed";
   const [imgError, setImgError] = useState(false);
 
   const { data: rawProgress } = useJobProgress(item.id);
@@ -57,15 +65,15 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
 
   // Map raw progress to queue item format if available
   const progress =
-    rawProgress?.downloaded_bytes && rawProgress?.total_bytes
+    !isCompleted && rawProgress?.downloaded_bytes && rawProgress?.total_bytes
       ? (rawProgress.downloaded_bytes / rawProgress.total_bytes) * 100
       : item.progress;
 
-  const downloaded = rawProgress?.downloaded_bytes
+  const downloaded = !isCompleted && rawProgress?.downloaded_bytes
     ? formatBytes(rawProgress.downloaded_bytes)
     : item.downloaded;
 
-  const size = rawProgress?.total_bytes
+  const size = !isCompleted && rawProgress?.total_bytes
     ? formatBytes(rawProgress.total_bytes)
     : rawProgress?.total_bytes_estimate
       ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
@@ -161,6 +169,20 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
       );
     }
 
+    if (isCompleted) {
+      return (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => cancelDownload(item.id)}
+          className="h-7 w-7 rounded hover:bg-accent transition-colors"
+          title="Remove"
+        >
+          <X className="w-3.5 h-3.5" />
+        </Button>
+      );
+    }
+
     return null;
   };
 
@@ -184,7 +206,8 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
             isError && "bg-destructive",
             isPaused && "bg-primary",
             isQueued && "bg-muted-foreground",
-            isDownloading && "bg-blue-500"
+            isDownloading && "bg-blue-500",
+            isCompleted && "bg-green-500"
           )}
         />
 
@@ -216,7 +239,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                 </div>
               </>
             )}
-            
+
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
             <span className="absolute bottom-1 right-1 z-10 opacity-90 drop-shadow-md">
               {item.type === "video" ? (
@@ -231,7 +254,15 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-[13px] font-medium truncate">{item.title}</p>
-                <p className="text-[11.5px] text-muted-foreground mt-0.5">{item.channel}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-[11.5px] text-muted-foreground">{item.channel}</p>
+                  {item.duration && (
+                    <>
+                      <span className="text-muted-foreground/30">·</span>
+                      <p className="text-[11.5px] text-muted-foreground">{item.duration}</p>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">

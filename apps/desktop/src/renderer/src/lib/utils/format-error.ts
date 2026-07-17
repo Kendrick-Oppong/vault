@@ -37,6 +37,57 @@ export function formatError(error: unknown): string {
     // Handle common error patterns (case-insensitive for robustness)
     const lowerMessage = message.toLowerCase();
 
+    // yt-dlp specific errors
+    if (lowerMessage.includes("yt-dlp download failed")) {
+      // Extract the actual error message from yt-dlp
+      const ytDlpMatch = message.match(/yt-dlp download failed \(code \d+\):\s*(.+)/s);
+      if (ytDlpMatch?.[1]) {
+        const ytDlpError = ytDlpMatch[1].trim();
+        // Handle common yt-dlp errors
+        if (
+          lowerMessage.includes("sign in to confirm") ||
+          lowerMessage.includes("authentication")
+        ) {
+          return "Authentication required. Enable cookies in settings.";
+        }
+        if (lowerMessage.includes("video unavailable") || lowerMessage.includes("not available")) {
+          return "Video is unavailable or has been removed.";
+        }
+        if (lowerMessage.includes("private video")) {
+          return "This is a private video. Enable cookies to access it.";
+        }
+        if (lowerMessage.includes("age restricted") || lowerMessage.includes("age-gate")) {
+          return "Age-restricted video. Enable cookies to access it.";
+        }
+        if (lowerMessage.includes("copyright") || lowerMessage.includes("blocked")) {
+          return "Video is blocked due to copyright restrictions.";
+        }
+        if (lowerMessage.includes("postprocessing") && lowerMessage.includes("thumbnail")) {
+          return "Thumbnail embedding failed. Try disabling thumbnail embedding.";
+        }
+        if (lowerMessage.includes("ffmpeg") || lowerMessage.includes("avconv")) {
+          return "FFmpeg error. Check your FFmpeg installation.";
+        }
+        if (lowerMessage.includes("network") || lowerMessage.includes("connection")) {
+          return "Network error. Check your internet connection.";
+        }
+        // Return a cleaner version of the yt-dlp error
+        return ytDlpError.split("\n")[0].substring(0, 100);
+      }
+      // Handle case where error code is present but no message
+      const codeMatch = message.match(/yt-dlp download failed \(code (\d+)\)/);
+      if (codeMatch?.[1]) {
+        const code = parseInt(codeMatch[1], 10);
+        // Common yt-dlp exit codes
+        if (code === 1) return "Download failed. Check the video URL or your connection.";
+        if (code === 2) return "Command-line error. Invalid parameters or configuration.";
+        if (code === 3) return "File not found or download error.";
+        if (code === 4) return "Network error or connection timeout.";
+        return `Download failed (code ${code})`;
+      }
+    }
+
+    // Network errors
     if (lowerMessage.includes("econnrefused")) {
       return "Connection refused. Is the service running?";
     }
@@ -57,25 +108,6 @@ export function formatError(error: unknown): string {
     }
     if (lowerMessage.includes("enospc")) {
       return "Not enough disk space.";
-    }
-
-    // yt-dlp specific auth errors
-    if (
-      lowerMessage.includes("sign in") ||
-      lowerMessage.includes("verify your age") ||
-      lowerMessage.includes("this video is private") ||
-      lowerMessage.includes("members-only") ||
-      lowerMessage.includes("login required")
-    ) {
-      return "Authentication required. Use 'Sign in to YouTube' in Settings > Authentication.";
-    }
-
-    // Chromium-based browsers (Chrome, Edge, Brave) lock their cookie database on Windows
-    if (
-      lowerMessage.includes("could not copy chrome cookie") ||
-      lowerMessage.includes("could not copy") && lowerMessage.includes("cookie")
-    ) {
-      return "Browser is locking its cookie database. Go to Settings > Authentication and click 'Sign in' to log in directly — no browser or extension needed.";
     }
 
     // Truncate very long messages
@@ -102,7 +134,7 @@ export function formatError(error: unknown): string {
       return "Resource not found (404)";
     }
     if (lowerMessage.includes("401") || lowerMessage.includes("403")) {
-      return "Authentication failed. Use 'Sign in to YouTube' in Settings > Authentication.";
+      return "Authentication failed";
     }
     if (lowerMessage.includes("500")) {
       return "Server error (500). Please try again later.";

@@ -3,7 +3,8 @@ import { randomUUID } from "node:crypto";
 import type { ChildProcess } from "node:child_process";
 import type { Job, JobInput, YtDlpProgress } from "@vault/types";
 import type { YtDlpManager } from "./ytdlp-manager";
-import { ProgressTracker } from "./progress-tracker";
+import { createProgressTracker } from "./progress-tracker";
+import { logger } from "./logger";
 
 export interface WorkerPoolOptions {
   ytdlp: YtDlpManager;
@@ -14,195 +15,226 @@ interface ActiveJob {
   job: Job;
   process: ChildProcess;
   promise: Promise<void>;
-  tracker?: ProgressTracker;
 }
 
 interface StoredJobInput {
-  url: string;
-  outputTemplate: string;
-  formatSelector: string;
-  extra?: import("@vault/types").DownloadExtras;
-  meta?: import("@vault/types").JobMeta;
+  job: Job;
+  resume?: boolean;
 }
 
-export class WorkerPool extends EventEmitter {
-  private readonly queue: Job[] = [];
-  private readonly active = new Map<string, ActiveJob>();
-  private maxConcurrent: number;
-  /** Jobs whose processes were intentionally killed (pause) — catch handler skips these. */
-  private readonly intentionallyKilled = new Set<string>();
-  /** Stored inputs for paused/failed jobs so they can be re-enqueued. */
-  private readonly storedInputs = new Map<string, StoredJobInput>();
+export function createWorkerPool(opts: WorkerPoolOptions) {
+  const emitter = new EventEmitter();
+  const queue: Job[] = [];
+  const active = new Map<string, ActiveJob>();
+  const completed = new Map<string, Job>();
+  const intentionallyKilled = new Set<string>();
+  const storedInputs = new Map<string, StoredJobInput>();
+  let maxConcurrent = opts.maxConcurrent ?? 3;
+  const MAX_COMPLETED = 100;
 
-  constructor(private readonly opts: WorkerPoolOptions) {
-    super();
-    this.maxConcurrent = opts.maxConcurrent ?? 3;
-  }
-
-  enqueue(input: JobInput): string {
-    const job: Job = {
-      ...input,
-      id: randomUUID(),
-      status: "pending",
-      createdAt: Date.now()
-    };
-    this.queue.push(job);
-    this.emit("job:queued", job);
-    this.processQueue();
-    return job.id;
-  }
-
-  cancel(jobId: string): boolean {
-    // Check if it's in the queue
-    const queueIndex = this.queue.findIndex((j) => j.id === jobId);
-    if (queueIndex !== -1) {
-      const [job] = this.queue.splice(queueIndex, 1);
-      job.status = "cancelled";
-      this.emit("job:cancelled", job);
-      this.storedInputs.delete(jobId);
-      return true;
-    }
-
-    // Check if it's active
-    const activeJob = this.active.get(jobId);
-    if (activeJob) {
-      activeJob.process.kill("SIGTERM");
-      activeJob.job.status = "cancelled";
-      this.active.delete(jobId);
-      this.storedInputs.delete(jobId);
-      this.emit("job:cancelled", activeJob.job);
-      this.processQueue();
-      return true;
-    }
-
-    return false;
-  }
-
-  pause(jobId: string): boolean {
-    const activeJob = this.active.get(jobId);
-    if (!activeJob) return false;
-
-    // Mark as intentionally killed so the catch handler in startJob skips it
-    this.intentionallyKilled.add(jobId);
-    activeJob.process.kill("SIGTERM");
-
-    // Store the input for later resume
-    this.storedInputs.set(jobId, {
-      url: activeJob.job.url,
-      outputTemplate: activeJob.job.outputTemplate,
-      formatSelector: activeJob.job.formatSelector,
-      extra: activeJob.job.extra,
-      meta: activeJob.job.meta
-    });
-
-    // Update status in-place and emit paused (job stays in active map for renderer visibility)
-    activeJob.job.status = "paused";
-    this.emit("job:paused", activeJob.job);
-    return true;
-  }
-
-  resume(jobId: string): string | null {
-    const input = this.storedInputs.get(jobId);
-    if (!input) return null;
-
-    // Remove old paused/failed entry from active map
-    const oldActive = this.active.get(jobId);
-    if (oldActive) {
-      this.active.delete(jobId);
-    }
-    this.storedInputs.delete(jobId);
-
-    // Re-enqueue with a fresh ID
-    return this.enqueue(input);
-  }
-
-  retry(jobId: string): string | null {
-    const input = this.storedInputs.get(jobId);
-    if (!input) return null;
-
-    // Remove old failed entry from active map
-    const oldActive = this.active.get(jobId);
-    if (oldActive) {
-      this.active.delete(jobId);
-    }
-    this.storedInputs.delete(jobId);
-
-    // Re-enqueue with a fresh ID
-    return this.enqueue(input);
-  }
-
-  setMaxConcurrent(n: number): void {
-    this.maxConcurrent = n;
-    this.processQueue();
-  }
-
-  private processQueue(): void {
-    while (this.active.size < this.maxConcurrent && this.queue.length > 0) {
-      const job = this.queue.shift()!;
-      this.startJob(job);
+  function processQueue(): void {
+    logger.debug("Processing queue:", { queueSize: queue.length, activeCount: active.size, maxConcurrent });
+    while (active.size < maxConcurrent && queue.length > 0) {
+      const job = queue.shift()!;
+      logger.debug("Dequeuing job:", job.id);
+      startJob(job, job.resume || false);
     }
   }
 
-  private startJob(job: Job): void {
+  function startJob(job: Job, resume = false): void {
+    logger.info("Starting job:", job.id, job.url, resume ? "(resume)" : "");
+    logger.debug("Job details:", { id: job.id, url: job.url, formatSelector: job.formatSelector, outputTemplate: job.outputTemplate, resume });
     job.status = "active";
-    this.emit("job:started", job);
+    emitter.emit("job:started", job);
 
-    // Initialize progress tracker
-    const tracker = new ProgressTracker(job.meta?.expectedPath ? 0 : undefined);
+    const tracker = createProgressTracker();
 
-    const { process: proc, promise } = this.opts.ytdlp.download(
+    const { process: proc, promise } = opts.ytdlp.download(
       job.url,
       job.outputTemplate,
       job.formatSelector,
       job.extra,
       (progress: YtDlpProgress) => {
-        // Track progress and emit enriched data
-        const enriched = tracker.track(progress);
-        this.emit("job:progress", job.id, enriched);
-
-        // Detect stalls and warn
+        const tracked = tracker.track(progress);
+        emitter.emit("job:progress", job.id, tracked);
         if (tracker.isStalled(15000)) {
-          console.warn(`[WorkerPool] Job ${job.id} appears stalled (no progress in 15s)`);
+          logger.warn(`Job ${job.id} appears stalled, last progress:`, tracked);
         }
-      }
+      },
+      resume
     );
 
-    this.active.set(job.id, { job, process: proc, promise, tracker });
+    active.set(job.id, { job, process: proc, promise });
+    logger.debug("Job added to active set:", job.id, "Active count:", active.size);
 
     promise
       .then(() => {
-        if (this.intentionallyKilled.has(job.id)) {
-          this.intentionallyKilled.delete(job.id);
+        if (intentionallyKilled.has(job.id)) {
+          intentionallyKilled.delete(job.id);
+          logger.info("Job cancelled:", job.id);
           return;
         }
+        logger.info("Job completed:", job.id);
         job.status = "completed";
-        this.active.delete(job.id);
-        this.emit("job:completed", job);
-        this.processQueue();
+        active.delete(job.id);
+        completed.set(job.id, job);
+        logger.debug("Job moved to completed set:", job.id, "Completed count:", completed.size);
+        // Limit completed jobs to MAX_COMPLETED
+        if (completed.size > MAX_COMPLETED) {
+          const oldestId = completed.keys().next().value;
+          if (oldestId) {
+            completed.delete(oldestId);
+            logger.debug("Removed oldest completed job:", oldestId);
+          }
+        }
+        emitter.emit("job:completed", job);
+        processQueue();
       })
       .catch((err) => {
-        // Skip if this was an intentional kill (pause)
-        if (this.intentionallyKilled.has(job.id)) {
-          this.intentionallyKilled.delete(job.id);
+        if (intentionallyKilled.has(job.id)) {
+          intentionallyKilled.delete(job.id);
+          logger.info("Job cancelled:", job.id);
           return;
         }
-
-        // Log stall status for debugging
-        if (tracker.isStalled()) {
-          console.error(`[WorkerPool] Job ${job.id} failed after appearing stalled`);
-        }
-
+        logger.error("Job failed:", job.id, err instanceof Error ? err.message : String(err));
+        logger.debug("Error details:", err);
         job.status = "failed";
-        // Store input so retry() can re-enqueue it
-        this.storedInputs.set(job.id, {
-          url: job.url,
-          outputTemplate: job.outputTemplate,
-          formatSelector: job.formatSelector,
-          extra: job.extra,
-          meta: job.meta
-        });
-        this.emit("job:failed", job, err);
-        this.processQueue();
+        storedInputs.set(job.id, { job: { ...job, resume: true } });
+        logger.debug("Job stored for retry:", job.id);
+        emitter.emit("job:failed", job, err);
+        processQueue();
       });
   }
+
+  function enqueue(input: JobInput, resume = false): string {
+    const job: Job = {
+      ...input,
+      id: randomUUID(),
+      status: "pending",
+      createdAt: Date.now(),
+      resume
+    };
+    logger.info("Enqueuing job:", job.id, job.url, resume ? "(resume)" : "");
+    logger.debug("Job input details:", input);
+    queue.push(job);
+    emitter.emit("job:queued", job);
+    logger.debug("Queue size after enqueue:", queue.length);
+    processQueue();
+    return job.id;
+  }
+
+  function cancel(jobId: string): boolean {
+    logger.info("Cancelling job:", jobId);
+    const queueIndex = queue.findIndex((j) => j.id === jobId);
+    if (queueIndex !== -1) {
+      const [job] = queue.splice(queueIndex, 1);
+      job.status = "cancelled";
+      logger.debug("Job cancelled from queue:", jobId);
+      emitter.emit("job:cancelled", job);
+      storedInputs.delete(jobId);
+      return true;
+    }
+    const activeJob = active.get(jobId);
+    if (activeJob) {
+      intentionallyKilled.add(jobId);
+      activeJob.process.kill("SIGTERM");
+      activeJob.job.status = "cancelled";
+      active.delete(jobId);
+      storedInputs.delete(jobId);
+      logger.debug("Job cancelled from active:", jobId);
+      emitter.emit("job:cancelled", activeJob.job);
+      processQueue();
+      return true;
+    }
+    // Also check paused jobs in storedInputs
+    if (storedInputs.has(jobId)) {
+      const stored = storedInputs.get(jobId)!;
+      storedInputs.delete(jobId);
+      logger.debug("Job cancelled from stored inputs:", jobId);
+      // Emit cancelled event with the stored job data
+      emitter.emit("job:cancelled", { ...stored.job, status: "cancelled" as const });
+      return true;
+    }
+    logger.warn("Job not found for cancellation:", jobId);
+    return false;
+  }
+
+  function pause(jobId: string): boolean {
+    logger.info("Pausing job:", jobId);
+    const activeJob = active.get(jobId);
+    if (!activeJob) {
+      // Also check if job is in queue (not yet started)
+      const queueIndex = queue.findIndex((j) => j.id === jobId);
+      if (queueIndex !== -1) {
+        const [job] = queue.splice(queueIndex, 1);
+        job.status = "paused";
+        storedInputs.set(jobId, { job: { ...job, resume: true } });
+        logger.debug("Job paused from queue:", jobId);
+        emitter.emit("job:paused", job);
+        return true;
+      }
+      logger.warn("Job not found for pause:", jobId);
+      return false;
+    }
+    intentionallyKilled.add(jobId);
+    activeJob.process.kill("SIGTERM");
+    storedInputs.set(jobId, { job: { ...activeJob.job, status: "paused", resume: true } });
+    active.delete(jobId);
+    logger.debug("Job paused from active:", jobId);
+    emitter.emit("job:paused", activeJob.job);
+    processQueue();
+    return true;
+  }
+
+  function resume(jobId: string): string | null {
+    logger.info("Resuming job:", jobId);
+    const stored = storedInputs.get(jobId);
+    if (!stored) {
+      logger.warn("Job not found for resume:", jobId);
+      return null;
+    }
+    if (active.has(jobId)) active.delete(jobId);
+    storedInputs.delete(jobId);
+    const { job, resume } = stored;
+    logger.debug("Job details for resume:", { id: job.id, url: job.url, resume });
+    return enqueue(job, resume || false);
+  }
+
+  function retry(jobId: string): string | null {
+    logger.info("Retrying job:", jobId);
+    const stored = storedInputs.get(jobId);
+    if (!stored) {
+      logger.warn("Job not found for retry:", jobId);
+      return null;
+    }
+    if (active.has(jobId)) active.delete(jobId);
+    storedInputs.delete(jobId);
+    const { job } = stored;
+    logger.debug("Job details for retry:", { id: job.id, url: job.url });
+    return enqueue(job, job.resume || false);
+  }
+
+  function setMaxConcurrent(n: number): void {
+    logger.info("Setting max concurrent downloads:", n);
+    maxConcurrent = n;
+    processQueue();
+  }
+
+  function getJobs(): Job[] {
+    return [...queue, ...active.values().map((a) => a.job), ...completed.values()];
+  }
+
+  return {
+    on: emitter.on.bind(emitter),
+    off: emitter.off.bind(emitter),
+    enqueue,
+    cancel,
+    pause,
+    resume,
+    retry,
+    setMaxConcurrent,
+    getJobs
+  };
 }
+
+export type WorkerPool = ReturnType<typeof createWorkerPool>;

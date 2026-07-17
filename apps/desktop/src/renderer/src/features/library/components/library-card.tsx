@@ -2,6 +2,7 @@ import { Play, Video, Music, RefreshCw } from "lucide-react";
 import { LibraryContextMenu } from "./library-context-menu";
 import type { LibraryItem } from "../types";
 import { getTimeAgo } from "@/lib/utils/platform";
+import { useVideoPreviewActions } from "@/stores/video-preview/video-preview.selectors";
 
 interface LibraryCardProps {
   item: LibraryItem;
@@ -9,18 +10,48 @@ interface LibraryCardProps {
 
 export const LibraryCard = ({ item }: LibraryCardProps) => {
   const isVideo = item.type === "video";
+  const { open: openPreview } = useVideoPreviewActions();
+
+  const handlePlayClick = () => {
+    if (isVideo && item.url) {
+      openPreview({
+        url: item.url,
+        title: item.title,
+        channel: item.channel,
+        thumbnail: item.thumbnail || null,
+        duration: null,
+        description: ""
+      });
+    } else if (item.filePath) {
+      // For audio or local files, try to open the file
+      globalThis.api?.openFile?.(item.filePath);
+    }
+  };
 
   return (
     <LibraryContextMenu item={item}>
-      <div className="group cursor-pointer rounded-xl overflow-hidden border border-border bg-card hover:bg-card-hover transition-colors">
+      <div
+        className="group cursor-pointer rounded-xl overflow-hidden border border-border bg-card hover:bg-card-hover transition-colors"
+        onClick={handlePlayClick}
+      >
         <div className="relative aspect-video overflow-hidden bg-secondary">
-          {/* Gradient background */}
-          <div className="absolute inset-0 bg-linear-to-br from-primary/20 to-background" />
-
-          {/* Icon pattern */}
-          <div className="absolute inset-0 flex items-center justify-center text-white/10">
-            {isVideo ? <Video className="w-16 h-16" /> : <Music className="w-16 h-16" />}
-          </div>
+          {/* Thumbnail */}
+          {item.thumbnail ? (
+            <img
+              src={item.thumbnail}
+              alt={item.title}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <>
+              {/* Gradient background */}
+              <div className="absolute inset-0 bg-linear-to-br from-primary/20 to-background" />
+              {/* Icon pattern */}
+              <div className="absolute inset-0 flex items-center justify-center text-white/10">
+                {isVideo ? <Video className="w-16 h-16" /> : <Music className="w-16 h-16" />}
+              </div>
+            </>
+          )}
 
           {/* Type icon */}
           <span className="absolute top-1.5 left-1.5 z-10 opacity-80">

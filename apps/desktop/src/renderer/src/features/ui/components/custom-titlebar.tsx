@@ -1,10 +1,15 @@
 import { Button } from "@vault/ui/components/button";
 import { X, Minus, Square } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 
 interface TitlebarProps {
   title?: string;
 }
+
+const titlebarStyle: CSSProperties = {
+  userSelect: "none",
+  WebkitUserSelect: "none"
+};
 
 export const CustomTitlebar = ({ title = "Vault" }: TitlebarProps) => {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -29,11 +34,9 @@ export const CustomTitlebar = ({ title = "Vault" }: TitlebarProps) => {
   return (
     <div
       className="flex items-center justify-between h-10 px-4 bg-sidebar border-b border-sidebar-border drag"
-      style={{ userSelect: "none", WebkitUserSelect: "none" } as any}
+      style={titlebarStyle}
     >
-      <div className="text-sm font-medium text-foreground">
-        {title}
-      </div>
+      <div className="text-sm font-medium text-foreground">{title}</div>
 
       <div className="flex items-center gap-2 ml-auto no-drag">
         <Button

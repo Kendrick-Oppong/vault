@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import type { Job, YtDlpProgress } from "@vault/types";
 import { QueryKeys } from "@/lib/constants/query-keys";
 import { formatError } from "@/lib/utils/format-error";
+import { toast } from "sonner";
 
 export function useJobEvents() {
   const queryClient = useQueryClient();
@@ -13,82 +13,46 @@ export function useJobEvents() {
 
     const unsubscribes: Array<() => void> = [];
 
-    // When a job is queued, add it to active jobs cache
-    const unsubQueued = globalThis.api.onJobQueued((job: Job) => {
-      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) => {
-        // Avoid duplicates
-        if (old.some((j) => j.id === job.id)) return old;
-        return [...old, job];
-      });
-    });
-    unsubscribes.push(unsubQueued);
-
-    // On start, update status in active cache
-    const unsubStarted = globalThis.api.onJobStarted((job: Job) => {
-      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-        old.map((j) => (j.id === job.id ? job : j))
-      );
-      toast.info("Download started", {
-        description: job.meta?.title || job.url.slice(0, 50)
-      });
-    });
-    unsubscribes.push(unsubStarted);
-
-    // On progress, store progress separately
+    // On progress, store progress separately (only for active jobs)
     const unsubProgress = globalThis.api.onJobProgress((jobId: string, progress: YtDlpProgress) => {
-      queryClient.setQueryData(QueryKeys.jobs.progress(jobId), progress);
+      // Check if job is still active before updating progress
+      const activeJobs = queryClient.getQueryData<Job[]>(QueryKeys.jobs.active()) || [];
+      const job = activeJobs.find((j) => j.id === jobId);
+      if (job && job.status === "active") {
+        queryClient.setQueryData(QueryKeys.jobs.progress(jobId), progress);
+      }
     });
     unsubscribes.push(unsubProgress);
 
-    // On completion, remove from active and invalidate history
+    // On completion, show toast and invalidate history
     const unsubCompleted = globalThis.api.onJobCompleted((job: Job) => {
-      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-        old.filter((j) => j.id !== job.id)
-      );
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
       queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
-      toast.success("Download completed", {
-        description: job.meta?.title || "Download finished successfully"
-      });
+      toast.success(`Download completed: ${job.meta?.title || job.url}`);
     });
     unsubscribes.push(unsubCompleted);
 
-    // On failure, update status to failed instead of removing
+    // On failure, show toast and invalidate history
     const unsubFailed = globalThis.api.onJobFailed((job: Job, err) => {
       const errorMessage = formatError(err?.message || err);
-      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-        old.map((j) => (j.id === job.id ? { ...job, status: "failed", error: errorMessage } : j))
-      );
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
       queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
-      toast.error("Download failed", {
+      toast.error(`Download failed: ${job.meta?.title || job.url}`, {
         description: errorMessage
       });
     });
     unsubscribes.push(unsubFailed);
 
-    // On cancellation, same as completion
+    // On cancellation, invalidate history
     const unsubCancelled = globalThis.api.onJobCancelled((job: Job) => {
-      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-        old.filter((j) => j.id !== job.id)
-      );
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
       queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
-      toast.info("Download cancelled", {
-        description: job.meta?.title || "Download was cancelled"
-      });
     });
     unsubscribes.push(unsubCancelled);
 
-    // On pause, update status in active cache (job stays visible in queue)
+    // On pause, remove progress
     const unsubPaused = globalThis.api.onJobPaused((job: Job) => {
-      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-        old.map((j) => (j.id === job.id ? { ...job, status: "paused" as const } : j))
-      );
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
-      toast.info("Download paused", {
-        description: job.meta?.title || "Download was paused"
-      });
     });
     unsubscribes.push(unsubPaused);
 

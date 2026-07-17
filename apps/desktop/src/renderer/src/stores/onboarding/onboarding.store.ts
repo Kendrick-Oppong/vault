@@ -40,8 +40,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
           currentStep: "dependencies"
         }),
 
-      setCurrentStep: (currentStep) =>
-        set({ currentStep }),
+      setCurrentStep: (currentStep) => set({ currentStep }),
 
       setYtDlpDownloading: (ytDlpDownloading, ytDlpProgress = 0) =>
         set({

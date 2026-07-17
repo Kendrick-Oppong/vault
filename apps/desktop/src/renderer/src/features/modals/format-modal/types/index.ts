@@ -44,3 +44,31 @@ export interface FormatModalData {
   videoFormats: VideoFormat[];
   audioFormats: AudioFormat[];
 }
+
+export interface FormatModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  data: FormatModalData;
+  isLoading?: boolean;
+  isError?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  onConfirm: (options: FormatOptions) => void;
+}
+
+export interface FormatOptions {
+  mediaType: MediaType;
+  videoFormat?: VideoFormat;
+  audioFormat?: AudioFormat;
+  embedThumbnail: boolean;
+  embedMetadata: boolean;
+  embedChapters: boolean;
+  sponsorBlock: boolean;
+  subtitles: "none" | "external";
+  subtitleLanguages?: string[];
+  reencodeFormat?: "none" | "h264-aac" | "h265-aac";
+  videoContainer?: "mp4" | "mkv";
+  destination: string;
+  selectedItems?: string[];
+  audioCodec?: string; // e.g., "mp3", "m4a", "opus", "flac", "wav"
+}

@@ -36,15 +36,23 @@ export type SettingsStore = SettingsState & SettingsActions;
 /** Fields the user configures, with safe application-level defaults. */
 const baseDefaults: Settings = {
   downloadPath: UNSET,
+  outputTemplate: "%(title)s.%(ext)s",
+  playlistFetchLimit: 200,
   concurrentDownloads: 3,
   minimizeToTray: true,
   bandwidthLimit: "",
   proxy: "",
-  geoBypass: false,
+  geoBypass: true,
   cookiesFromBrowser: null,
   cookiesFilePath: "",
   embedThumbnail: true,
   embedMetadata: true,
+  embedChapters: true,
+  sponsorBlock: false,
+  writeSubtitles: false,
+  subtitleLangs: ["en"],
+  videoContainer: "mp4",
+  useDownloadArchive: false,
   version: UNSET,
   ytDlpVersion: UNSET
 };

@@ -6,6 +6,7 @@ import {
 } from "@/stores/ui/modal.selectors";
 import { FormatModal } from "@/features/modals/format-modal/components/format-modal";
 import { ConfirmationDialog } from "@/features/ui/components/confirmation-dialog";
+import { VideoPreviewModal } from "@/features/modals/video-preview-modal/video-preview-modal";
 
 export const GlobalModals = () => {
   const formatModal = useModalStore(selectFormatModal);
@@ -14,11 +15,20 @@ export const GlobalModals = () => {
 
   return (
     <>
-      {formatModal.data && (
+      {/* Format picker modal – triggered when probing a URL */}
+      {formatModal.isOpen && (
         <FormatModal
           open={formatModal.isOpen}
           onOpenChange={(open) => !open && closeFormatModal()}
-          data={formatModal.data}
+          data={
+            formatModal.data ?? {
+              title: "Loading…",
+              channel: "",
+              type: "video" as const,
+              videoFormats: [],
+              audioFormats: []
+            }
+          }
           isLoading={formatModal.isLoading}
           isError={formatModal.isError}
           error={formatModal.error}
@@ -30,6 +40,7 @@ export const GlobalModals = () => {
         />
       )}
 
+      {/* Generic confirmation dialog */}
       <ConfirmationDialog
         open={confirmDialog.isOpen}
         onOpenChange={(open) => !open && closeConfirmDialog()}
@@ -43,6 +54,9 @@ export const GlobalModals = () => {
           closeConfirmDialog();
         }}
       />
+
+      {/* Video preview modal – self-contained, reads from video-preview store */}
+      <VideoPreviewModal />
     </>
   );
 };

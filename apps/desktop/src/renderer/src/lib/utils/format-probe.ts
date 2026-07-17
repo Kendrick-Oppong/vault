@@ -3,10 +3,8 @@ import type {
   VideoFormat,
   AudioFormat
 } from "@/features/modals/format-modal/types";
+import { formatDuration } from "@/lib/utils/format";
 
-/**
- * Resolution label from yt-dlp format width/height
- */
 function resolutionLabel(height?: number): string {
   if (!height) return "Unknown";
   if (height >= 4320) return "8K";
@@ -19,22 +17,6 @@ function resolutionLabel(height?: number): string {
   return `${height}p`;
 }
 
-/**
- * Seconds → "HH:MM:SS" or "MM:SS"
- */
-function formatDuration(seconds?: number): string | undefined {
-  if (!seconds) return undefined;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  const mm = String(m).padStart(2, "0");
-  const ss = String(s).padStart(2, "0");
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-}
-
-/**
- * Bytes → human readable approximate size string
- */
 function approxSize(bytes?: number): { size: string; sizeBytes: number } {
   if (!bytes) return { size: "Unknown", sizeBytes: 0 };
   const gb = bytes / (1024 * 1024 * 1024);
@@ -43,46 +25,44 @@ function approxSize(bytes?: number): { size: string; sizeBytes: number } {
   return { size: `~${Math.round(mb)} MB`, sizeBytes: bytes };
 }
 
+function str(val: unknown, fallback: string): string {
+  return typeof val === "string" ? val : fallback;
+}
+
+function num(val: unknown): number | undefined {
+  return typeof val === "number" ? val : undefined;
+}
+
 type RawFormat = Record<string, unknown>;
 
-/**
- * Map the raw yt-dlp probe result for a single video into FormatModalData.
- * yt-dlp `--dump-json --flat-playlist` returns one JSON object per line.
- * For a single video URL, it returns exactly one object.
- */
-export function mapProbeToFormatModalData(
+function mapProbeToFormatModalData(
   raw: RawFormat[],
   linkType: FormatModalData["type"]
 ): FormatModalData {
-  // For playlists/channels, the first entry describes the container
   const entry = raw[0] ?? {};
 
-  const title = String(entry["title"] ?? "Unknown title");
-  const channel = String(entry["channel"] ?? entry["uploader"] ?? "Unknown channel");
+  const title = str(entry["title"], "Unknown title");
+  const channel = str(entry["channel"], str(entry["uploader"], "Unknown channel"));
   const thumbnail =
     (entry["thumbnail"] as string | undefined) ??
     (entry["thumbnails"] as Array<{ url: string }> | undefined)?.[0]?.url;
-  const durationSecs =
-    typeof entry["duration"] === "number" ? (entry["duration"] as number) : undefined;
+  const durationSecs = num(entry["duration"]);
 
   if (linkType === "playlist") {
     const items = raw
       .filter((e) => e["_type"] !== "playlist")
+      .filter((e) => e["url"] || e["webpage_url"]) // Filter out items without URLs
       .map((e) => ({
-        id: String(e["id"] ?? ""),
-        title: String(e["title"] ?? "Untitled"),
-        url: String(e["url"] ?? e["webpage_url"] ?? ""),
+        id: str(e["id"], ""),
+        title: str(e["title"], "Untitled"),
+        url: str(e["url"], str(e["webpage_url"], "")),
         thumbnail:
           (e["thumbnails"] as Array<{ url: string }> | undefined)?.[0]?.url ??
           (e["thumbnail"] as string | undefined),
-        duration: formatDuration(typeof e["duration"] === "number" ? e["duration"] : undefined)
+        duration: formatDuration(num(e["duration"]))
       }));
 
-    const selectedCount = items.length;
-    const totalCount =
-      typeof entry["playlist_count"] === "number"
-        ? (entry["playlist_count"] as number)
-        : items.length;
+    const totalCount = num(entry["playlist_count"]) ?? items.length;
 
     return {
       title,
@@ -91,17 +71,14 @@ export function mapProbeToFormatModalData(
       type: "playlist",
       videoCount: totalCount,
       playlistItems: items,
-      selectedCount,
+      selectedCount: items.length,
       totalCount,
-      // Playlists don't have individual format lists at probe time — use defaults
       videoFormats: defaultVideoFormats(),
       audioFormats: defaultAudioFormats()
     };
   }
 
-  // Single video: parse actual format list
   const rawFormats = (entry["formats"] as RawFormat[] | undefined) ?? [];
-
   const videoFormats = buildVideoFormats(rawFormats);
   const audioFormats = buildAudioFormats(rawFormats);
 
@@ -117,63 +94,71 @@ export function mapProbeToFormatModalData(
 }
 
 function buildVideoFormats(rawFormats: RawFormat[]): VideoFormat[] {
-  // Keep only video-bearing formats (vcodec present and not "none")
   const videoOnly = rawFormats.filter(
     (f) => f["vcodec"] && f["vcodec"] !== "none" && f["height"] && f["ext"] !== "mhtml"
   );
 
-  // Group by height, take best quality per height
+  // Get best audio format for size estimation
+  const audioFormats = rawFormats.filter(
+    (f) =>
+      (f["vcodec"] === "none" ||
+        f["vcodec"] === undefined ||
+        f["vcodec"] === null ||
+        f["vcodec"] === "") &&
+      f["acodec"] &&
+      f["acodec"] !== "none"
+  );
+
+  // Find the best audio format by bitrate
+  let bestAudioSize = 0;
+  for (const f of audioFormats) {
+    const size = num(f["filesize"]) ?? num(f["filesize_approx"]) ?? 0;
+    if (size > bestAudioSize) bestAudioSize = size;
+  }
+
+  // If no audio size found, estimate ~5MB for audio
+  if (bestAudioSize === 0) bestAudioSize = 5 * 1024 * 1024;
+
   const byHeight = new Map<number, RawFormat>();
   for (const f of videoOnly) {
-    const h = f["height"] as number;
+    const h = num(f["height"]) ?? 0;
     const existing = byHeight.get(h);
-    const tbr = (f["tbr"] as number | undefined) ?? 0;
-    const existingTbr = (existing?.["tbr"] as number | undefined) ?? 0;
-    if (!existing || tbr > existingTbr) {
-      byHeight.set(h, f);
-    }
+    const tbr = num(f["tbr"]) ?? 0;
+    const existingTbr = num(existing?.["tbr"]) ?? 0;
+    if (!existing || tbr > existingTbr) byHeight.set(h, f);
   }
 
   return [...byHeight.entries()]
     .sort(([a], [b]) => b - a)
     .map(([height, f]) => {
-      const fps = Math.round((f["fps"] as number | undefined) ?? 30);
-      const { size, sizeBytes } = approxSize(
-        (f["filesize"] as number | undefined) ?? (f["filesize_approx"] as number | undefined)
-      );
-      const codec = String(f["vcodec"] ?? "MP4")
-        .split(".")[0]
-        .toUpperCase();
+      const fps = Math.round(num(f["fps"]) ?? 30);
+      const videoSize = num(f["filesize"]) ?? num(f["filesize_approx"]) ?? 0;
+      const totalSize = videoSize + bestAudioSize;
+      const { size, sizeBytes } = approxSize(totalSize);
+      const codec = str(f["vcodec"], "MP4").split(".")[0].toUpperCase();
       const label = resolutionLabel(height);
-
-      return {
-        label,
-        resolution: label,
-        fps: [fps],
-        codec,
-        size,
-        sizeBytes
-      };
+      const formatId = str(f["format_id"], "");
+      return { label, resolution: label, fps: [fps], codec, size, sizeBytes, formatId };
     });
 }
 
 function buildAudioFormats(rawFormats: RawFormat[]): AudioFormat[] {
-  // Audio-only formats
   const audioOnly = rawFormats.filter(
-    (f) => (f["vcodec"] === "none" || !f["vcodec"]) && f["acodec"] && f["acodec"] !== "none"
+    (f) =>
+      (f["vcodec"] === "none" ||
+        f["vcodec"] === undefined ||
+        f["vcodec"] === null ||
+        f["vcodec"] === "") &&
+      f["acodec"] &&
+      f["acodec"] !== "none"
   );
 
-  // Deduplicate by codec, keep best bitrate
   const byCodec = new Map<string, RawFormat>();
   for (const f of audioOnly) {
-    const codec = String(f["acodec"] ?? "")
-      .split(".")[0]
-      .toUpperCase();
-    const abr = (f["abr"] as number | undefined) ?? 0;
-    const existingAbr = (byCodec.get(codec)?.["abr"] as number | undefined) ?? 0;
-    if (!byCodec.has(codec) || abr > existingAbr) {
-      byCodec.set(codec, f);
-    }
+    const codec = str(f["acodec"], "").split(".")[0].toUpperCase();
+    const abr = num(f["abr"]) ?? 0;
+    const existingAbr = num(byCodec.get(codec)?.["abr"]) ?? 0;
+    if (!byCodec.has(codec) || abr > existingAbr) byCodec.set(codec, f);
   }
 
   const CODEC_ORDER = ["FLAC", "WAV", "OPUS", "MP4A", "M4A", "MP3", "AAC"];
@@ -187,25 +172,21 @@ function buildAudioFormats(rawFormats: RawFormat[]): AudioFormat[] {
   });
 
   return sorted.map(([codec, f]) => {
-    const abr = f["abr"] as number | undefined;
-    const { size, sizeBytes } = approxSize(
-      (f["filesize"] as number | undefined) ?? (f["filesize_approx"] as number | undefined)
-    );
+    const abr = num(f["abr"]);
+    const { size, sizeBytes } = approxSize(num(f["filesize"]) ?? num(f["filesize_approx"]));
     const lossless = codec === "FLAC" || codec === "WAV";
-    const bitrate = lossless
-      ? codec === "FLAC"
-        ? "Lossless"
-        : "Uncompressed"
-      : abr
-        ? `${Math.round(abr)} kbps`
-        : "Unknown";
+    let bitrate: string;
+    if (lossless) {
+      bitrate = codec === "FLAC" ? "Lossless" : "Uncompressed";
+    } else {
+      bitrate = abr !== undefined ? `${Math.round(abr)} kbps` : "Unknown";
+    }
     const label = codec === "M4A" ? "AAC" : codec;
-
-    return { label, codec, bitrate, size, sizeBytes, lossless };
+    const formatId = str(f["format_id"], "");
+    return { label, codec, bitrate, size, sizeBytes, lossless, formatId };
   });
 }
 
-/** Fallback formats shown when probe doesn't return detailed format data (playlists, channels) */
 function defaultVideoFormats(): VideoFormat[] {
   return [
     { label: "4K", resolution: "4K", fps: [60, 30], codec: "MP4", size: "Varies", sizeBytes: 0 },
@@ -236,4 +217,13 @@ function defaultAudioFormats(): AudioFormat[] {
     { label: "AAC", codec: "AAC", bitrate: "256 kbps", size: "Varies", sizeBytes: 0 },
     { label: "OPUS", codec: "OPUS", bitrate: "160 kbps", size: "Varies", sizeBytes: 0 }
   ];
+}
+
+export function formatProbeToModalData(raw: RawFormat[]): FormatModalData {
+  const first = raw[0] ?? {};
+  const linkType: FormatModalData["type"] =
+    first["_type"] === "playlist" || Array.isArray(first["entries"]) || raw.length > 1
+      ? "playlist"
+      : "video";
+  return mapProbeToFormatModalData(raw, linkType);
 }

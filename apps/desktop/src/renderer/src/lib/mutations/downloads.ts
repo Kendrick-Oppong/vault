@@ -150,3 +150,18 @@ export const useRetryDownload = () => {
     }
   });
 };
+
+export const useInstallDependencies = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => downloadsApi.dependenciesDownload(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dependencies", "check"] });
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to install dependencies", {
+        description: formatError(error)
+      });
+    }
+  });
+};

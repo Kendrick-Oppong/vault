@@ -6,7 +6,8 @@ import { useSearchActions } from "@/stores/search/search.selectors";
 import type { SearchResult } from "@/features/search/types";
 
 export const useSearchYoutubeMutation = () => {
-  const { setQuery, setResults, setHasMore, setCurrentPage, setError } = useSearchActions();
+  const { setQuery, setResults, appendResults, setHasMore, setCurrentPage, setError } =
+    useSearchActions();
 
   return useMutation({
     mutationFn: ({ query, page }: { query: string; page?: number }) =>
@@ -16,7 +17,7 @@ export const useSearchYoutubeMutation = () => {
       if (page === undefined || page === 0) {
         setResults(results);
       } else {
-        // Pagination: append to existing results
+        appendResults(results);
       }
       setHasMore(results.length >= 20);
       setCurrentPage(page || 0);

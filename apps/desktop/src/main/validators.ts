@@ -18,16 +18,19 @@ export interface ValidationResult {
 export function extractVideoId(url: string): string | null {
   try {
     const urlObj = new URL(url);
-    
+
     // youtu.be format
-    if (urlObj.hostname.includes('youtu.be')) {
-      const id = urlObj.pathname.slice(1).split('?')[0];
+    if (urlObj.hostname.includes("youtu.be")) {
+      const id = urlObj.pathname.slice(1).split("?")[0];
       return id && isValidVideoId(id) ? id : null;
     }
 
     // youtube.com formats
-    if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtube-nocookie.com')) {
-      const id = urlObj.searchParams.get('v');
+    if (
+      urlObj.hostname.includes("youtube.com") ||
+      urlObj.hostname.includes("youtube-nocookie.com")
+    ) {
+      const id = urlObj.searchParams.get("v");
       return id && isValidVideoId(id) ? id : null;
     }
 
@@ -50,7 +53,7 @@ export function isValidVideoId(id: string): boolean {
 export function isPlaylistUrl(url: string): boolean {
   try {
     const urlObj = new URL(url);
-    return urlObj.searchParams.has('list');
+    return urlObj.searchParams.has("list");
   } catch {
     return false;
   }
@@ -61,10 +64,10 @@ export function isPlaylistUrl(url: string): boolean {
  * Returns detailed validation result
  */
 export function validateYouTubeUrl(input: string): ValidationResult {
-  if (!input || typeof input !== 'string') {
+  if (!input || typeof input !== "string") {
     return {
       valid: false,
-      error: 'URL is required'
+      error: "URL is required"
     };
   }
 
@@ -76,7 +79,7 @@ export function validateYouTubeUrl(input: string): ValidationResult {
   } catch {
     return {
       valid: false,
-      error: 'Invalid URL format'
+      error: "Invalid URL format"
     };
   }
 
@@ -84,7 +87,7 @@ export function validateYouTubeUrl(input: string): ValidationResult {
   if (!isYouTubeDomain(trimmed)) {
     return {
       valid: false,
-      error: 'URL must be from youtube.com or youtu.be'
+      error: "URL must be from youtube.com or youtu.be"
     };
   }
 
@@ -95,12 +98,12 @@ export function validateYouTubeUrl(input: string): ValidationResult {
   if (!videoId && !isPlaylist) {
     return {
       valid: false,
-      error: 'Could not extract video ID or playlist ID from URL'
+      error: "Could not extract video ID or playlist ID from URL"
     };
   }
 
   // Check for age-restricted indicators in URL (not reliable, but good hint)
-  const isAgeRestricted = trimmed.includes('&t=') || trimmed.includes('?t=');
+  const isAgeRestricted = trimmed.includes("&t=") || trimmed.includes("?t=");
 
   return {
     valid: true,
@@ -117,33 +120,33 @@ function isYouTubeDomain(url: string): boolean {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
-    
+
     const youtubePatterns = [
-      'youtube.com',
-      'youtu.be',
-      'youtube-nocookie.com',
-      'youtube.co.uk',
-      'youtube.jp',
-      'youtube.fr',
-      'youtube.de',
-      'youtube.br',
-      'youtube.in',
-      'youtube.es',
-      'youtube.mx',
-      'youtube.it',
-      'youtube.ru',
-      'youtube.kr',
-      'youtube.tw',
-      'youtube.hk',
-      'youtube.cn',
-      'youtube.ca',
-      'youtube.au',
-      'youtube.nz',
-      'youtube.com.br',
-      'm.youtube.com'
+      "youtube.com",
+      "youtu.be",
+      "youtube-nocookie.com",
+      "youtube.co.uk",
+      "youtube.jp",
+      "youtube.fr",
+      "youtube.de",
+      "youtube.br",
+      "youtube.in",
+      "youtube.es",
+      "youtube.mx",
+      "youtube.it",
+      "youtube.ru",
+      "youtube.kr",
+      "youtube.tw",
+      "youtube.hk",
+      "youtube.cn",
+      "youtube.ca",
+      "youtube.au",
+      "youtube.nz",
+      "youtube.com.br",
+      "m.youtube.com"
     ];
 
-    return youtubePatterns.some(pattern => hostname.includes(pattern));
+    return youtubePatterns.some((pattern) => hostname.includes(pattern));
   } catch {
     return false;
   }
@@ -154,18 +157,18 @@ function isYouTubeDomain(url: string): boolean {
  * Ensures it contains valid placeholders for yt-dlp
  */
 export function validateOutputTemplate(template: string): { valid: boolean; error?: string } {
-  if (!template || typeof template !== 'string') {
+  if (!template || typeof template !== "string") {
     return {
       valid: false,
-      error: 'Output template is required'
+      error: "Output template is required"
     };
   }
 
   // Must have at least one placeholder
-  if (!template.includes('%(title)s') && !template.includes('%(id)s')) {
+  if (!template.includes("%(title)s") && !template.includes("%(id)s")) {
     return {
       valid: false,
-      error: 'Output template must contain at least %(title)s or %(id)s'
+      error: "Output template must contain at least %(title)s or %(id)s"
     };
   }
 
@@ -173,7 +176,9 @@ export function validateOutputTemplate(template: string): { valid: boolean; erro
   // Windows: exclude <>":|?* but allow : in drive letters (e.g., C:)
   // Allow backslashes as path separators, but not other special chars used in filenames
   const hasPathPrefix = /^[A-Za-z]:/.test(template);
-  if (process.platform === 'win32') {
+  const platform = process.platform as NodeJS.Platform | "win32";
+
+  if (platform === "win32") {
     // Check for genuinely invalid chars (excluding those that are path-safe: \/:.)
     const invalidChars = /[<>"|?*]/;
     if (invalidChars.test(template)) {
@@ -183,23 +188,22 @@ export function validateOutputTemplate(template: string): { valid: boolean; erro
       };
     }
     // Allow colons only in drive letter prefix (e.g., C:)
-    const colonIndices = [...template.matchAll(/:/g)].map(m => m.index);
+    const colonIndices = [...template.matchAll(/:/g)].map((m) => m.index);
     for (const idx of colonIndices) {
       if (idx !== 1 || !hasPathPrefix) {
         return {
           valid: false,
-          error: 'Output template can only contain colons in drive letters (e.g., C:)'
+          error: "Output template can only contain colons in drive letters (e.g., C:)"
         };
       }
     }
-  } else if (process.platform !== 'win32') {
-    // Unix: reject only null characters
-    if (/\0/.test(template)) {
-      return {
-        valid: false,
-        error: 'Output template contains invalid null characters'
-      };
-    }
+  }
+  // Unix / Linux / macOS: reject only null characters
+  else if (/\0/.test(template)) {
+    return {
+      valid: false,
+      error: "Output template contains invalid null characters"
+    };
   }
 
   return { valid: true };
@@ -209,19 +213,19 @@ export function validateOutputTemplate(template: string): { valid: boolean; erro
  * Validate format selector string (used for yt-dlp --format parameter)
  */
 export function validateFormatSelector(selector: string): { valid: boolean; error?: string } {
-  if (!selector || typeof selector !== 'string') {
+  if (!selector || typeof selector !== "string") {
     return {
       valid: false,
-      error: 'Format selector is required'
+      error: "Format selector is required"
     };
   }
 
   // Basic format selector validation
   // Allow common patterns: numbers, +, -, /, brackets, quotes
-  if (!/^[a-z0-9\s\+\-\/\[\]\(\),'"|&]*$/i.test(selector)) {
+  if (!/^[a-z0-9\s+\-/[\](),'"|&]*$/i.test(selector)) {
     return {
       valid: false,
-      error: 'Format selector contains invalid characters'
+      error: "Format selector contains invalid characters"
     };
   }
 

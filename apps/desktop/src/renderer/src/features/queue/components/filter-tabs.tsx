@@ -15,6 +15,7 @@ const filters: { id: QueueFilter; label: string }[] = [
   { id: "downloading", label: "Active" },
   { id: "paused", label: "Paused" },
   { id: "queued", label: "Queued" },
+  { id: "completed", label: "Completed" },
   { id: "error", label: "Failed" }
 ];
 
@@ -34,6 +35,8 @@ export const FilterTabs = ({
         return stats.paused;
       case "queued":
         return stats.queued;
+      case "completed":
+        return stats.completed;
       case "error":
         return stats.error;
     }
@@ -73,15 +76,17 @@ export const FilterTabs = ({
 
       <div className="flex-1" />
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onPauseAll}
-        className="text-[12px] text-muted-foreground hover:text-foreground px-2 py-1 h-auto"
-      >
-        <Pause className="w-3 h-3 mr-1" />
-        Pause all
-      </Button>
+      {stats.downloading > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onPauseAll}
+          className="text-[12px] text-muted-foreground hover:text-foreground px-2 py-1 h-auto"
+        >
+          <Pause className="w-3 h-3 mr-1" />
+          Pause all
+        </Button>
+      )}
     </div>
   );
 };

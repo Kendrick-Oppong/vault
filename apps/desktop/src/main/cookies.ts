@@ -1,25 +1,21 @@
 /**
  * Browser cookie detection, cached export, and yt-dlp flag helpers.
  *
- * Detects which browsers are installed, exports a Netscape-format cookies file
- * once and reuses it (refreshing in the background when stale), and exposes sync
- * helpers that turn the current config into yt-dlp cookie flags. This lets the
- * app read private / age-restricted / members content without forcing a slow,
- * lock-prone browser read on every single request.
+ *
  */
-import { app } from 'electron';
-import { existsSync, statSync, unlinkSync } from 'fs';
-import { homedir } from 'os';
-import { join } from 'path';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { app } from "electron";
+import { existsSync, statSync, unlinkSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { logger } from "./logger";
 
 const execFileAsync = promisify(execFile);
 
 export interface DetectedBrowser {
   /** yt-dlp identifier, e.g. 'chrome'. */
   name: string;
-  /** Human-friendly label, e.g. 'Google Chrome'. */
   label: string;
 }
 
@@ -41,51 +37,51 @@ export interface CookieInfo {
 /** Per-platform browser → data-directory probes. */
 const BROWSER_PATHS: Record<string, Record<string, () => string>> = {
   win32: {
-    edge: () => join(process.env.LOCALAPPDATA || '', 'Microsoft', 'Edge', 'User Data'),
-    chrome: () => join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'User Data'),
-    firefox: () => join(process.env.APPDATA || '', 'Mozilla', 'Firefox', 'Profiles'),
-    opera: () => join(process.env.APPDATA || '', 'Opera Software', 'Opera Stable'),
+    edge: () => join(process.env.LOCALAPPDATA || "", "Microsoft", "Edge", "User Data"),
+    chrome: () => join(process.env.LOCALAPPDATA || "", "Google", "Chrome", "User Data"),
+    firefox: () => join(process.env.APPDATA || "", "Mozilla", "Firefox", "Profiles"),
+    opera: () => join(process.env.APPDATA || "", "Opera Software", "Opera Stable"),
     brave: () =>
-      join(process.env.LOCALAPPDATA || '', 'BraveSoftware', 'Brave-Browser', 'User Data'),
-    vivaldi: () => join(process.env.LOCALAPPDATA || '', 'Vivaldi', 'User Data')
+      join(process.env.LOCALAPPDATA || "", "BraveSoftware", "Brave-Browser", "User Data"),
+    vivaldi: () => join(process.env.LOCALAPPDATA || "", "Vivaldi", "User Data")
   },
   darwin: {
-    chrome: () => join(homedir(), 'Library', 'Application Support', 'Google', 'Chrome'),
-    safari: () => join(homedir(), 'Library', 'Safari'),
-    firefox: () => join(homedir(), 'Library', 'Application Support', 'Firefox', 'Profiles'),
-    opera: () => join(homedir(), 'Library', 'Application Support', 'com.operasoftware.Opera'),
+    chrome: () => join(homedir(), "Library", "Application Support", "Google", "Chrome"),
+    safari: () => join(homedir(), "Library", "Safari"),
+    firefox: () => join(homedir(), "Library", "Application Support", "Firefox", "Profiles"),
+    opera: () => join(homedir(), "Library", "Application Support", "com.operasoftware.Opera"),
     brave: () =>
-      join(homedir(), 'Library', 'Application Support', 'BraveSoftware', 'Brave-Browser'),
-    vivaldi: () => join(homedir(), 'Library', 'Application Support', 'Vivaldi'),
-    edge: () => join(homedir(), 'Library', 'Application Support', 'Microsoft Edge')
+      join(homedir(), "Library", "Application Support", "BraveSoftware", "Brave-Browser"),
+    vivaldi: () => join(homedir(), "Library", "Application Support", "Vivaldi"),
+    edge: () => join(homedir(), "Library", "Application Support", "Microsoft Edge")
   },
   linux: {
-    chrome: () => join(homedir(), '.config', 'google-chrome'),
-    firefox: () => join(homedir(), '.mozilla', 'firefox'),
-    chromium: () => join(homedir(), '.config', 'chromium'),
-    opera: () => join(homedir(), '.config', 'opera'),
-    brave: () => join(homedir(), '.config', 'BraveSoftware', 'Brave-Browser'),
-    vivaldi: () => join(homedir(), '.config', 'vivaldi'),
-    edge: () => join(homedir(), '.config', 'microsoft-edge')
+    chrome: () => join(homedir(), ".config", "google-chrome"),
+    firefox: () => join(homedir(), ".mozilla", "firefox"),
+    chromium: () => join(homedir(), ".config", "chromium"),
+    opera: () => join(homedir(), ".config", "opera"),
+    brave: () => join(homedir(), ".config", "BraveSoftware", "Brave-Browser"),
+    vivaldi: () => join(homedir(), ".config", "vivaldi"),
+    edge: () => join(homedir(), ".config", "microsoft-edge")
   }
 };
 
 /** Preferred probe order per platform. */
 const BROWSER_ORDER: Record<string, string[]> = {
-  win32: ['vivaldi', 'brave', 'firefox', 'chrome', 'edge', 'opera'],
-  darwin: ['chrome', 'safari', 'firefox', 'brave', 'vivaldi', 'opera', 'edge'],
-  linux: ['chrome', 'firefox', 'chromium', 'brave', 'vivaldi', 'opera', 'edge']
+  win32: ["vivaldi", "brave", "firefox", "chrome", "edge", "opera"],
+  darwin: ["chrome", "safari", "firefox", "brave", "vivaldi", "opera", "edge"],
+  linux: ["chrome", "firefox", "chromium", "brave", "vivaldi", "opera", "edge"]
 };
 
 const LABELS: Record<string, string> = {
-  chrome: 'Google Chrome',
-  edge: 'Microsoft Edge',
-  firefox: 'Firefox',
-  opera: 'Opera',
-  brave: 'Brave',
-  vivaldi: 'Vivaldi',
-  safari: 'Safari',
-  chromium: 'Chromium'
+  chrome: "Google Chrome",
+  edge: "Microsoft Edge",
+  firefox: "Firefox",
+  opera: "Opera",
+  brave: "Brave",
+  vivaldi: "Vivaldi",
+  safari: "Safari",
+  chromium: "Chromium"
 };
 
 /** Refresh the cached cookies file once it is older than this (7 days). */
@@ -93,6 +89,7 @@ const COOKIES_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Return the browsers actually installed on this machine, in probe order. */
 export function getInstalledBrowsers(): DetectedBrowser[] {
+  logger.debug("Scanning for installed browsers on platform:", process.platform);
   const platformPaths = BROWSER_PATHS[process.platform] || {};
   const order = BROWSER_ORDER[process.platform] || Object.keys(platformPaths);
   const result: DetectedBrowser[] = [];
@@ -100,28 +97,40 @@ export function getInstalledBrowsers(): DetectedBrowser[] {
     const probe = platformPaths[name];
     if (!probe) continue;
     try {
-      if (existsSync(probe())) {
+      const path = probe();
+      if (existsSync(path)) {
         result.push({ name, label: LABELS[name] ?? name });
+        logger.debug("Found browser:", name, "at", path);
       }
-    } catch {
-      // ignore unreadable probe paths
+    } catch (err) {
+      logger.debug("Error probing browser:", name, err);
     }
   }
+  logger.debug("Total detected browsers:", result.length);
   return result;
 }
 
 function cookiesFilePath(): string {
-  return join(app.getPath('userData'), 'youtube-cookies.txt');
+  return join(app.getPath("userData"), "youtube-cookies.txt");
 }
 
 /** Resolve a browser setting to a concrete browser name, or null. */
 function effectiveBrowser(browserSetting: string | null): string | null {
-  if (!browserSetting || browserSetting === '') return null;
-  if (browserSetting === 'auto') return getInstalledBrowsers()[0]?.name ?? null;
+  logger.debug("Resolving effective browser for setting:", browserSetting);
+  if (!browserSetting || browserSetting === "") {
+    logger.debug("No browser setting provided");
+    return null;
+  }
+  if (browserSetting === "auto") {
+    const firstBrowser = getInstalledBrowsers()[0]?.name ?? null;
+    logger.debug("Auto-detect resolved to:", firstBrowser);
+    return firstBrowser;
+  }
+  logger.debug("Using explicit browser:", browserSetting);
   return browserSetting;
 }
 
-/** Human-friendly label for a yt-dlp browser id, e.g. 'chrome' → 'Google Chrome'. */
+/**friendly label for a yt-dlp browser id, e.g. 'chrome' → 'Google Chrome'. */
 export function browserLabel(name: string | null): string | null {
   if (!name) return null;
   return LABELS[name] ?? name;
@@ -130,8 +139,11 @@ export function browserLabel(name: string | null): string | null {
 function cacheAgeMs(): number | null {
   try {
     const stat = statSync(cookiesFilePath());
-    return stat.size > 0 ? Date.now() - stat.mtimeMs : null;
-  } catch {
+    const age = stat.size > 0 ? Date.now() - stat.mtimeMs : null;
+    logger.debug("Cookie cache age:", age, "ms, size:", stat.size);
+    return age;
+  } catch (err) {
+    logger.debug("Error getting cookie cache age:", err);
     return null;
   }
 }
@@ -150,37 +162,38 @@ async function exportCookies(
 ): Promise<boolean> {
   if (exportInFlight) return exportInFlight;
 
+  logger.info("Exporting cookies from browser:", browser);
   const file = cookiesFilePath();
-  const ext = process.platform === 'win32' ? '.exe' : '';
+  const ext = process.platform === "win32" ? ".exe" : "";
   const ytdlpBinary = ytdlpPath.endsWith(ext) ? ytdlpPath : `${ytdlpPath}${ext}`;
 
   exportInFlight = execFileAsync(
     ytdlpBinary,
     [
-      'https://www.youtube.com/watch?v=jNQXAC9IVRw',
-      '--cookies-from-browser',
+      "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+      "--cookies-from-browser",
       browser,
-      '--cookies',
+      "--cookies",
       file,
-      '--skip-download',
-      '--no-warnings',
-      '--no-check-certificates',
-      '--ffmpeg-location',
+      "--skip-download",
+      "--no-warnings",
+      "--no-check-certificates",
+      "--ffmpeg-location",
       ffmpegPath
     ],
     { timeout: 30000 }
   )
     .then(() => {
-      console.log('[cookies] Exported cookies from', browser);
+      logger.info("Exported cookies from", browser);
       return true;
     })
     .catch((err: unknown) => {
       // yt-dlp sometimes writes a usable file even while reporting a warning.
-      if (existsSync(file) && statSync(file).size > 0) return true;
-      console.warn(
-        '[cookies] Export failed:',
-        err instanceof Error ? err.message : String(err)
-      );
+      if (existsSync(file) && statSync(file).size > 0) {
+        logger.info("Cookie export succeeded despite error");
+        return true;
+      }
+      logger.warn("Cookie export failed:", err instanceof Error ? err.message : String(err));
       return false;
     })
     .finally(() => {
@@ -191,36 +204,38 @@ async function exportCookies(
 }
 
 /** Kick a background refresh without blocking the caller. */
-function refreshInBackground(
-  browser: string,
-  ytdlpPath: string,
-  ffmpegPath: string
-): void {
+function refreshInBackground(browser: string, ytdlpPath: string, ffmpegPath: string): void {
   // Throttle: a locked browser makes the export fail, and without a cooldown
   // every cookie-free download would re-trigger a doomed attempt. Wait before
   // retrying so we don't spam yt-dlp processes or the log.
-  if (Date.now() - lastExportAttempt < EXPORT_COOLDOWN_MS) return;
+  if (Date.now() - lastExportAttempt < EXPORT_COOLDOWN_MS) {
+    logger.debug("Cookie export cooldown active, skipping refresh");
+    return;
+  }
   lastExportAttempt = Date.now();
+  logger.debug("Triggering background cookie refresh for:", browser);
   void exportCookies(browser, ytdlpPath, ffmpegPath);
 }
 
 /**
  * Whether a yt-dlp failure indicates the content actually requires an
  * authenticated session (private, age-restricted, members-only) or that YouTube
- * is rate-limiting/bot-flagging this client. These are the only cases where
- * supplying browser cookies can help, so we retry *with* cookies when we see one.
+ * is rate-limiting/bot-flagging this client.
  */
 export function isAuthRequiredError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return (
+  const isAuthError =
     /sign in to confirm/i.test(message) ||
     /confirm your age|age[- ]restricted|inappropriate for some users/i.test(message) ||
     /private video/i.test(message) ||
     /members[- ]only|available to (this channel's |)members|join this channel/i.test(message) ||
     /requires payment|purchase/i.test(message) ||
     /not a bot/i.test(message) ||
-    /login required|account/i.test(message)
-  );
+    /login required|account/i.test(message);
+  if (isAuthError) {
+    logger.debug("Detected authentication required error:", message);
+  }
+  return isAuthError;
 }
 
 /** Whether the user has configured cookie usage at all. */
@@ -228,15 +243,6 @@ export function cookiesEnabled(browserSetting: string | null): boolean {
   return effectiveBrowser(browserSetting) != null;
 }
 
-/**
- * Build yt-dlp CLI cookie args for a download spawn. Uses ONLY the pre-exported
- * cache file - never a live `--cookies-from-browser` read. A live read locks on
- * (and is blocked by) a running Chromium browser, which would make every normal
- * download fail or stall. When no cache exists yet we kick off a background
- * export and download cookie-free this time; public content works regardless,
- * and private content picks up cookies once a cache has been built (e.g. via the
- * Settings "Refresh" action while the browser is closed).
- */
 export function cookieArgs(
   browserSetting: string | null,
   ytdlpPath: string,
@@ -250,7 +256,7 @@ export function cookieArgs(
     return [];
   }
   if (age > COOKIES_MAX_AGE_MS) refreshInBackground(browser, ytdlpPath, ffmpegPath);
-  return ['--cookies', cookiesFilePath()];
+  return ["--cookies", cookiesFilePath()];
 }
 
 /** Current cookie cache state for the Settings UI. */
@@ -258,7 +264,7 @@ export function getCookieInfo(browserSetting: string | null): CookieInfo {
   const age = cacheAgeMs();
   const resolved = effectiveBrowser(browserSetting);
   return {
-    browser: browserSetting ?? '',
+    browser: browserSetting ?? "",
     effectiveBrowser: resolved,
     effectiveLabel: browserLabel(resolved),
     cached: age != null,
@@ -289,7 +295,7 @@ export async function refreshCookies(
 export function clearCookies(): void {
   try {
     unlinkSync(cookiesFilePath());
-    console.log('[cookies] Cleared cached cookies');
+    logger.info("Cleared cached cookies");
   } catch {
     // nothing cached
   }

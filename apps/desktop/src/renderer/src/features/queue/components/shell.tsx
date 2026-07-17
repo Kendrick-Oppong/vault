@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { FilterTabs } from "./filter-tabs";
 import { BulkActions } from "./bulk-actions";
 import { QueueList } from "./queue-list";
+import { QueueInput } from "./queue-input";
 import type { QueueFilter, QueueItem, QueueStats } from "../types";
 import { useActiveJobs } from "@/lib/queries/jobs";
 import {
@@ -11,6 +12,7 @@ import {
   useCancelDownload
 } from "@/lib/mutations/downloads";
 import { Loader2 } from "lucide-react";
+import { useSearchState } from "@/stores/search/search.selectors";
 
 export const QueueView = () => {
   const [activeFilter, setActiveFilter] = useState<QueueFilter>("all");
@@ -22,14 +24,16 @@ export const QueueView = () => {
   const retryMutation = useRetryDownload();
   const cancelMutation = useCancelDownload();
 
+  const { results } = useSearchState();
+
   // Map Job to QueueItem
   const items: QueueItem[] = useMemo(() => {
     return activeJobs.map((job) => {
-      // Map JobStatus to QueueFilter status
       let status: QueueFilter = "queued";
       if (job.status === "active") status = "downloading";
       if (job.status === "failed") status = "error";
       if (job.status === "paused") status = "paused";
+      if (job.status === "completed") status = "completed";
 
       return {
         id: job.id,
@@ -41,7 +45,8 @@ export const QueueView = () => {
         thumbnail: job.meta?.thumbnailUrl,
         type: job.meta?.mediaType ?? "video",
         format: job.formatSelector || "best",
-        errorMessage: job.error
+        errorMessage: job.error,
+        duration: job.meta?.duration
       };
     });
   }, [activeJobs]);
@@ -57,19 +62,13 @@ export const QueueView = () => {
     );
   };
 
-  const handleSelectAll = () => {
-    setSelectedIds(filteredItems.map((item) => item.id));
-  };
-
-  const handleSelectNone = () => {
-    setSelectedIds([]);
-  };
+  const handleSelectAll = () => setSelectedIds(filteredItems.map((item) => item.id));
+  const handleSelectNone = () => setSelectedIds([]);
 
   const handleBulkAction = useCallback(
     (action: "pause" | "resume" | "retry" | "cancel") => {
       const jobs = selectedIds;
       setSelectedIds([]);
-
       for (const id of jobs) {
         switch (action) {
           case "pause":
@@ -91,21 +90,20 @@ export const QueueView = () => {
   );
 
   const handlePauseAll = useCallback(() => {
-    // Pause all currently downloading (active) jobs
     const activeIds = activeJobs.filter((j) => j.status === "active").map((j) => j.id);
-    for (const id of activeIds) {
-      pauseMutation.mutate(id);
-    }
+    for (const id of activeIds) pauseMutation.mutate(id);
   }, [activeJobs, pauseMutation]);
 
-  // Update stats based on actual items
   const stats: QueueStats = {
     total: items.length,
     downloading: items.filter((i) => i.status === "downloading").length,
     paused: items.filter((i) => i.status === "paused").length,
     queued: items.filter((i) => i.status === "queued").length,
+    completed: items.filter((i) => i.status === "completed").length,
     error: items.filter((i) => i.status === "error").length
   };
+
+  const isSearching = results.length > 0;
 
   if (isLoading) {
     return (
@@ -117,23 +115,28 @@ export const QueueView = () => {
   }
 
   return (
-    <div className="space-y-2">
-      <FilterTabs
-        activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
-        stats={stats}
-        onPauseAll={handlePauseAll}
-      />
+    <div className="space-y-4 py-4">
+      <QueueInput />
 
-      <BulkActions
-        selectedCount={selectedIds.length}
-        onSelectAll={handleSelectAll}
-        totalCount={filteredItems.length}
-        onSelectNone={handleSelectNone}
-        onBulkAction={handleBulkAction}
-      />
-
-      <QueueList items={filteredItems} selectedIds={selectedIds} onSelect={handleSelect} />
+      {/* Queue (hidden while searching) */}
+      {!isSearching && (
+        <div className="space-y-2">
+          <FilterTabs
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            stats={stats}
+            onPauseAll={handlePauseAll}
+          />
+          <BulkActions
+            selectedCount={selectedIds.length}
+            onSelectAll={handleSelectAll}
+            totalCount={filteredItems.length}
+            onSelectNone={handleSelectNone}
+            onBulkAction={handleBulkAction}
+          />
+          <QueueList items={filteredItems} selectedIds={selectedIds} onSelect={handleSelect} />
+        </div>
+      )}
     </div>
   );
 };
