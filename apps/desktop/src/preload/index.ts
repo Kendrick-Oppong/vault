@@ -24,6 +24,8 @@ const vaultApi = {
   retryDownload: (jobId: string): Promise<string | null> =>
     ipcRenderer.invoke("queue:retry", jobId),
 
+  getJobs: (): Promise<Job[]> => ipcRenderer.invoke("queue:getJobs"),
+
   setConcurrency: (n: number): Promise<boolean> => ipcRenderer.invoke("queue:setConcurrency", n),
 
   getHistory: (limit?: number, offset?: number): Promise<HistoryEntry[]> =>
@@ -88,6 +90,9 @@ const vaultApi = {
   }> => ipcRenderer.invoke("cookies:clear", browserSetting),
 
   clearFormatCache: (url?: string): Promise<void> => ipcRenderer.invoke("cache:clearFormats", url),
+
+  clearDownloadArchive: (downloadPath: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("cache:clearDownloadArchive", downloadPath),
 
   getAppInfo: (): Promise<{
     appVersion: string;
@@ -167,6 +172,11 @@ const vaultApi = {
   installUpdate: (): Promise<void> => ipcRenderer.invoke("app:installUpdate"),
 
   quitApp: (): Promise<void> => ipcRenderer.invoke("app:quit"),
+
+  // Logger
+  getLogsHistory: (): Promise<
+    { level: string; message: string; timestamp: number }[]
+  > => ipcRenderer.invoke("logs:history"),
 
   // --- Event listeners (return cleanup) ---
   onJobQueued: (cb: (job: Job) => void): (() => void) => {
