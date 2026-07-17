@@ -48,7 +48,7 @@ export const SettingsView = () => {
   const { mutate: setConcurrency } = useSetConcurrency();
   const { openConfirmDialog } = useModalActions();
 
-  const handleSetBrowser = (value: string) => {
+  const handleSetBrowser = (value: string | null) => {
     const browserValue = value === "none" || !value ? "" : value;
     setBrowserMutation.mutate(browserValue);
   };
@@ -60,9 +60,6 @@ export const SettingsView = () => {
   const checkUpdatesMutation = useCheckForUpdates();
   const openFolderMutation = useOpenFolderDialog();
   const { data: deps, isLoading: depsLoading } = useDependenciesCheck();
-
-  const cookieBusy =
-    setBrowserMutation.isPending || refreshMutation.isPending || clearMutation.isPending;
 
   const handleConcurrentChange = (delta: number) => {
     const newValue = Math.max(1, Math.min(10, settings.concurrentDownloads + delta));
@@ -250,6 +247,16 @@ export const SettingsView = () => {
           </Row>
 
           <Row
+            label="Download archive"
+            description="Skip already downloaded files by keeping a record"
+          >
+            <Switch
+              checked={settings.useDownloadArchive}
+              onCheckedChange={(checked) => updateSetting("useDownloadArchive", checked)}
+            />
+          </Row>
+
+          <Row
             label="Default container"
             description="Video downloads always include the best available audio, merged in automatically"
           >
@@ -258,7 +265,7 @@ export const SettingsView = () => {
               onValueChange={(value) => updateSetting("videoContainer", value as "mp4" | "mkv")}
             >
               <SelectTrigger className="h-8 w-24 text-[12px]">
-                <SelectValue />
+                <SelectValue placeholder="MP4" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="mp4">MP4</SelectItem>
@@ -358,17 +365,19 @@ export const SettingsView = () => {
             <div className="flex items-center gap-2">
               <Select
                 value={settings.cookiesFromBrowser ?? "none"}
-                onValueChange={(value) => handleSetBrowser(value ?? "none")}
+                onValueChange={(value) => handleSetBrowser(value)}
               >
-                <SelectTrigger className="h-8 w-32 text-[12px]">
+                <SelectTrigger className="h-8 w-40 text-[12px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="chrome">Chrome</SelectItem>
-                  <SelectItem value="firefox">Firefox</SelectItem>
-                  <SelectItem value="safari">Safari</SelectItem>
-                  <SelectItem value="edge">Edge</SelectItem>
+                  <SelectItem value="auto">Auto-detect</SelectItem>
+                  {cookieInfo?.detected?.map((browser) => (
+                    <SelectItem key={browser.name} value={browser.name}>
+                      {browser.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {settings.cookiesFromBrowser && (
@@ -378,7 +387,7 @@ export const SettingsView = () => {
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => refreshMutation.mutate(settings.cookiesFromBrowser)}
-                    disabled={cookieBusy}
+                    disabled={refreshMutation.isPending}
                     title="Refresh cookies"
                   >
                     {refreshMutation.isPending ? (
@@ -392,10 +401,14 @@ export const SettingsView = () => {
                     size="icon"
                     className="h-8 w-8 text-destructive hover:text-destructive"
                     onClick={() => clearMutation.mutate(settings.cookiesFromBrowser)}
-                    disabled={cookieBusy}
+                    disabled={clearMutation.isPending}
                     title="Clear cookies"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    {clearMutation.isPending ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
                   </Button>
                 </>
               )}
@@ -403,18 +416,32 @@ export const SettingsView = () => {
           </Row>
 
           {cookieInfo?.effectiveBrowser && (
-            <div className="py-2 flex items-center gap-2 text-[11.5px]">
-              {cookieInfo.cached ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
-              ) : (
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <>
+              <div className="py-2 flex items-center gap-2 text-[11.5px]">
+                {cookieInfo.cached ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                )}
+                <span className="text-muted-foreground">
+                  {cookieInfo.cached
+                    ? `Cached from ${cookieInfo.effectiveLabel} · ${formatCookieAge(cookieInfo.ageMs)}`
+                    : `Could not extract cookies from ${cookieInfo.effectiveLabel}`}
+                </span>
+              </div>
+
+              {!cookieInfo.cached && (
+                <div className="py-2 text-[11.5px] text-muted-foreground">
+                  Tip: Close {cookieInfo.effectiveLabel || "your browser"} completely before refreshing - a running browser locks its cookie database and the import will fail.
+                </div>
               )}
-              <span className="text-muted-foreground">
-                {cookieInfo.cached
-                  ? `Cached from ${cookieInfo.effectiveLabel} · ${formatCookieAge(cookieInfo.ageMs)}`
-                  : `Could not extract cookies from ${cookieInfo.effectiveLabel}`}
-              </span>
-            </div>
+
+              {cookieInfo.detected.length === 0 && (
+                <div className="py-2 text-[11.5px] text-muted-foreground">
+                  No supported browsers detected on this machine, so cookies can&apos;t be imported.
+                </div>
+              )}
+            </>
           )}
         </Section>
 
@@ -482,7 +509,16 @@ export const SettingsView = () => {
                     "This will clear the record of all previously downloaded videos. Vault won't know what's already been downloaded and may re-download duplicates.",
                   confirmText: "Reset",
                   variant: "danger",
-                  onConfirm: () => toast.warning("Download archive reset")
+                  onConfirm: async () => {
+                    const result = await globalThis.api.clearDownloadArchive(settings.downloadPath);
+                    if (result.success) {
+                      toast.success("Download archive reset");
+                    } else {
+                      toast.error("Failed to reset download archive", {
+                        description: result.error
+                      });
+                    }
+                  }
                 })
               }
             >
