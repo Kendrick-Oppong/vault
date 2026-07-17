@@ -184,7 +184,6 @@ export function extractAudio(
   return { process: proc, promise };
 }
 
-/** Factory for convenience when passing ffmpegPath around */
 export function createFfmpegManager(opts: FfmpegOptions) {
   return {
     getAvailableCodecs: () => getAvailableCodecs(opts.ffmpegPath),
