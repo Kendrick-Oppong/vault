@@ -18,6 +18,7 @@ export interface Settings {
   writeSubtitles: boolean;
   subtitleLangs: string[];
   videoContainer: VideoContainer;
+  useDownloadArchive: boolean;
   version: string;
   ytDlpVersion: string;
 }
