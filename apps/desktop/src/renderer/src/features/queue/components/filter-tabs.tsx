@@ -15,6 +15,7 @@ const filters: { id: QueueFilter; label: string }[] = [
   { id: "downloading", label: "Active" },
   { id: "paused", label: "Paused" },
   { id: "queued", label: "Queued" },
+  { id: "completed", label: "Completed" },
   { id: "error", label: "Failed" }
 ];
 
@@ -34,6 +35,8 @@ export const FilterTabs = ({
         return stats.paused;
       case "queued":
         return stats.queued;
+      case "completed":
+        return stats.completed;
       case "error":
         return stats.error;
     }
