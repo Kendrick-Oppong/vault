@@ -110,7 +110,12 @@ function registerIpcHandlers(): void {
   // Intercept downloads: validate URL and format, inject cookies if available
   ipcMain.handle("queue:add", (_e, jobInput: JobInput) => {
     logger.info("Queueing download:", jobInput.url);
-    logger.debug("Job input details:", { url: jobInput.url, formatSelector: jobInput.formatSelector, outputTemplate: jobInput.outputTemplate, extra: jobInput.extra });
+    logger.debug("Job input details:", {
+      url: jobInput.url,
+      formatSelector: jobInput.formatSelector,
+      outputTemplate: jobInput.outputTemplate,
+      extra: jobInput.extra
+    });
 
     // Validate URL
     const urlValidation = validateYouTubeUrl(jobInput.url);
