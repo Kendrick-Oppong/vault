@@ -69,15 +69,17 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
       ? (rawProgress.downloaded_bytes / rawProgress.total_bytes) * 100
       : item.progress;
 
-  const downloaded = !isCompleted && rawProgress?.downloaded_bytes
-    ? formatBytes(rawProgress.downloaded_bytes)
-    : item.downloaded;
+  const downloaded =
+    !isCompleted && rawProgress?.downloaded_bytes
+      ? formatBytes(rawProgress.downloaded_bytes)
+      : item.downloaded;
 
-  const size = !isCompleted && rawProgress?.total_bytes
-    ? formatBytes(rawProgress.total_bytes)
-    : rawProgress?.total_bytes_estimate
-      ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
-      : item.size;
+  const size =
+    !isCompleted && rawProgress?.total_bytes
+      ? formatBytes(rawProgress.total_bytes)
+      : rawProgress?.total_bytes_estimate
+        ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
+        : item.size;
 
   const getActions = () => {
     if (isDownloading) {
