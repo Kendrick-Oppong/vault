@@ -188,9 +188,10 @@ export function download(
       args[formatIndex + 1] = "bestaudio";
     }
   } else {
-    // For video downloads, use container from extras if provided, otherwise use mkv as default
-    const container = extras?.videoContainer || "mkv";
-    args.push("--merge-output-format", container);
+    // For video downloads, use container from extras if provided, otherwise use mp4 as default
+    const container = extras?.videoContainer || "mp4";
+    args.push("--merge-output-format", container, "--remux-video", container);
+    logger.debug("Video container set to:", container);
   }
 
   if (resume) {
@@ -232,19 +233,53 @@ export function download(
     (isAudio
       ? formatSelector.match(/(mp3|m4a|opus|flac|wav)/i)?.[1]?.toLowerCase() || "mp3"
       : formatSelector);
-  const audioSupportsThumbnail = ["mp3", "m4a", "opus", "flac"].includes(audioFormat);
-  const canEmbedThumbnail = !isAudio || audioSupportsThumbnail;
+  const videoContainer = extras?.videoContainer || "mp4";
+
+  // Audio bitrate for non-lossless formats
+  if (extras?.audioBitrate && audioFormat !== "flac" && audioFormat !== "wav") {
+    args.push("--audio-quality", `${extras.audioBitrate}K`);
+    logger.debug("Audio bitrate set to:", extras.audioBitrate, "kbps");
+  }
+  // yt-dlp supports thumbnail embedding in: mp3, mkv/mka, ogg/opus/flac, m4a/mp4/m4v/mov
+  // webm is NOT supported for thumbnail embedding
+  const supportedThumbnailFormats = [
+    "mp3",
+    "m4a",
+    "opus",
+    "flac",
+    "mkv",
+    "mka",
+    "ogg",
+    "mp4",
+    "m4v",
+    "mov"
+  ];
+  // Check if format selector indicates webm output (common for low-quality YouTube formats)
+  const isWebmFormat =
+    formatSelector.includes("webm") ||
+    formatSelector.match(
+      /\b(133|134|135|136|137|138|139|140|141|142|143|160|167|168|169|170|217|218|219|222|223|224|242|243|244|245|246|247|248|256|257|258|271|272|278|298|299|302|303)\b/
+    );
+  const canEmbedThumbnail =
+    !isWebmFormat &&
+    (supportedThumbnailFormats.includes(audioFormat) ||
+      supportedThumbnailFormats.includes(videoContainer));
 
   logger.debug("Media type detection:", {
     isAudio,
     audioFormat,
-    audioSupportsThumbnail,
+    videoContainer,
+    isWebmFormat,
     canEmbedThumbnail
   });
 
   if (canEmbedThumbnail && extras?.embedThumbnail) {
     args.push("--embed-thumbnail", "--ppa", "EmbedThumbnail:-c copy");
     logger.debug("Thumbnail embedding enabled");
+  } else if (extras?.embedThumbnail && !canEmbedThumbnail) {
+    logger.debug(
+      "Thumbnail embedding disabled: unsupported format (webm or other unsupported container)"
+    );
   }
   if (extras?.embedMetadata) {
     args.push("--embed-metadata");
