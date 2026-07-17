@@ -11,12 +11,6 @@ export const downloadsApi = {
   searchYoutube: (query: string, page?: number) => globalThis.api.searchYoutube(query, page),
   listSubtitles: (url: string) => globalThis.api.listSubtitles(url),
   dependenciesCheck: () => globalThis.api.dependenciesCheck(),
-  dependenciesDownload: () => globalThis.api.dependenciesDownload()
-};
-
-export const appApi = {
-  getInfo: () => globalThis.api.getAppInfo(),
-  checkForUpdates: () => globalThis.api.checkForUpdates(),
-  installUpdate: () => globalThis.api.installUpdate(),
-  quitApp: () => globalThis.api.quitApp()
+  dependenciesDownload: () => globalThis.api.dependenciesDownload(),
+  getJobs: () => globalThis.api.getJobs()
 };
