@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@vault/ui/components/select";
+import { mapCodecToYtdlpFormat } from "@/lib/utils/format";
 import { Badge } from "@vault/ui/components/badge";
 import {
   Video,
@@ -27,41 +28,22 @@ import {
   Info,
   AlertCircle,
   RefreshCw,
-  AudioLines
+  AudioLines,
+  FolderOpen
 } from "lucide-react";
 import { cn } from "@vault/ui/lib/utils";
-import type { FormatModalData, MediaType, VideoFormat, AudioFormat } from "../types";
+import type {
+  FormatModalData,
+  FormatModalProps,
+  MediaType,
+  VideoFormat,
+  AudioFormat
+} from "../types";
 import { useSettingsStore } from "@/stores/settings/settings.store";
 import { selectSettings } from "@/stores/settings/settings.selectors";
 import { formatBytes } from "@/lib/utils/platform";
 import { SkeletonLoader } from "@/features/ui/components/skeleton-loader";
-
-interface FormatModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  data: FormatModalData;
-  isLoading?: boolean;
-  isError?: boolean;
-  error?: string | null;
-  onRetry?: () => void;
-  onConfirm: (options: FormatOptions) => void;
-}
-
-export interface FormatOptions {
-  mediaType: MediaType;
-  videoFormat?: VideoFormat;
-  audioFormat?: AudioFormat;
-  embedThumbnail: boolean;
-  embedMetadata: boolean;
-  embedChapters: boolean;
-  sponsorBlock: boolean;
-  subtitles: "none" | "external" | "burned";
-  subtitleLanguages?: string[];
-  reencodeFormat?: "none" | "h264-aac" | "h265-aac";
-  videoContainer?: "mp4" | "mkv";
-  destination: string;
-  selectedItems?: string[];
-}
+import { useOpenFolderDialog } from "@/lib/mutations/files";
 
 const defaultData: FormatModalData = {
   title: "Loading...",
@@ -82,6 +64,7 @@ export const FormatModal = ({
   onConfirm
 }: FormatModalProps) => {
   const settings = useSettingsStore(selectSettings);
+  const openFolderMutation = useOpenFolderDialog();
   const [mediaType, setMediaType] = useState<MediaType>("video");
   const [selectedVideoFormat, setSelectedVideoFormat] = useState<VideoFormat | null>(() => {
     if (data.videoFormats.length === 0) return null;
@@ -94,10 +77,13 @@ export const FormatModal = ({
   const [embedMetadata, setEmbedMetadata] = useState(settings.embedMetadata);
   const [embedChapters, setEmbedChapters] = useState(settings.embedChapters);
   const [sponsorBlock, setSponsorBlock] = useState(settings.sponsorBlock);
-  const [subtitles, setSubtitles] = useState<"none" | "external" | "burned">("none");
-  const [subtitleLanguages, setSubtitleLanguages] = useState<string[]>(settings.subtitleLangs);
-  const [reencodeFormat, setReencodeFormat] = useState<"none" | "h264-aac" | "h265-aac">("none");
-  const [videoContainer, setVideoContainer] = useState<"mp4" | "mkv">(settings.videoContainer);
+  const [subtitles, setSubtitles] = useState<"none" | "external">("none");
+  const [subtitleLanguages, setSubtitleLanguages] = useState<string[]>(
+    settings.subtitleLangs || ["en"]
+  );
+  const [videoContainer, setVideoContainer] = useState<"mp4" | "mkv">(
+    settings.videoContainer || "mp4"
+  );
   const [destination, setDestination] = useState(settings.downloadPath);
   const [selectedItems, setSelectedItems] = useState<string[]>(
     () => data.playlistItems?.map((i) => i.id) ?? []
@@ -131,7 +117,7 @@ export const FormatModal = ({
         }
       }, 0);
     }
-  }, [isLoading, data, selectedVideoFormat, selectedAudioFormat, selectedItems]);
+  }, [isLoading, data, selectedVideoFormat, selectedAudioFormat]);
 
   const handleOpenChange = (openState: boolean) => {
     if (isLoading) return; // Prevent dismissing while loading
@@ -149,10 +135,11 @@ export const FormatModal = ({
       sponsorBlock,
       subtitles,
       subtitleLanguages: subtitles !== "none" ? subtitleLanguages : undefined,
-      reencodeFormat: reencodeFormat !== "none" ? reencodeFormat : undefined,
       videoContainer,
       destination,
-      selectedItems: data.type === "playlist" ? selectedItems : undefined
+      selectedItems: data.type === "playlist" ? selectedItems : undefined,
+      audioCodec:
+        mediaType === "audio" ? mapCodecToYtdlpFormat(selectedAudioFormat?.codec) : undefined
     });
     onOpenChange(false);
   };
@@ -167,19 +154,10 @@ export const FormatModal = ({
   };
 
   const getBadges = () => {
-    let badges: {
-      label: string;
-      variant: "default" | "secondary" | "destructive" | "outline";
-    }[] = [];
     if (data.type === "playlist") {
-      badges = [
-        { label: "Playlist", variant: "default" },
-        { label: `${data.videoCount} videos`, variant: "secondary" }
-      ];
-    } else {
-      badges = [{ label: data.duration || "Video", variant: "secondary" }];
+      return [{ label: "Playlist" }, { label: `${data.videoCount} videos` }];
     }
-    return badges;
+    return [{ label: data.duration || "Video" }];
   };
 
   const isPlaylist = data.type === "playlist";
@@ -233,9 +211,9 @@ export const FormatModal = ({
 
   const thumbnailFallback =
     mediaType === "audio" ? (
-      <AudioLines className="w-6 h-6 text-white/40" />
+      <AudioLines className="w-6 h-6 text-foreground/40" />
     ) : (
-      <Video className="w-6 h-6 text-white/40" />
+      <Video className="w-6 h-6 text-foreground/40" />
     );
 
   return (
@@ -267,7 +245,7 @@ export const FormatModal = ({
                 </div>
               )}
               {/* Gradient overlay for smooth blending with background */}
-              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-background via-background/40 to-transparent" />
             </>
           )}
 
@@ -287,8 +265,7 @@ export const FormatModal = ({
                   {getBadges().map((badge, i) => (
                     <Badge
                       key={`badge-${i.toString()}`}
-                      variant={badge.variant as "default" | "secondary"}
-                      className="text-[10px] px-2 py-0.5 border-none shadow-sm backdrop-blur-md bg-background/80"
+                      className="text-base px-2 text-primary! py-0.5 border-none shadow-sm backdrop-blur-md bg-background/80"
                     >
                       {badge.label}
                     </Badge>
@@ -507,102 +484,114 @@ export const FormatModal = ({
                   />
                   Embed chapters
                 </label>
-                <label className="flex items-center gap-2 text-[13px] cursor-pointer">
-                  <Checkbox
-                    checked={sponsorBlock}
-                    onCheckedChange={(checked) => setSponsorBlock(!!checked)}
-                    className="w-4 h-4"
-                  />
-                  Remove sponsored segments
-                </label>
-              </div>
-
-              <div className="flex items-center gap-3 pt-2">
-                <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Subtitles</Label>
-                <Select
-                  value={subtitles}
-                  onValueChange={(value) => setSubtitles(value as typeof subtitles)}
-                >
-                  <SelectTrigger className="flex-1 bg-secondary/60 border-border text-[13px] h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="external">Save as .srt file</SelectItem>
-                    <SelectItem value="burned">Burn into video</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Subtitle language picker — shown when subtitles are enabled */}
-              {subtitles !== "none" && (
-                <div className="flex items-center gap-3">
-                  <Label className="text-[13px] text-muted-foreground w-24 shrink-0">
-                    Languages
-                  </Label>
-                  <div className="flex-1">
-                    <Input
-                      value={subtitleLanguages.join(",")}
-                      onChange={(e) =>
-                        setSubtitleLanguages(
-                          e.target.value
-                            .split(",")
-                            .map((l) => l.trim())
-                            .filter(Boolean)
-                        )
-                      }
-                      className="h-9 bg-secondary/60 border-border text-[12.5px]"
-                      placeholder="en, zh, fr (comma-separated)"
+                {/* SponsorBlock is video-only */}
+                {mediaType === "video" && (
+                  <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                    <Checkbox
+                      checked={sponsorBlock}
+                      onCheckedChange={(checked) => setSponsorBlock(!!checked)}
+                      className="w-4 h-4"
                     />
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Comma-separated language codes, e.g. <code>en,zh-Hans</code>
-                    </p>
+                    Remove sponsored segments
+                  </label>
+                )}
+              </div>
+
+              {/* Subtitles - video only */}
+              {mediaType === "video" && (
+                <>
+                  <div className="flex items-center gap-3 pt-2">
+                    <Label className="text-[13px] text-muted-foreground w-24 shrink-0">
+                      Subtitles
+                    </Label>
+                    <Select
+                      value={subtitles}
+                      onValueChange={(value) => setSubtitles(value as typeof subtitles)}
+                    >
+                      <SelectTrigger className="flex-1 bg-secondary/60 border-border text-[13px] h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="external">Save as .srt file</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
+
+                  {/* Subtitle language picker — shown when subtitles are enabled */}
+                  {subtitles !== "none" && (
+                    <div className="flex items-center gap-3">
+                      <Label className="text-[13px] text-muted-foreground w-24 shrink-0">
+                        Languages
+                      </Label>
+                      <div className="flex-1">
+                        <Input
+                          value={subtitleLanguages.join(",")}
+                          onChange={(e) =>
+                            setSubtitleLanguages(
+                              e.target.value
+                                .split(",")
+                                .map((l) => l.trim())
+                                .filter(Boolean)
+                            )
+                          }
+                          className="h-9 bg-secondary/60 border-border text-[12.5px]"
+                          placeholder="en, zh, fr (comma-separated)"
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Comma-separated language codes, e.g. <code>en,zh-Hans</code>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
-              {/* Re-encode option */}
-              <div className="flex items-center gap-3">
-                <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Re-encode</Label>
-                <Select
-                  value={reencodeFormat}
-                  onValueChange={(value) => setReencodeFormat(value as typeof reencodeFormat)}
-                >
-                  <SelectTrigger className="flex-1 bg-secondary/60 border-border text-[13px] h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No re-encoding</SelectItem>
-                    <SelectItem value="h264-aac">H.264 + AAC (MP4)</SelectItem>
-                    <SelectItem value="h265-aac">H.265 + AAC (MKV)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Container option */}
-              <div className="flex items-center gap-3">
-                <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Container</Label>
-                <Select
-                  value={videoContainer}
-                  onValueChange={(value) => setVideoContainer(value as typeof videoContainer)}
-                >
-                  <SelectTrigger className="flex-1 bg-secondary/60 border-border text-[13px] h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mp4">MP4</SelectItem>
-                    <SelectItem value="mkv">MKV</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Container option - only for video */}
+              {mediaType === "video" && (
+                <div className="flex items-center gap-3">
+                  <Label className="text-[13px] text-muted-foreground w-24 shrink-0">
+                    Container
+                  </Label>
+                  <Select
+                    value={videoContainer}
+                    onValueChange={(value) => setVideoContainer(value as typeof videoContainer)}
+                  >
+                    <SelectTrigger className="flex-1 bg-secondary/60 border-border text-[13px] h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mp4">MP4</SelectItem>
+                      <SelectItem value="mkv">MKV</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="flex items-center gap-3">
                 <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Save to</Label>
                 <Input
                   value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
+                  readOnly
+                  disabled
+                  placeholder="~/Downloads"
                   className="flex-1 bg-secondary/60 border-border text-[12.5px] h-9"
                 />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-9 h-9 shrink-0"
+                  onClick={() =>
+                    openFolderMutation.mutate(undefined, {
+                      onSuccess: (folder) => {
+                        if (folder) setDestination(folder);
+                      }
+                    })
+                  }
+                  title="Browse folders"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                </Button>
               </div>
             </div>
 
