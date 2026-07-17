@@ -42,7 +42,7 @@ const baseDefaults: Settings = {
   minimizeToTray: true,
   bandwidthLimit: "",
   proxy: "",
-  geoBypass: false,
+  geoBypass: true,
   cookiesFromBrowser: null,
   cookiesFilePath: "",
   embedThumbnail: true,
@@ -52,6 +52,7 @@ const baseDefaults: Settings = {
   writeSubtitles: false,
   subtitleLangs: ["en"],
   videoContainer: "mp4",
+  useDownloadArchive: false,
   version: UNSET,
   ytDlpVersion: UNSET
 };
