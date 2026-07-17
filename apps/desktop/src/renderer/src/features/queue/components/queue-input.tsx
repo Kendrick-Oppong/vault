@@ -16,6 +16,7 @@ import { CommandMenu } from "@/features/ui/components/command-menu";
 import { getModifierKey } from "@/lib/utils/platform";
 import type { SearchResult } from "@/features/search/types";
 import type { DownloadExtras, JobInput } from "@vault/types";
+import { presetToFormatSelector } from "@vault/types";
 
 const SearchResultCard = ({ result }: { result: SearchResult }) => {
   const { openFormatModal } = useModalActions();
@@ -29,24 +30,14 @@ const SearchResultCard = ({ result }: { result: SearchResult }) => {
         const modalData = formatProbeToModalData(formats);
         openFormatModal(modalData, {
           onConfirm: (options) => {
-            const jobInput = {
-              url: result.url,
+            const formatSelector = presetToFormatSelector(options.preset, options.formatId);
+            const baseJobInput = {
               outputTemplate:
                 settings.outputTemplate ||
                 (settings.downloadPath
                   ? `${settings.downloadPath}/%(title)s.%(ext)s`
                   : "%(title)s.%(ext)s"),
-              formatSelector:
-                options.mediaType === "video"
-                  ? options.videoFormat?.formatId
-                  : options.audioFormat?.formatId,
-              meta: {
-                title: result.title,
-                channel: result.channel,
-                thumbnailUrl: result.thumbnail || undefined,
-                mediaType: options.mediaType === "audio" ? "music" : "video",
-                duration: result.duration ? formatDuration(result.duration) : undefined
-              },
+              formatSelector,
               extra: {
                 embedThumbnail: options.embedThumbnail,
                 embedMetadata: options.embedMetadata,
@@ -56,7 +47,8 @@ const SearchResultCard = ({ result }: { result: SearchResult }) => {
                 subtitleLanguages: options.subtitleLanguages,
                 reencodeFormat: options.reencodeFormat,
                 videoContainer: options.videoContainer,
-                audioFormat: options.audioCodec,
+                audioFormat: options.audioFormat,
+                audioBitrate: options.audioBitrate,
                 proxy: settings.proxy || undefined,
                 rateLimit: settings.bandwidthLimit || undefined,
                 geoBypass: settings.geoBypass,
@@ -64,8 +56,49 @@ const SearchResultCard = ({ result }: { result: SearchResult }) => {
                 cookiesFromBrowser: (settings.cookiesFromBrowser ||
                   undefined) as DownloadExtras["cookiesFromBrowser"]
               } satisfies DownloadExtras
-            } satisfies JobInput;
-            queueMutation.mutate(jobInput);
+            };
+
+            // If playlist with selected items, queue individual jobs
+            if (
+              modalData.type === "playlist" &&
+              options.selectedItems &&
+              options.selectedItems.length > 0
+            ) {
+              const selectedPlaylistItems = modalData.playlistItems?.filter((item) =>
+                options.selectedItems?.includes(item.id)
+              );
+
+              selectedPlaylistItems?.forEach((item) => {
+                if (item.url) {
+                  const jobInput = {
+                    ...baseJobInput,
+                    url: item.url,
+                    meta: {
+                      title: item.title,
+                      channel: result.channel,
+                      thumbnailUrl: item.thumbnail || undefined,
+                      mediaType: options.mediaType === "audio" ? "music" : "video",
+                      duration: item.duration
+                    }
+                  } satisfies JobInput;
+                  queueMutation.mutate(jobInput);
+                }
+              });
+            } else {
+              // Single video/audio download
+              const jobInput = {
+                ...baseJobInput,
+                url: result.url,
+                meta: {
+                  title: result.title,
+                  channel: result.channel,
+                  thumbnailUrl: result.thumbnail || undefined,
+                  mediaType: options.mediaType === "audio" ? "music" : "video",
+                  duration: result.duration ? formatDuration(result.duration) : undefined
+                }
+              } satisfies JobInput;
+              queueMutation.mutate(jobInput);
+            }
           }
         });
       },
@@ -153,24 +186,14 @@ export const QueueInput = () => {
           openFormatModal(modalData, {
             isLoading: false,
             onConfirm: (options) => {
-              const jobInput = {
-                url: value,
+              const formatSelector = presetToFormatSelector(options.preset, options.formatId);
+              const baseJobInput = {
                 outputTemplate:
                   settings.outputTemplate ||
                   (settings.downloadPath
                     ? `${settings.downloadPath}/%(title)s.%(ext)s`
                     : "%(title)s.%(ext)s"),
-                formatSelector:
-                  options.mediaType === "video"
-                    ? options.videoFormat?.formatId
-                    : options.audioFormat?.formatId,
-                meta: {
-                  title: modalData.title,
-                  channel: modalData.channel,
-                  thumbnailUrl: modalData.thumbnail,
-                  mediaType: options.mediaType === "audio" ? "music" : "video",
-                  duration: modalData.duration
-                },
+                formatSelector,
                 extra: {
                   embedThumbnail: options.embedThumbnail,
                   embedMetadata: options.embedMetadata,
@@ -180,7 +203,8 @@ export const QueueInput = () => {
                   subtitleLanguages: options.subtitleLanguages,
                   reencodeFormat: options.reencodeFormat,
                   videoContainer: options.videoContainer,
-                  audioFormat: options.audioCodec,
+                  audioFormat: options.audioFormat,
+                  audioBitrate: options.audioBitrate,
                   proxy: settings.proxy || undefined,
                   rateLimit: settings.bandwidthLimit || undefined,
                   geoBypass: settings.geoBypass,
@@ -188,9 +212,51 @@ export const QueueInput = () => {
                   cookiesFromBrowser: (settings.cookiesFromBrowser ||
                     undefined) as DownloadExtras["cookiesFromBrowser"]
                 } satisfies DownloadExtras
-              } satisfies JobInput;
-              queueMutation.mutate(jobInput);
-              setInputValue("");
+              };
+
+              // If playlist with selected items, queue individual jobs
+              if (
+                modalData.type === "playlist" &&
+                options.selectedItems &&
+                options.selectedItems.length > 0
+              ) {
+                const selectedPlaylistItems = modalData.playlistItems?.filter((item) =>
+                  options.selectedItems?.includes(item.id)
+                );
+
+                selectedPlaylistItems?.forEach((item) => {
+                  if (item.url) {
+                    const jobInput = {
+                      ...baseJobInput,
+                      url: item.url,
+                      meta: {
+                        title: item.title,
+                        channel: modalData.channel,
+                        thumbnailUrl: item.thumbnail || undefined,
+                        mediaType: options.mediaType === "audio" ? "music" : "video",
+                        duration: item.duration
+                      }
+                    } satisfies JobInput;
+                    queueMutation.mutate(jobInput);
+                  }
+                });
+                setInputValue("");
+              } else {
+                // Single video/audio download
+                const jobInput = {
+                  ...baseJobInput,
+                  url: value,
+                  meta: {
+                    title: modalData.title,
+                    channel: modalData.channel,
+                    thumbnailUrl: modalData.thumbnail,
+                    mediaType: options.mediaType === "audio" ? "music" : "video",
+                    duration: modalData.duration
+                  }
+                } satisfies JobInput;
+                queueMutation.mutate(jobInput);
+                setInputValue("");
+              }
             }
           });
         },
