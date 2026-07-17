@@ -5,7 +5,6 @@ import { AlertBanners } from "@/features/ui/components/alert-banners";
 import { GlobalModals } from "@/features/ui/components/global-modals";
 import { useJobEvents } from "@/lib/event-listeners/use-job-events";
 import { useAppInfoInit } from "@/lib/event-listeners/use-app-info-init";
-import { useTrayEvents } from "@/lib/event-listeners/use-tray-events";
 import { useUpdateEvents } from "@/lib/event-listeners/use-update-events";
 import { OnboardingScreen } from "@/features/onboarding/components/onboarding-screen";
 import { useOnboardingState } from "@/stores/onboarding/onboarding.selectors";
@@ -21,7 +20,6 @@ function App(): React.JSX.Element {
   const { completed: onboardingCompleted } = useOnboardingState();
   useAppInfoInit();
   useJobEvents();
-  useTrayEvents();
   useUpdateEvents();
 
   if (!onboardingCompleted) {
