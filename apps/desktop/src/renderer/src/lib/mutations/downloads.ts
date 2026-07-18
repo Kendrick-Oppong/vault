@@ -7,7 +7,8 @@ import type { JobInput, Job } from "@vault/types";
 
 export const useProbeFormatsMutation = () => {
   return useMutation({
-    mutationFn: (url: string) => downloadsApi.probeFormats(url),
+    mutationFn: ({ url, playlistLimit }: { url: string; playlistLimit?: number }) =>
+      downloadsApi.probeFormats(url, playlistLimit),
     onError: (error: Error) => {
       toast.error("Failed to fetch video information", {
         description: formatError(error)
