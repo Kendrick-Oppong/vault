@@ -249,7 +249,7 @@ export const FormatModal = ({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        showCloseButton={!isLoading}
+        showCloseButton={false}
         className="max-w-2xl! max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-2xl border-border"
       >
         {/* Full Width Cinematic Header */}
@@ -437,15 +437,15 @@ export const FormatModal = ({
                     <SelectItem value="">Best quality (auto)</SelectItem>
                     {data.videoFormats?.map((f) => (
                       <SelectItem key={f.formatId} value={f.formatId}>
-                        <span className="flex flex-col">
-                          <span>
+                        <div className="flex gap-2">
+                          <p>
                             {f.resolution}
                             {f.fps && `@${f.fps}`}
-                          </span>
-                          <span className="text-muted-foreground text-xs">
+                          </p>
+                          <p className="text-muted-foreground text-xs">
                             {f.ext} · {formatBytes(f.filesize || 0)} · + audio
-                          </span>
-                        </span>
+                          </p>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
