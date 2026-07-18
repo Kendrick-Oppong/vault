@@ -8,17 +8,6 @@ export interface FfmpegOptions {
   ffmpegPath: string;
 }
 
-export interface ReencodeOptions {
-  inputFile: string;
-  outputFile: string;
-  videoCodec?: "h264" | "h265" | "vp9";
-  audioCodec?: "aac" | "opus" | "libmp3lame";
-  preset?: "ultrafast" | "superfast" | "veryfast" | "faster" | "fast" | "medium" | "slow";
-  crf?: number;
-  subtitleFile?: string;
-  embedMetadata?: boolean;
-}
-
 export async function getAvailableCodecs(
   ffmpegPath: string
 ): Promise<{ videoCodecs: string[]; audioCodecs: string[] }> {
@@ -27,7 +16,7 @@ export async function getAvailableCodecs(
     const videoCodecs: string[] = [];
     const audioCodecs: string[] = [];
     for (const line of stdout.split("\n")) {
-      if (line.match(/^DEV/)) {
+      if (new RegExp(/^DEV/).exec(line)) {
         const parts = line.split(/\s+/);
         if (parts.length >= 2) {
           if (line.includes("(video)")) videoCodecs.push(parts[1]);
@@ -50,66 +39,6 @@ export async function hasCodec(ffmpegPath: string, codec: string): Promise<boole
   }
 }
 
-export function reencode(
-  ffmpegPath: string,
-  options: ReencodeOptions,
-  onProgress?: (percent: number) => void
-): { process: ChildProcess; promise: Promise<void> } {
-  const args = [
-    "-i",
-    options.inputFile,
-    "-c:v",
-    options.videoCodec || "h264",
-    "-preset",
-    options.preset || "medium",
-    "-crf",
-    String(options.crf ?? 28),
-    "-c:a",
-    options.audioCodec || "aac",
-    "-b:a",
-    "192k",
-    "-progress",
-    "pipe:1",
-    "-loglevel",
-    "warning"
-  ];
-
-  if (options.subtitleFile) {
-    args.push("-i", options.subtitleFile, "-c:s", "mov_text", "-metadata:s:s:0", "language=eng");
-  }
-  if (options.embedMetadata) args.push("-map_metadata", "0");
-  args.push("-y", options.outputFile);
-
-  const proc = spawn(ffmpegPath, args);
-  let progressOutput = "";
-
-  proc.stdout.on("data", (chunk) => {
-    progressOutput += chunk.toString();
-    const lines = progressOutput.split("\n");
-    progressOutput = lines.pop() || "";
-    for (const line of lines) {
-      if (line.startsWith("out_time_ms=") && onProgress) {
-        try {
-          const timeMs = parseInt(line.split("=")[1], 10);
-          onProgress(Math.min(100, Math.round(timeMs / 1000)));
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-  });
-
-  const promise = new Promise<void>((resolve, reject) => {
-    proc.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`ffmpeg re-encoding failed with code ${code}`));
-    });
-    proc.on("error", reject);
-  });
-
-  return { process: proc, promise };
-}
-
 export async function getVideoDuration(ffmpegPath: string, inputFile: string): Promise<number> {
   try {
     const { stdout } = await execFileAsync(ffmpegPath, [
@@ -121,8 +50,8 @@ export async function getVideoDuration(ffmpegPath: string, inputFile: string): P
       "default=noprint_wrappers=1:nokey=1:noprint_header=1",
       inputFile
     ]);
-    const duration = parseFloat(stdout.trim());
-    return isNaN(duration) ? 0 : duration;
+    const duration = Number.parseFloat(stdout.trim());
+    return Number.isNaN(duration) ? 0 : duration;
   } catch {
     return 0;
   }
@@ -188,8 +117,6 @@ export function createFfmpegManager(opts: FfmpegOptions) {
   return {
     getAvailableCodecs: () => getAvailableCodecs(opts.ffmpegPath),
     hasCodec: (codec: string) => hasCodec(opts.ffmpegPath, codec),
-    reencode: (options: ReencodeOptions, onProgress?: (percent: number) => void) =>
-      reencode(opts.ffmpegPath, options, onProgress),
     getVideoDuration: (inputFile: string) => getVideoDuration(opts.ffmpegPath, inputFile),
     extractThumbnail: (inputFile: string, outputFile: string, timeSeconds?: number) =>
       extractThumbnail(opts.ffmpegPath, inputFile, outputFile, timeSeconds),
