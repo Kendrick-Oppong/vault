@@ -9,8 +9,8 @@ declare global {
 
 const vaultApi = {
   // --- Invoke methods ---
-  probeFormats: (url: string): Promise<Record<string, unknown>[]> =>
-    ipcRenderer.invoke("formats:probe", url),
+  probeFormats: (url: string, playlistLimit?: number): Promise<Record<string, unknown>[]> =>
+    ipcRenderer.invoke("formats:probe", url, playlistLimit),
 
   queueDownload: (jobInput: JobInput): Promise<string> => ipcRenderer.invoke("queue:add", jobInput),
 
@@ -174,9 +174,8 @@ const vaultApi = {
   quitApp: (): Promise<void> => ipcRenderer.invoke("app:quit"),
 
   // Logger
-  getLogsHistory: (): Promise<
-    { level: string; message: string; timestamp: number }[]
-  > => ipcRenderer.invoke("logs:history"),
+  getLogsHistory: (): Promise<{ level: string; message: string; timestamp: number }[]> =>
+    ipcRenderer.invoke("logs:history"),
 
   // --- Event listeners (return cleanup) ---
   onJobQueued: (cb: (job: Job) => void): (() => void) => {
