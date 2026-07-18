@@ -52,6 +52,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
       url: job.url,
       formatSelector: job.formatSelector,
       outputTemplate: job.outputTemplate,
+      downloadPath: job.downloadPath,
       resume
     });
     job.status = "active";
@@ -64,6 +65,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
       job.outputTemplate,
       job.formatSelector,
       job.extra,
+      job.downloadPath,
       (progress: YtDlpProgress) => {
         const tracked = tracker.track(progress);
         emitter.emit("job:progress", job.id, tracked);
