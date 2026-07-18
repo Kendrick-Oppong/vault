@@ -3,9 +3,9 @@ import { FilterTabs } from "./filter-tabs";
 import { LibraryCard } from "./library-card";
 import type { LibraryItem, LibrarySort, SortOrder, LibraryStats } from "../types";
 import { EmptyState } from "@/features/ui/components/empty-state";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, ChevronDown } from "lucide-react";
 
-import { useHistory } from "@/lib/queries/history";
+import { useHistoryInfinite } from "@/lib/queries/history";
 import { formatBytes } from "@/lib/utils/platform";
 
 export const LibraryView = () => {
@@ -13,7 +13,15 @@ export const LibraryView = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: history = [], isLoading } = useHistory();
+  const {
+    data: infiniteData,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage
+  } = useHistoryInfinite();
+
+  const history = infiniteData?.pages.flat() || [];
 
   const mappedItems: LibraryItem[] = useMemo(() => {
     return history.map((entry) => ({
@@ -72,11 +80,11 @@ export const LibraryView = () => {
     setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
   };
 
-  // Calculate stats
+  // Calculate stats based on loaded data
   const totalSizeBytes = mappedItems.reduce((acc, item) => acc + item.sizeBytes, 0);
   const totalSize = formatBytes(totalSizeBytes);
   const stats: LibraryStats = {
-    total: mappedItems.length,
+    total: history.length,
     totalSize,
     totalSizeBytes
   };
@@ -115,11 +123,35 @@ export const LibraryView = () => {
           description="Try adjusting your search or filters"
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
-          {filteredAndSortedItems.map((item) => (
-            <LibraryCard key={item.id} item={item} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+            {filteredAndSortedItems.map((item) => (
+              <LibraryCard key={item.id} item={item} />
+            ))}
+          </div>
+
+          {hasNextPage && (
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+              >
+                {isFetchingNextPage ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    Load More
+                    <ChevronDown className="size-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
