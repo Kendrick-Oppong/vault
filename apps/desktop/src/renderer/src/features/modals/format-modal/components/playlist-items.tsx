@@ -5,11 +5,11 @@ import type { PlaylistItem } from "../types";
 
 interface PlaylistItemsProps {
   items: PlaylistItem[];
-  selectedItems: Set<number>;
+  selectedItems: Set<string>;
   isLoadingMore: boolean;
   hasMoreItems: boolean;
   totalCount?: number;
-  onToggleItem: (index: number) => void;
+  onToggleItem: (itemId: string) => void;
   onToggleAll: () => void;
   onLoadMore: () => void;
 }
@@ -55,8 +55,8 @@ export const PlaylistItems = ({
             className="flex items-center gap-3 p-2.5 text-[12.5px] cursor-pointer hover:bg-accent/60 transition-colors"
           >
             <Checkbox
-              checked={selectedItems.has(index + 1)}
-              onCheckedChange={() => onToggleItem(index + 1)}
+              checked={selectedItems.has(item.id)}
+              onCheckedChange={() => onToggleItem(item.id)}
               className="w-4 h-4 shrink-0"
             />
             <span className="text-muted-foreground w-4 text-[12px] font-medium text-right shrink-0">
