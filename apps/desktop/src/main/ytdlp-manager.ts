@@ -12,6 +12,7 @@ export interface YtDlpOptions {
 export interface ProbeOptions extends DownloadExtras {
   retries?: number;
   timeout?: number;
+  playlistLimit?: number;
 }
 
 const DEFAULT_TIMEOUT = 30_000;
@@ -40,9 +41,10 @@ function probeInternal(
   opts: YtDlpOptions,
   url: string,
   extras?: DownloadExtras,
-  timeout = DEFAULT_TIMEOUT
+  timeout = DEFAULT_TIMEOUT,
+  playlistLimit?: number
 ): Promise<Record<string, unknown>[]> {
-  logger.debug("Probing formats for:", url);
+  logger.debug("Probing formats for:", url, playlistLimit ? `with limit ${playlistLimit}` : "");
   return new Promise((resolve, reject) => {
     const args = [
       "--dump-json",
@@ -57,6 +59,12 @@ function probeInternal(
     if (extras?.cookiesFile) args.push("--cookies", extras.cookiesFile);
     else if (extras?.cookiesFromBrowser)
       args.push("--cookies-from-browser", extras.cookiesFromBrowser);
+
+    // Add playlist items limit if specified
+    if (playlistLimit && playlistLimit > 0) {
+      args.push("--playlist-items", `1:${playlistLimit}`);
+    }
+
     args.push(url);
 
     const proc = spawn(opts.binaryPath, args, {
@@ -133,7 +141,7 @@ export async function probeFormats(
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await probeInternal(opts, url, extras, timeout);
+      return await probeInternal(opts, url, extras, timeout, extras?.playlistLimit);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < retries) {
@@ -257,9 +265,7 @@ export function download(
   // Check if format selector indicates webm output (common for low-quality YouTube formats)
   const isWebmFormat =
     formatSelector.includes("webm") ||
-    formatSelector.match(
-      /\b(133|134|135|136|137|138|139|140|141|142|143|160|167|168|169|170|217|218|219|222|223|224|242|243|244|245|246|247|248|256|257|258|271|272|278|298|299|302|303)\b/
-    );
+    new RegExp(/\b(133|134|135|136|137|138|139|140|141|142|143|160|167|168|169|170|217|218|219|222|223|224|242|243|244|245|246|247|248|256|257|258|271|272|278|298|299|302|303)\b/).exec(formatSelector);
   const canEmbedThumbnail =
     !isWebmFormat &&
     (supportedThumbnailFormats.includes(audioFormat) ||
