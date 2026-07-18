@@ -19,7 +19,7 @@ import { selectSettings } from "@/stores/settings/settings.selectors";
 import { useModalActions } from "@/stores/ui/modal.selectors";
 import { SkeletonLoader } from "@/features/ui/components/skeleton-loader";
 import { useOpenFolderDialog } from "@/lib/mutations/files";
-import { useProbeFormatsMutation } from "@/lib/mutations/downloads";
+import { useProbePlaylistPageMutation } from "@/lib/mutations/downloads";
 import { formatProbeToModalData } from "@/lib/utils/format-probe";
 import { toast } from "sonner";
 import type { VideoContainer, AudioFormat } from "@vault/types";
@@ -52,7 +52,7 @@ export const FormatModal = ({
   const settings = useSettingsStore(selectSettings);
   const openFolderMutation = useOpenFolderDialog();
   const { updateFormatModalData } = useModalActions();
-  const probeMutation = useProbeFormatsMutation();
+  const playlistPageMutation = useProbePlaylistPageMutation();
   const [mediaType, setMediaType] = useState<MediaType>("video");
   const [selectedPreset, setSelectedPreset] = useState<Preset | null>(() => {
     const presets = mediaType === "video" ? data.videoPresets : data.audioPresets;
@@ -72,18 +72,18 @@ export const FormatModal = ({
   // Helper to extract height from resolution string
   const extractHeight = (resolution: string): number => {
     // Handle "1920x1080" format
-    const xMatch = resolution.match(/(\d+)x(\d+)/);
+    const xMatch = /(\d{1,5})x(\d{1,5})/.exec(resolution);
     if (xMatch) return Number.parseInt(xMatch[2], 10);
     // Handle "1080p" format
-    const pMatch = resolution.match(/(\d+)p/);
+    const pMatch = /(\d{1,5})p/.exec(resolution);
     return pMatch ? Number.parseInt(pMatch[1], 10) : 0;
   };
+
   const [audioBitrate, setAudioBitrate] = useState<number>(320);
-  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const lastPlaylistId = useRef<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreItems, setHasMoreItems] = useState(false);
-  const [currentLimit, setCurrentLimit] = useState<number>(settings.playlistFetchLimit);
   const [embedThumbnail, setEmbedThumbnail] = useState(settings.embedThumbnail);
   const [embedMetadata, setEmbedMetadata] = useState(settings.embedMetadata);
   const [embedChapters, setEmbedChapters] = useState(settings.embedChapters);
@@ -101,52 +101,60 @@ export const FormatModal = ({
       setTimeout(() => {
         setSelectedItems(new Set());
         setHasMoreItems(false);
-        setCurrentLimit(settings.playlistFetchLimit);
       }, 0);
       return;
     }
     if (lastPlaylistId.current !== data.id) {
       lastPlaylistId.current = data.id;
-      const initialLimit = settings.playlistFetchLimit;
       const hasMore = !!(
         data.totalCount &&
         data.playlistItems &&
         data.playlistItems.length < data.totalCount
       );
       setTimeout(() => {
-        setCurrentLimit(initialLimit);
-        setSelectedItems(new Set(data.playlistItems?.map((_, i) => i + 1) || []));
+        setSelectedItems(new Set(data.playlistItems?.map((item) => item.id) || []));
         setHasMoreItems(hasMore);
       }, 0);
     }
-  }, [data.id, data.type, data.playlistItems, data.totalCount, settings.playlistFetchLimit]);
+  }, [data.id, data.type, data.playlistItems, data.totalCount]);
+
+  // Handle successful playlist page load
+  const handlePlaylistPageSuccess = (newFormats: Record<string, unknown>[], limit: number) => {
+    const newModalData = formatProbeToModalData(newFormats, data.url);
+    const newItems = newModalData.playlistItems || [];
+    const updatedPlaylistItems = [...(data.playlistItems || []), ...newItems];
+
+    updateFormatModalData({
+      ...data,
+      playlistItems: updatedPlaylistItems
+    });
+
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      newItems.forEach((item) => next.add(item.id));
+      return next;
+    });
+
+    const shouldDisableLoadMore =
+      newItems.length < limit ||
+      (data.totalCount && updatedPlaylistItems.length >= data.totalCount);
+    setHasMoreItems(!shouldDisableLoadMore);
+    setIsLoadingMore(false);
+  };
 
   // Function to load more playlist items
   const loadMorePlaylistItems = async () => {
-    if (isLoadingMore || !data.url) return;
+    if (isLoadingMore || !data.url || !data.playlistItems) return;
 
     setIsLoadingMore(true);
-    const newLimit = currentLimit + settings.playlistFetchLimit;
-    setCurrentLimit(newLimit);
+    const start = data.playlistItems.length + 1;
+    const limit = settings.playlistFetchLimit;
+    const end = data.totalCount ? Math.min(data.totalCount, start + limit - 1) : start + limit - 1;
 
-    probeMutation.mutate(
-      { url: data.url, playlistLimit: newLimit },
+    playlistPageMutation.mutate(
+      { url: data.url, start, end },
       {
-        onSuccess: (newFormats) => {
-          const newModalData = formatProbeToModalData(newFormats, data.url);
-          updateFormatModalData(newModalData);
-          setSelectedItems(new Set(newModalData.playlistItems?.map((_, i) => i + 1) || []));
-          if (
-            newModalData.playlistItems &&
-            newModalData.totalCount &&
-            newModalData.playlistItems.length < newModalData.totalCount
-          ) {
-            setHasMoreItems(true);
-          } else {
-            setHasMoreItems(false);
-          }
-          setIsLoadingMore(false);
-        },
+        onSuccess: (newFormats) => handlePlaylistPageSuccess(newFormats, limit),
         onError: () => {
           toast.error("Could not load more items");
           setIsLoadingMore(false);
@@ -183,11 +191,11 @@ export const FormatModal = ({
     onOpenChange(openState);
   };
 
-  const toggleItem = (index: number) => {
+  const toggleItem = (itemId: string) => {
     setSelectedItems((prev) => {
       const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
       return next;
     });
   };
@@ -197,20 +205,22 @@ export const FormatModal = ({
     setSelectedItems((prev) =>
       prev.size === data.playlistItems!.length
         ? new Set()
-        : new Set(data.playlistItems!.map((_, i) => i + 1))
+        : new Set(data.playlistItems!.map((item) => item.id))
     );
   };
 
   const handleConfirm = () => {
     if (!selectedPreset) return;
+    const actualAudioFormat =
+      mediaType === "audio" ? selectedPreset.audioFormat || "mp3" : audioFormat;
     onConfirm({
       mediaType,
       preset: selectedPreset,
       formatId: formatId || undefined,
       videoContainer,
-      audioFormat,
+      audioFormat: actualAudioFormat,
       audioBitrate:
-        mediaType === "audio" && audioFormat !== "flac" && audioFormat !== "wav"
+        mediaType === "audio" && actualAudioFormat !== "flac" && actualAudioFormat !== "wav"
           ? audioBitrate
           : undefined,
       embedThumbnail,
@@ -220,7 +230,7 @@ export const FormatModal = ({
       subtitles,
       subtitleLanguages: subtitles !== "none" ? subtitleLanguages : undefined,
       destination,
-      selectedItems: data.type === "playlist" ? [...selectedItems].map(String) : undefined
+      selectedItems: data.type === "playlist" ? [...selectedItems] : undefined
     });
     onOpenChange(false);
   };
