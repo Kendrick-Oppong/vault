@@ -36,17 +36,7 @@ export interface FormatModalData {
   audioPresets: Preset[];
   // Raw video formats for manual selection
   videoFormats?: VideoFormat[];
-}
-
-export interface FormatModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  data: FormatModalData;
-  isLoading?: boolean;
-  isError?: boolean;
-  error?: string | null;
-  onRetry?: () => void;
-  onConfirm: (options: FormatOptions) => void;
+  url?: string; // Original URL for re-probing with different limits
 }
 
 export interface FormatOptions {
@@ -62,7 +52,17 @@ export interface FormatOptions {
   sponsorBlock: boolean;
   subtitles: "none" | "external";
   subtitleLanguages?: string[];
-  reencodeFormat?: "none" | "h264-aac" | "h265-aac";
   destination: string;
   selectedItems?: string[];
+}
+
+export interface FormatModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  data: FormatModalData;
+  isLoading?: boolean;
+  isError?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  onConfirm: (options: FormatOptions) => void;
 }
