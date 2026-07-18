@@ -94,16 +94,16 @@ function forwardPoolEventsToRenderer(): void {
 }
 
 function registerIpcHandlers(): void {
-  ipcMain.handle("formats:probe", async (_e, url: string) => {
+  ipcMain.handle("formats:probe", async (_e, url: string, playlistLimit?: number) => {
     const cached = db.getCachedFormats(url);
-    if (cached) return cached;
+    if (cached && !playlistLimit) return cached; // Only use cache if not requesting specific limit
 
     // Use cached cookies if available
     const cookieFile = cookies.getCookiesPath();
-    const probeExtras = cookieFile ? { cookiesFile: cookieFile } : undefined;
+    const probeExtras = cookieFile ? { cookiesFile: cookieFile, playlistLimit } : { playlistLimit };
 
     const formats = await ytdlp.probeFormats(url, probeExtras);
-    db.setCachedFormats(url, formats);
+    if (!playlistLimit) db.setCachedFormats(url, formats); // Only cache full results
     return formats;
   });
 
