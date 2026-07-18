@@ -3,6 +3,8 @@ import type { JobInput } from "@vault/types";
 export const downloadsApi = {
   probeFormats: (url: string, playlistLimit?: number) =>
     globalThis.api.probeFormats(url, playlistLimit),
+  probePlaylistPage: (url: string, start: number, end: number) =>
+    globalThis.api.probePlaylistPage(url, start, end),
   queueDownload: (input: JobInput) => globalThis.api.queueDownload(input),
   cancelDownload: (jobId: string) => globalThis.api.cancelDownload(jobId),
   pauseDownload: (jobId: string) => globalThis.api.pauseDownload(jobId),
