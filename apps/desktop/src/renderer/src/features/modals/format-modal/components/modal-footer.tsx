@@ -32,14 +32,14 @@ export const ModalFooter = ({
   };
 
   return (
-    <DialogFooter className="flex items-center justify-between m-0 p-4 border-t border-border shrink-0 bg-card">
+    <DialogFooter className="flex items-center justify-between m-0 p-3 border-t border-border shrink-0 bg-card">
       <p className="text-[12px] text-muted-foreground">
         {getSizeStatusText()}
         {!isLoading && isPlaylist && ` · ${getItemCount()} items`}
       </p>
       <div className="flex items-center gap-2">
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={onCancel}
           className="px-3.5 py-2 rounded-lg text-[13px] h-auto"
