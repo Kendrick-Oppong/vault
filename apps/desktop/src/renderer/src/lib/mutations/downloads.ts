@@ -17,6 +17,18 @@ export const useProbeFormatsMutation = () => {
   });
 };
 
+export const useProbePlaylistPageMutation = () => {
+  return useMutation({
+    mutationFn: ({ url, start, end }: { url: string; start: number; end: number }) =>
+      downloadsApi.probePlaylistPage(url, start, end),
+    onError: (error: Error) => {
+      toast.error("Failed to load more playlist items", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
 export const useQueueDownload = () => {
   const queryClient = useQueryClient();
   return useMutation({
