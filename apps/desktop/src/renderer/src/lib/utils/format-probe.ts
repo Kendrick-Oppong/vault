@@ -121,11 +121,15 @@ function mapProbeToFormatModalData(
   };
 }
 
-export function formatProbeToModalData(raw: RawFormat[]): FormatModalData {
+export function formatProbeToModalData(raw: RawFormat[], url?: string): FormatModalData {
   const first = raw[0] ?? {};
   const linkType: FormatModalData["type"] =
     first["_type"] === "playlist" || Array.isArray(first["entries"]) || raw.length > 1
       ? "playlist"
       : "video";
-  return mapProbeToFormatModalData(raw, linkType);
+  const modalData = mapProbeToFormatModalData(raw, linkType);
+  return {
+    ...modalData,
+    url
+  };
 }
