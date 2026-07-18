@@ -34,11 +34,8 @@ const SearchResultCard = ({ result }: { result: SearchResult }) => {
             onConfirm: (options) => {
               const formatSelector = presetToFormatSelector(options.preset, options.formatId);
               const baseJobInput = {
-                outputTemplate:
-                  settings.outputTemplate ||
-                  (settings.downloadPath
-                    ? `${settings.downloadPath}/%(title)s.%(ext)s`
-                    : "%(title)s.%(ext)s"),
+                outputTemplate: settings.outputTemplate || "%(title)s.%(ext)s",
+                downloadPath: settings.downloadPath || undefined,
                 formatSelector,
                 extra: {
                   embedThumbnail: options.embedThumbnail,
@@ -48,7 +45,8 @@ const SearchResultCard = ({ result }: { result: SearchResult }) => {
                   subtitles: options.subtitles,
                   subtitleLanguages: options.subtitleLanguages,
                   videoContainer: options.videoContainer,
-                  audioFormat: options.audioFormat,
+                  audioFormat:
+                    options.mediaType === "audio" ? options.preset.audioFormat : undefined,
                   audioBitrate: options.audioBitrate,
                   proxy: settings.proxy || undefined,
                   rateLimit: settings.bandwidthLimit || undefined,
@@ -79,7 +77,8 @@ const SearchResultCard = ({ result }: { result: SearchResult }) => {
                         channel: result.channel,
                         thumbnailUrl: item.thumbnail || undefined,
                         mediaType: options.mediaType === "audio" ? "music" : "video",
-                        duration: item.duration
+                        duration: item.duration,
+                        quality: options.preset.label
                       }
                     } satisfies JobInput;
                     queueMutation.mutate(jobInput);
@@ -95,7 +94,8 @@ const SearchResultCard = ({ result }: { result: SearchResult }) => {
                     channel: result.channel,
                     thumbnailUrl: result.thumbnail || undefined,
                     mediaType: options.mediaType === "audio" ? "music" : "video",
-                    duration: result.duration ? formatDuration(result.duration) : undefined
+                    duration: result.duration ? formatDuration(result.duration) : undefined,
+                    quality: options.preset.label
                   }
                 } satisfies JobInput;
                 queueMutation.mutate(jobInput);
@@ -192,11 +192,8 @@ export const QueueInput = () => {
               onConfirm: (options) => {
                 const formatSelector = presetToFormatSelector(options.preset, options.formatId);
                 const baseJobInput = {
-                  outputTemplate:
-                    settings.outputTemplate ||
-                    (settings.downloadPath
-                      ? `${settings.downloadPath}/%(title)s.%(ext)s`
-                      : "%(title)s.%(ext)s"),
+                  outputTemplate: settings.outputTemplate || "%(title)s.%(ext)s",
+                  downloadPath: settings.downloadPath || undefined,
                   formatSelector,
                   extra: {
                     embedThumbnail: options.embedThumbnail,
@@ -206,7 +203,8 @@ export const QueueInput = () => {
                     subtitles: options.subtitles,
                     subtitleLanguages: options.subtitleLanguages,
                     videoContainer: options.videoContainer,
-                    audioFormat: options.audioFormat,
+                    audioFormat:
+                      options.mediaType === "audio" ? options.preset.audioFormat : undefined,
                     audioBitrate: options.audioBitrate,
                     proxy: settings.proxy || undefined,
                     rateLimit: settings.bandwidthLimit || undefined,
@@ -237,7 +235,8 @@ export const QueueInput = () => {
                           channel: modalData.channel,
                           thumbnailUrl: item.thumbnail || undefined,
                           mediaType: options.mediaType === "audio" ? "music" : "video",
-                          duration: item.duration
+                          duration: item.duration,
+                          quality: options.preset.label
                         }
                       } satisfies JobInput;
                       queueMutation.mutate(jobInput);
@@ -254,7 +253,8 @@ export const QueueInput = () => {
                       channel: modalData.channel,
                       thumbnailUrl: modalData.thumbnail,
                       mediaType: options.mediaType === "audio" ? "music" : "video",
-                      duration: modalData.duration
+                      duration: modalData.duration,
+                      quality: options.preset.label
                     }
                   } satisfies JobInput;
                   queueMutation.mutate(jobInput);
