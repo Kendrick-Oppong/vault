@@ -5,6 +5,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import icon from "../../resources/icon.png?asset";
 import { createYtDlpManager, type YtDlpManager } from "./ytdlp-manager";
+import { probePlaylistPage } from "./ytdlp-manager";
 import { createWorkerPool, type WorkerPool } from "./worker-pool";
 import { initDb, type VaultDb } from "./db";
 import { JobInput } from "@vault/types";
@@ -105,6 +106,15 @@ function registerIpcHandlers(): void {
     const formats = await ytdlp.probeFormats(url, probeExtras);
     if (!playlistLimit) db.setCachedFormats(url, formats); // Only cache full results
     return formats;
+  });
+
+  ipcMain.handle("formats:playlistPage", async (_e, url: string, start: number, end: number) => {
+    // Use cached cookies if available
+    const cookieFile = cookies.getCookiesPath();
+    const probeExtras = cookieFile ? { cookiesFile: cookieFile } : {};
+
+    const binaryPaths = resolveBinaryPaths();
+    return await probePlaylistPage(binaryPaths, url, start, end, probeExtras);
   });
 
   // Intercept downloads: validate URL and format, inject cookies if available
