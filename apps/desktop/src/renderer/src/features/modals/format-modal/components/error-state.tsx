@@ -24,9 +24,7 @@ export const ErrorState = ({ open, onOpenChange, error, onRetry }: ErrorStatePro
             </p>
           </div>
           <div className="flex items-center gap-3 mt-4 pt-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+            <Button onClick={() => onOpenChange(false)}>Cancel</Button>
             {onRetry && (
               <Button onClick={onRetry} className="bg-primary text-primary-foreground">
                 <RefreshCw className="w-4 h-4 mr-2" /> Retry
