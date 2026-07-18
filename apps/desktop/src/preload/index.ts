@@ -12,6 +12,13 @@ const vaultApi = {
   probeFormats: (url: string, playlistLimit?: number): Promise<Record<string, unknown>[]> =>
     ipcRenderer.invoke("formats:probe", url, playlistLimit),
 
+  probePlaylistPage: (
+    url: string,
+    start: number,
+    end: number
+  ): Promise<Record<string, unknown>[]> =>
+    ipcRenderer.invoke("formats:playlistPage", url, start, end),
+
   queueDownload: (jobInput: JobInput): Promise<string> => ipcRenderer.invoke("queue:add", jobInput),
 
   cancelDownload: (jobId: string): Promise<boolean> => ipcRenderer.invoke("queue:cancel", jobId),
