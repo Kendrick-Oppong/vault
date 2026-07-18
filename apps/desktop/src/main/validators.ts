@@ -221,8 +221,8 @@ export function validateFormatSelector(selector: string): { valid: boolean; erro
   }
 
   // Basic format selector validation
-  // Allow common patterns: numbers, +, -, /, brackets, quotes
-  if (!/^[a-z0-9\s+\-/[\](),'"|&]*$/i.test(selector)) {
+  // Allow common patterns: numbers, +, -, /, brackets, quotes, colons, equals, less than, greater than
+  if (!/^[a-z0-9\s+\-/[\](),'"|&:=<>]*$/i.test(selector)) {
     return {
       valid: false,
       error: "Format selector contains invalid characters"
