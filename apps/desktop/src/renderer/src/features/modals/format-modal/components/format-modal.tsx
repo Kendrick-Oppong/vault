@@ -1,11 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from "@vault/ui/components/dialog";
+import { Dialog, DialogContent } from "@vault/ui/components/dialog";
 import { Button } from "@vault/ui/components/button";
 import { Input } from "@vault/ui/components/input";
 import { Checkbox } from "@vault/ui/components/checkbox";
@@ -17,28 +11,24 @@ import {
   SelectTrigger,
   SelectValue
 } from "@vault/ui/components/select";
-import { Badge } from "@vault/ui/components/badge";
-import {
-  Video,
-  Music,
-  ListOrdered,
-  Download,
-  Info,
-  AlertCircle,
-  RefreshCw,
-  AudioLines,
-  FolderOpen,
-  Volume2
-} from "lucide-react";
+import { Video, Music, Info, AudioLines, FolderOpen, Volume2 } from "lucide-react";
 import { cn } from "@vault/ui/lib/utils";
 import type { FormatModalData, FormatModalProps, MediaType, Preset } from "../types";
 import { useSettingsStore } from "@/stores/settings/settings.store";
 import { selectSettings } from "@/stores/settings/settings.selectors";
+import { useModalActions } from "@/stores/ui/modal.selectors";
 import { SkeletonLoader } from "@/features/ui/components/skeleton-loader";
 import { useOpenFolderDialog } from "@/lib/mutations/files";
+import { useProbeFormatsMutation } from "@/lib/mutations/downloads";
+import { formatProbeToModalData } from "@/lib/utils/format-probe";
+import { toast } from "sonner";
 import type { VideoContainer, AudioFormat } from "@vault/types";
 import { formatBytes } from "@/lib/utils/platform";
 import { VIDEO_CONTAINERS, AUDIO_FORMATS, AUDIO_BITRATES } from "@/features/modals/lib/constants";
+import { ErrorState } from "./error-state";
+import { PlaylistItems } from "./playlist-items";
+import { ModalHeader } from "./modal-header";
+import { ModalFooter } from "./modal-footer";
 
 const defaultData: FormatModalData = {
   id: "",
@@ -61,6 +51,8 @@ export const FormatModal = ({
 }: FormatModalProps) => {
   const settings = useSettingsStore(selectSettings);
   const openFolderMutation = useOpenFolderDialog();
+  const { updateFormatModalData } = useModalActions();
+  const probeMutation = useProbeFormatsMutation();
   const [mediaType, setMediaType] = useState<MediaType>("video");
   const [selectedPreset, setSelectedPreset] = useState<Preset | null>(() => {
     const presets = mediaType === "video" ? data.videoPresets : data.audioPresets;
@@ -89,6 +81,9 @@ export const FormatModal = ({
   const [audioBitrate, setAudioBitrate] = useState<number>(320);
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const lastPlaylistId = useRef<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreItems, setHasMoreItems] = useState(false);
+  const [currentLimit, setCurrentLimit] = useState<number>(settings.playlistFetchLimit);
   const [embedThumbnail, setEmbedThumbnail] = useState(settings.embedThumbnail);
   const [embedMetadata, setEmbedMetadata] = useState(settings.embedMetadata);
   const [embedChapters, setEmbedChapters] = useState(settings.embedChapters);
@@ -105,16 +100,60 @@ export const FormatModal = ({
       lastPlaylistId.current = null;
       setTimeout(() => {
         setSelectedItems(new Set());
+        setHasMoreItems(false);
+        setCurrentLimit(settings.playlistFetchLimit);
       }, 0);
       return;
     }
     if (lastPlaylistId.current !== data.id) {
       lastPlaylistId.current = data.id;
+      const initialLimit = settings.playlistFetchLimit;
+      const hasMore = !!(
+        data.totalCount &&
+        data.playlistItems &&
+        data.playlistItems.length < data.totalCount
+      );
       setTimeout(() => {
+        setCurrentLimit(initialLimit);
         setSelectedItems(new Set(data.playlistItems?.map((_, i) => i + 1) || []));
+        setHasMoreItems(hasMore);
       }, 0);
     }
-  }, [data.id, data.type, data.playlistItems]);
+  }, [data.id, data.type, data.playlistItems, data.totalCount, settings.playlistFetchLimit]);
+
+  // Function to load more playlist items
+  const loadMorePlaylistItems = async () => {
+    if (isLoadingMore || !data.url) return;
+
+    setIsLoadingMore(true);
+    const newLimit = currentLimit + settings.playlistFetchLimit;
+    setCurrentLimit(newLimit);
+
+    probeMutation.mutate(
+      { url: data.url, playlistLimit: newLimit },
+      {
+        onSuccess: (newFormats) => {
+          const newModalData = formatProbeToModalData(newFormats, data.url);
+          updateFormatModalData(newModalData);
+          setSelectedItems(new Set(newModalData.playlistItems?.map((_, i) => i + 1) || []));
+          if (
+            newModalData.playlistItems &&
+            newModalData.totalCount &&
+            newModalData.playlistItems.length < newModalData.totalCount
+          ) {
+            setHasMoreItems(true);
+          } else {
+            setHasMoreItems(false);
+          }
+          setIsLoadingMore(false);
+        },
+        onError: () => {
+          toast.error("Could not load more items");
+          setIsLoadingMore(false);
+        }
+      }
+    );
+  };
 
   // Sync state when data changes (e.g. after loading finishes)
   useEffect(() => {
@@ -180,7 +219,6 @@ export const FormatModal = ({
       sponsorBlock,
       subtitles,
       subtitleLanguages: subtitles !== "none" ? subtitleLanguages : undefined,
-      reencodeFormat: undefined,
       destination,
       selectedItems: data.type === "playlist" ? [...selectedItems].map(String) : undefined
     });
@@ -190,13 +228,6 @@ export const FormatModal = ({
   const getTotalSize = () => {
     // Presets don't have size info since they depend on the actual video
     return null;
-  };
-
-  const getBadges = () => {
-    if (data.type === "playlist") {
-      return [{ label: "Playlist" }, { label: `${data.videoCount} videos` }];
-    }
-    return [{ label: data.duration || "Video" }];
   };
 
   const isPlaylist = data.type === "playlist";
@@ -211,40 +242,9 @@ export const FormatModal = ({
   // Error State Render
   if (isError) {
     return (
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-md flex flex-col p-8 overflow-hidden rounded-2xl border-border">
-          <div className="flex flex-col items-center justify-center text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-destructive" />
-            </div>
-            <div>
-              <DialogTitle className="text-lg font-medium">Failed to load info</DialogTitle>
-              <p className="text-[13px] text-muted-foreground mt-1.5">
-                {error || "An unknown error occurred."}
-              </p>
-            </div>
-            <div className="flex items-center gap-3 mt-4 pt-2">
-              <Button variant="ghost" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              {onRetry && (
-                <Button onClick={onRetry} className="bg-primary text-primary-foreground">
-                  <RefreshCw className="w-4 h-4 mr-2" /> Retry
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ErrorState open={open} onOpenChange={handleOpenChange} error={error} onRetry={onRetry} />
     );
   }
-
-  const thumbnailFallback =
-    mediaType === "audio" ? (
-      <AudioLines className="w-6 h-6 text-foreground/40" />
-    ) : (
-      <Video className="w-6 h-6 text-foreground/40" />
-    );
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -253,7 +253,7 @@ export const FormatModal = ({
         className="max-w-2xl! max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-2xl border-border"
       >
         {/* Full Width Cinematic Header */}
-        <div className="relative w-full h-[180px] shrink-0 bg-black overflow-hidden">
+        <div className="relative w-full h-45 shrink-0 bg-background overflow-hidden">
           {isLoading ? (
             <div className="absolute inset-0 w-full h-full bg-secondary animate-pulse" />
           ) : (
@@ -271,7 +271,11 @@ export const FormatModal = ({
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center opacity-20">
-                  {thumbnailFallback}
+                  {mediaType === "audio" ? (
+                    <AudioLines className="w-6 h-6 text-foreground/40" />
+                  ) : (
+                    <Video className="w-6 h-6 text-foreground/40" />
+                  )}
                 </div>
               )}
               {/* Gradient overlay for smooth blending with background */}
@@ -280,30 +284,7 @@ export const FormatModal = ({
           )}
 
           {/* Title & Info overlaid at the bottom of the banner */}
-          <DialogHeader className="absolute bottom-0 left-0 right-0 p-5 pt-12 flex flex-col justify-end text-left z-10 space-y-0">
-            {isLoading ? (
-              <SkeletonLoader type="format-modal-header" />
-            ) : (
-              <>
-                <DialogTitle className="font-semibold text-xl truncate leading-tight drop-shadow-md text-foreground">
-                  {data.title}
-                </DialogTitle>
-                <p className="text-[13px] text-foreground mt-1 drop-shadow-sm font-medium">
-                  {data.channel}
-                </p>
-                <div className="flex items-center gap-2 mt-2.5">
-                  {getBadges().map((badge, i) => (
-                    <Badge
-                      key={`badge-${i.toString()}`}
-                      className="text-base px-2 text-primary! py-0.5 border-none shadow-sm backdrop-blur-md bg-background/80"
-                    >
-                      {badge.label}
-                    </Badge>
-                  ))}
-                </div>
-              </>
-            )}
-          </DialogHeader>
+          <ModalHeader data={data} isLoading={isLoading} />
         </div>
 
         {/* Content */}
@@ -313,66 +294,16 @@ export const FormatModal = ({
           <div className="flex-1 overflow-y-auto p-5 space-y-6">
             {/* Playlist Items */}
             {isPlaylist && data.playlistItems && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    <ListOrdered className="w-3.5 h-3.5" />
-                    Playlist items
-                  </p>
-                  <p className="text-[12px] text-muted-foreground">
-                    <span className="font-medium">{selectedItems.size}</span> of{" "}
-                    <span>{data.playlistItems.length}</span> selected
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="text-[12px] text-primary h-auto p-0"
-                    onClick={toggleAllItems}
-                  >
-                    {selectedItems.size === data.playlistItems.length
-                      ? "Deselect all"
-                      : "Select all"}
-                  </Button>
-                </div>
-                <div className="border border-border rounded-lg max-h-75 overflow-y-auto divide-y divide-border">
-                  {data.playlistItems.map((item, index) => (
-                    <label
-                      key={item.id}
-                      className="flex items-center gap-3 p-2.5 text-[12.5px] cursor-pointer hover:bg-accent/60 transition-colors"
-                    >
-                      <Checkbox
-                        checked={selectedItems.has(index + 1)}
-                        onCheckedChange={() => toggleItem(index + 1)}
-                        className="w-4 h-4 shrink-0"
-                      />
-                      <span className="text-muted-foreground w-4 text-[12px] font-medium text-right shrink-0">
-                        {index + 1}
-                      </span>
-                      <div className="relative w-14 h-9 bg-secondary rounded flex items-center justify-center overflow-hidden shrink-0">
-                        {item.thumbnail ? (
-                          <img
-                            src={item.thumbnail}
-                            alt={item.title}
-                            className="absolute inset-0 w-full h-full object-cover"
-                          />
-                        ) : (
-                          <Video className="w-3.5 h-3.5 text-muted-foreground/50" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0 flex flex-col justify-center">
-                        <span className="truncate font-medium">{item.title}</span>
-                        {item.duration && (
-                          <span className="text-[10px] font-medium text-muted-foreground mt-0.5">
-                            {item.duration}
-                          </span>
-                        )}
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
+              <PlaylistItems
+                items={data.playlistItems}
+                selectedItems={selectedItems}
+                isLoadingMore={isLoadingMore}
+                hasMoreItems={hasMoreItems}
+                totalCount={data.totalCount}
+                onToggleItem={toggleItem}
+                onToggleAll={toggleAllItems}
+                onLoadMore={loadMorePlaylistItems}
+              />
             )}
 
             {/* Media Type Toggle */}
@@ -402,7 +333,7 @@ export const FormatModal = ({
               {data.videoPresets.map((preset) => (
                 <Button
                   key={preset.id}
-                  variant="outline"
+                  variant="secondary"
                   size="xs"
                   onClick={() => {
                     setSelectedPreset(preset);
@@ -431,7 +362,7 @@ export const FormatModal = ({
               {data.audioPresets.map((preset) => (
                 <Button
                   key={preset.id}
-                  variant="outline"
+                  variant="secondary"
                   size="xs"
                   onClick={() => {
                     setSelectedPreset(preset);
@@ -536,7 +467,7 @@ export const FormatModal = ({
                   {VIDEO_CONTAINERS.map((container) => (
                     <Button
                       key={container}
-                      variant="outline"
+                      variant="secondary"
                       size="xs"
                       onClick={() => setVideoContainer(container as VideoContainer)}
                       className={cn(
@@ -700,7 +631,8 @@ export const FormatModal = ({
                           placeholder="en, zh, fr (comma-separated)"
                         />
                         <p className="text-[11px] text-muted-foreground mt-1">
-                          Comma-separated language codes, e.g. <code>en,zh-Hans</code>
+                          Subtitles will be downloaded for all specified languages (e.g.,{" "}
+                          <code>en,fr</code> = English + French)
                         </p>
                       </div>
                     </div>
@@ -768,37 +700,16 @@ export const FormatModal = ({
 
         {/* Footer */}
         {!isLoading && (
-          <DialogFooter className="flex items-center justify-between m-0 p-4 border-t border-border shrink-0 bg-card">
-            <p className="text-[12px] text-muted-foreground">
-              {isLoading
-                ? "Fetching formats..."
-                : getTotalSize()
-                  ? `Estimated ${getTotalSize()}`
-                  : "Size unknown"}
-              {!isLoading && isPlaylist && ` · ${getItemCount()} items`}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onOpenChange(false)}
-                className="px-3.5 py-2 rounded-lg text-[13px] h-auto"
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleConfirm}
-                className="px-4 py-2 rounded-lg text-[13px] font-medium bg-primary text-primary-foreground flex items-center gap-1.5 h-auto"
-                disabled={isLoading || !selectedPreset || (isPlaylist && selectedItems.size === 0)}
-              >
-                <Download className="w-3.5 h-3.5" />
-                {isPlaylist && selectedItems.size > 0
-                  ? `Download ${selectedItems.size} items`
-                  : "Add to queue"}
-              </Button>
-            </div>
-          </DialogFooter>
+          <ModalFooter
+            isLoading={isLoading}
+            isPlaylist={isPlaylist}
+            selectedItemsCount={selectedItems.size}
+            getTotalSize={getTotalSize}
+            getItemCount={getItemCount}
+            onCancel={() => onOpenChange(false)}
+            onConfirm={handleConfirm}
+            selectedPreset={selectedPreset}
+          />
         )}
       </DialogContent>
     </Dialog>
