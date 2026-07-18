@@ -182,8 +182,109 @@ export async function probeFormats(
   throw new Error(`yt-dlp probe failed after ${retries + 1} attempts: ${lastError?.message}`);
 }
 
+/**
+ * Fetch a specific page of playlist items.
+ * start and end are 1-based, inclusive, matching yt-dlp's --playlist-items START:END selector.
+ */
+export async function probePlaylistPage(
+  opts: YtDlpOptions,
+  url: string,
+  start: number,
+  end: number,
+  extras?: DownloadExtras
+): Promise<Record<string, unknown>[]> {
+  const validation = validateYouTubeUrl(url);
+  if (!validation.valid) throw new Error(`Invalid YouTube URL: ${validation.error}`);
+
+  logger.debug(`Probing playlist page ${start}:${end} for:`, url);
+  return new Promise((resolve, reject) => {
+    const args = [
+      "--dump-json",
+      "--flat-playlist",
+      "--js-runtimes",
+      `node:${process.execPath}`,
+      "--quiet",
+      "--no-warnings",
+      "--playlist-items",
+      `${start}:${end}`
+    ];
+
+    if (opts.pluginPath) args.push("--plugin-dirs", opts.pluginPath);
+    if (extras?.cookiesFile) args.push("--cookies", extras.cookiesFile);
+    else if (extras?.cookiesFromBrowser)
+      args.push("--cookies-from-browser", extras.cookiesFromBrowser);
+
+    args.push(url);
+
+    const proc = spawn(opts.binaryPath, args, {
+      shell: false,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      timeout: DEFAULT_TIMEOUT
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+
+    const timeoutHandle = setTimeout(() => {
+      timedOut = true;
+      proc.kill("SIGTERM");
+    }, DEFAULT_TIMEOUT);
+
+    proc.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    proc.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    proc.on("close", (code) => {
+      clearTimeout(timeoutHandle);
+      if (timedOut) {
+        logger.warn(`yt-dlp playlist page probe timed out after ${DEFAULT_TIMEOUT}ms for:`, url);
+        return reject(new Error(`yt-dlp playlist page probe timed out after ${DEFAULT_TIMEOUT}ms`));
+      }
+      if (code !== 0) {
+        logger.error(
+          `yt-dlp playlist page probe failed for:`,
+          url,
+          parseYtDlpError(stderr) || stderr
+        );
+        return reject(
+          new Error(`yt-dlp playlist page probe failed: ${parseYtDlpError(stderr) || stderr}`)
+        );
+      }
+      try {
+        const lines = stdout
+          .trim()
+          .split("\n")
+          .filter((l) => l.trim());
+        if (lines.length === 0) {
+          logger.warn("yt-dlp returned no data for playlist page:", url);
+          return reject(new Error("yt-dlp returned no data for playlist page"));
+        }
+        logger.debug(`Playlist page probe successful for:`, url, `(${lines.length} items)`);
+        resolve(lines.map((line) => JSON.parse(line)));
+      } catch (err) {
+        logger.error("Failed to parse yt-dlp playlist page output for:", url, err);
+        reject(
+          new Error(
+            `Failed to parse yt-dlp playlist page output: ${err instanceof Error ? err.message : String(err)}`
+          )
+        );
+      }
+    });
+
+    proc.on("error", (err) => {
+      clearTimeout(timeoutHandle);
+      reject(err);
+    });
+  });
+}
+
 // ---- download() helpers -----------------------------------------------
 function buildMediaArgs(args: string[], extras: DownloadExtras | undefined): void {
+  // Handle audio extraction (separate from video downloads)
   if (extras?.audioFormat) {
     args.push("--extract-audio", "--audio-format", extras.audioFormat);
     // When extracting audio, we don't need the format selector for video —
@@ -192,8 +293,11 @@ function buildMediaArgs(args: string[], extras: DownloadExtras | undefined): voi
     if (formatIndex !== -1 && args[formatIndex + 1]) {
       args[formatIndex + 1] = "bestaudio";
     }
+    logger.debug("Audio extraction mode, format:", extras.audioFormat);
     return;
   }
+
+  // Video downloads: ensure proper container merging
   const container = extras?.videoContainer || "mp4";
   args.push("--merge-output-format", container, "--remux-video", container);
   logger.debug("Video container set to:", container);
@@ -374,11 +478,18 @@ export function download(
   outputTemplate: string,
   formatSelector: string,
   extras?: DownloadExtras,
+  downloadPath?: string,
   onProgress?: (progress: YtDlpProgress) => void,
   resume?: boolean
 ): { process: ChildProcess; promise: Promise<void> } {
   logger.info("Starting download:", url, resume ? "(resume)" : "");
-  logger.debug("Download options:", { formatSelector, outputTemplate, resume, extras });
+  logger.debug("Download options:", {
+    formatSelector,
+    outputTemplate,
+    downloadPath,
+    resume,
+    extras
+  });
 
   const args = [
     "--ffmpeg-location",
@@ -395,6 +506,12 @@ export function download(
     "--prefer-free-formats",
     "--no-warnings"
   ];
+
+  // Add download path if specified (youtube-downloader approach)
+  if (downloadPath) {
+    args.push("--paths", downloadPath);
+    logger.debug("Download path set to:", downloadPath);
+  }
 
   buildMediaArgs(args, extras);
 
@@ -447,9 +564,14 @@ export function createYtDlpManager(opts: YtDlpOptions) {
       outputTemplate: string,
       formatSelector: string,
       extras?: DownloadExtras,
+      downloadPath?: string,
       onProgress?: (progress: YtDlpProgress) => void,
       resume?: boolean
-    ) => download(opts, url, outputTemplate, formatSelector, extras, onProgress, resume)
+    ) =>
+      download(opts, url, outputTemplate, formatSelector, extras, downloadPath, onProgress, resume),
+    binaryPath: opts.binaryPath,
+    ffmpegPath: opts.ffmpegPath,
+    pluginPath: opts.pluginPath
   };
 }
 
