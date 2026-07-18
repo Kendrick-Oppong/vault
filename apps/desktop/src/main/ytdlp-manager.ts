@@ -18,6 +18,29 @@ export interface ProbeOptions extends DownloadExtras {
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_RETRIES = 2;
 
+// Lossless formats where a target bitrate doesn't apply.
+const LOSSLESS_AUDIO_FORMATS = new Set(["flac", "wav"]);
+
+// yt-dlp supports thumbnail embedding in these containers only.
+const THUMBNAIL_SUPPORTED_FORMATS = new Set([
+  "mp3",
+  "m4a",
+  "opus",
+  "flac",
+  "mkv",
+  "mka",
+  "ogg",
+  "mp4",
+  "m4v",
+  "mov"
+]);
+
+// itag codes for webm-only YouTube formats; thumbnail embedding isn't supported for webm.
+const WEBM_FORMAT_CODES = new Set([
+  133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 160, 167, 168, 169, 170, 217, 218, 219,
+  222, 223, 224, 242, 243, 244, 245, 246, 247, 248, 256, 257, 258, 271, 272, 278, 298, 299, 302, 303
+]);
+
 function parseYtDlpError(stderr: string): string {
   if (!stderr) return "";
   if (stderr.includes("ERROR: Requested format is not available"))
@@ -159,58 +182,24 @@ export async function probeFormats(
   throw new Error(`yt-dlp probe failed after ${retries + 1} attempts: ${lastError?.message}`);
 }
 
-export function download(
-  opts: YtDlpOptions,
-  url: string,
-  outputTemplate: string,
-  formatSelector: string,
-  extras?: DownloadExtras,
-  onProgress?: (progress: YtDlpProgress) => void,
-  resume?: boolean
-): { process: ChildProcess; promise: Promise<void> } {
-  logger.info("Starting download:", url, resume ? "(resume)" : "");
-  logger.debug("Download options:", { formatSelector, outputTemplate, resume, extras });
-  const args = [
-    "--ffmpeg-location",
-    opts.ffmpegPath,
-    "--output",
-    outputTemplate,
-    "--format",
-    formatSelector,
-    "--newline",
-    "--progress-template",
-    "%(progress)j",
-    "--js-runtimes",
-    `node:${process.execPath}`,
-    "--prefer-free-formats",
-    "--no-warnings"
-  ];
-
-  // For audio downloads, use --extract-audio with explicit format
+// ---- download() helpers -----------------------------------------------
+function buildMediaArgs(args: string[], extras: DownloadExtras | undefined): void {
   if (extras?.audioFormat) {
     args.push("--extract-audio", "--audio-format", extras.audioFormat);
-    // When extracting audio, we don't need the format selector for video
-    // Just use bestaudio to get the best quality audio
+    // When extracting audio, we don't need the format selector for video —
+    // just use bestaudio to get the best quality audio.
     const formatIndex = args.indexOf("--format");
     if (formatIndex !== -1 && args[formatIndex + 1]) {
       args[formatIndex + 1] = "bestaudio";
     }
-  } else {
-    // For video downloads, use container from extras if provided, otherwise use mp4 as default
-    const container = extras?.videoContainer || "mp4";
-    args.push("--merge-output-format", container, "--remux-video", container);
-    logger.debug("Video container set to:", container);
+    return;
   }
+  const container = extras?.videoContainer || "mp4";
+  args.push("--merge-output-format", container, "--remux-video", container);
+  logger.debug("Video container set to:", container);
+}
 
-  if (resume) {
-    args.push("--continue");
-    logger.debug("Resume mode enabled");
-  }
-
-  if (opts.pluginPath) {
-    args.push("--plugin-dirs", opts.pluginPath);
-    logger.debug("Plugin path:", opts.pluginPath);
-  }
+function buildAuthAndNetworkArgs(args: string[], extras: DownloadExtras | undefined): void {
   if (extras?.cookiesFile) {
     args.push("--cookies", extras.cookiesFile);
     logger.debug("Using cookies file:", extras.cookiesFile);
@@ -230,59 +219,56 @@ export function download(
     args.push("--geo-bypass");
     logger.debug("Geo bypass enabled");
   }
+}
 
-  // Thumbnail embedding only works on yt-dlp's supported containers/list. For audio
-  // that means mp3/m4a/opus/flac - WAV has no tag container, so embedding into
-  // it fails postprocessing. Skip it there instead of erroring the download.
-  const isAudio = formatSelector.includes("bestaudio") || formatSelector.includes("audio");
-  // Use the explicit audioFormat from extras if provided, otherwise try to extract from selector
-  const audioFormat =
-    extras?.audioFormat ||
-    (isAudio
-      ? formatSelector.match(/(mp3|m4a|opus|flac|wav)/i)?.[1]?.toLowerCase() || "mp3"
-      : formatSelector);
-  const videoContainer = extras?.videoContainer || "mp4";
+function containsWebmFormatCode(formatSelector: string): boolean {
+  const numericTokens = formatSelector.match(/\d+/g) ?? [];
+  return numericTokens.some((token) => WEBM_FORMAT_CODES.has(Number(token)));
+}
 
-  // Audio bitrate for non-lossless formats
-  if (extras?.audioBitrate && audioFormat !== "flac" && audioFormat !== "wav") {
+function isWebmFormatSelector(formatSelector: string): boolean {
+  return formatSelector.includes("webm") || containsWebmFormatCode(formatSelector);
+}
+
+function resolveAudioFormat(
+  formatSelector: string,
+  isAudio: boolean,
+  explicitFormat?: string
+): string {
+  if (explicitFormat) return explicitFormat;
+  if (!isAudio) return formatSelector;
+  return (/mp3|m4a|opus|flac|wav/i.exec(formatSelector)?.[0] ?? "mp3").toLowerCase();
+}
+
+function canEmbedThumbnail(
+  formatSelector: string,
+  audioFormat: string,
+  videoContainer: string
+): boolean {
+  if (isWebmFormatSelector(formatSelector)) return false;
+  return (
+    THUMBNAIL_SUPPORTED_FORMATS.has(audioFormat) || THUMBNAIL_SUPPORTED_FORMATS.has(videoContainer)
+  );
+}
+
+function buildThumbnailAndMetadataArgs(
+  args: string[],
+  extras: DownloadExtras | undefined,
+  formatSelector: string,
+  audioFormat: string,
+  videoContainer: string
+): void {
+  const embeddable = canEmbedThumbnail(formatSelector, audioFormat, videoContainer);
+
+  if (extras?.audioBitrate && !LOSSLESS_AUDIO_FORMATS.has(audioFormat)) {
     args.push("--audio-quality", `${extras.audioBitrate}K`);
     logger.debug("Audio bitrate set to:", extras.audioBitrate, "kbps");
   }
-  // yt-dlp supports thumbnail embedding in: mp3, mkv/mka, ogg/opus/flac, m4a/mp4/m4v/mov
-  // webm is NOT supported for thumbnail embedding
-  const supportedThumbnailFormats = [
-    "mp3",
-    "m4a",
-    "opus",
-    "flac",
-    "mkv",
-    "mka",
-    "ogg",
-    "mp4",
-    "m4v",
-    "mov"
-  ];
-  // Check if format selector indicates webm output (common for low-quality YouTube formats)
-  const isWebmFormat =
-    formatSelector.includes("webm") ||
-    new RegExp(/\b(133|134|135|136|137|138|139|140|141|142|143|160|167|168|169|170|217|218|219|222|223|224|242|243|244|245|246|247|248|256|257|258|271|272|278|298|299|302|303)\b/).exec(formatSelector);
-  const canEmbedThumbnail =
-    !isWebmFormat &&
-    (supportedThumbnailFormats.includes(audioFormat) ||
-      supportedThumbnailFormats.includes(videoContainer));
 
-  logger.debug("Media type detection:", {
-    isAudio,
-    audioFormat,
-    videoContainer,
-    isWebmFormat,
-    canEmbedThumbnail
-  });
-
-  if (canEmbedThumbnail && extras?.embedThumbnail) {
+  if (embeddable && extras?.embedThumbnail) {
     args.push("--embed-thumbnail", "--ppa", "EmbedThumbnail:-c copy");
     logger.debug("Thumbnail embedding enabled");
-  } else if (extras?.embedThumbnail && !canEmbedThumbnail) {
+  } else if (extras?.embedThumbnail && !embeddable) {
     logger.debug(
       "Thumbnail embedding disabled: unsupported format (webm or other unsupported container)"
     );
@@ -299,6 +285,9 @@ export function download(
     args.push("--sponsorblock-remove", "default");
     logger.debug("SponsorBlock removal enabled");
   }
+}
+
+function buildSubtitleAndArchiveArgs(args: string[], extras: DownloadExtras | undefined): void {
   if (extras?.subtitles === "external") {
     args.push("--write-subs", "--write-auto-subs");
     if (extras.subtitleLanguages && extras.subtitleLanguages.length > 0) {
@@ -312,19 +301,16 @@ export function download(
     args.push("--download-archive", "archive.txt");
     logger.debug("Download archive enabled");
   }
-  args.push(url);
-  logger.debug("Final yt-dlp command:", args.join(" "));
+}
 
-  const proc = spawn(opts.binaryPath, args, {
-    shell: false,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-
+function attachDownloadOutputHandlers(
+  proc: ChildProcess,
+  onProgress?: (progress: YtDlpProgress) => void
+): { getStderr: () => string; getStdoutInfo: () => string } {
   let stderr = "";
   let stdoutInfo = "";
 
-  proc.stdout.on("data", (chunk) => {
+  proc.stdout?.on("data", (chunk) => {
     for (const line of chunk.toString().split("\n")) {
       if (!line.trim()) continue;
       try {
@@ -337,18 +323,29 @@ export function download(
     }
   });
 
-  proc.stderr.on("data", (chunk) => {
+  proc.stderr?.on("data", (chunk) => {
     const data = chunk.toString();
     stderr += data;
     logger.debug("yt-dlp stderr:", data.trim());
   });
 
-  const promise = new Promise<void>((resolve, reject) => {
+  return { getStderr: () => stderr, getStdoutInfo: () => stdoutInfo };
+}
+
+function createDownloadCompletionPromise(
+  proc: ChildProcess,
+  url: string,
+  getStderr: () => string,
+  getStdoutInfo: () => string
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     proc.on("close", (code) => {
       if (code === 0) {
         logger.info("Download completed successfully:", url);
-        return resolve();
+        resolve();
+        return;
       }
+      const stderr = getStderr();
       // Extract only actual ERROR lines from stderr, ignore warnings
       const errorLines = stderr
         .split("\n")
@@ -356,7 +353,9 @@ export function download(
         .map((line) => line.replace("ERROR:", "").trim());
       const errorMsg = errorLines.length > 0 ? errorLines.join("\n") : parseYtDlpError(stderr);
       logger.error("Download failed:", url, `code ${code}`, errorMsg);
-      const details = [errorMsg || stderr.trim(), stdoutInfo.trim()].filter(Boolean).join("\n");
+      const details = [errorMsg || stderr.trim(), getStdoutInfo().trim()]
+        .filter(Boolean)
+        .join("\n");
       const err = new Error(`yt-dlp download failed (code ${code}): ${details}`) as Error & {
         stderr?: string;
       };
@@ -365,6 +364,77 @@ export function download(
     });
     proc.on("error", reject);
   });
+}
+
+// -------------------------------------------------------------------------
+
+export function download(
+  opts: YtDlpOptions,
+  url: string,
+  outputTemplate: string,
+  formatSelector: string,
+  extras?: DownloadExtras,
+  onProgress?: (progress: YtDlpProgress) => void,
+  resume?: boolean
+): { process: ChildProcess; promise: Promise<void> } {
+  logger.info("Starting download:", url, resume ? "(resume)" : "");
+  logger.debug("Download options:", { formatSelector, outputTemplate, resume, extras });
+
+  const args = [
+    "--ffmpeg-location",
+    opts.ffmpegPath,
+    "--output",
+    outputTemplate,
+    "--format",
+    formatSelector,
+    "--newline",
+    "--progress-template",
+    "%(progress)j",
+    "--js-runtimes",
+    `node:${process.execPath}`,
+    "--prefer-free-formats",
+    "--no-warnings"
+  ];
+
+  buildMediaArgs(args, extras);
+
+  if (resume) {
+    args.push("--continue");
+    logger.debug("Resume mode enabled");
+  }
+  if (opts.pluginPath) {
+    args.push("--plugin-dirs", opts.pluginPath);
+    logger.debug("Plugin path:", opts.pluginPath);
+  }
+
+  buildAuthAndNetworkArgs(args, extras);
+
+  const isAudio = formatSelector.includes("bestaudio") || formatSelector.includes("audio");
+  const audioFormat = resolveAudioFormat(formatSelector, isAudio, extras?.audioFormat);
+  const videoContainer = extras?.videoContainer || "mp4";
+
+  logger.debug("Media type detection:", {
+    isAudio,
+    audioFormat,
+    videoContainer,
+    isWebmFormat: isWebmFormatSelector(formatSelector),
+    canEmbedThumbnail: canEmbedThumbnail(formatSelector, audioFormat, videoContainer)
+  });
+
+  buildThumbnailAndMetadataArgs(args, extras, formatSelector, audioFormat, videoContainer);
+  buildSubtitleAndArchiveArgs(args, extras);
+
+  args.push(url);
+  logger.debug("Final yt-dlp command:", args.join(" "));
+
+  const proc = spawn(opts.binaryPath, args, {
+    shell: false,
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  const { getStderr, getStdoutInfo } = attachDownloadOutputHandlers(proc, onProgress);
+  const promise = createDownloadCompletionPromise(proc, url, getStderr, getStdoutInfo);
 
   return { process: proc, promise };
 }
