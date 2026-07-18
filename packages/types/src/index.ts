@@ -19,6 +19,7 @@ export interface JobInput {
   formatSelector: string;
   extra?: DownloadExtras;
   meta?: JobMeta;
+  downloadPath?: string;
 }
 
 export interface Job extends JobInput {

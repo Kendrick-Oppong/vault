@@ -64,9 +64,8 @@ export function getPreset(id: string): Preset | undefined {
  */
 export function presetToFormatSelector(preset: Preset, formatId?: string): string {
   if (preset.mediaType === "audio") {
-    // Audio presets: extract audio in specified format
-    const format = preset.audioFormat || "mp3";
-    return `bestaudio[ext=${format}]/bestaudio[acodec=${format}]/bestaudio`;
+    // Audio presets: use simple bestaudio format (audio extraction is handled by --extract-audio flag)
+    return "bestaudio";
   }
 
   // Video presets: combine video and audio with container constraint
@@ -79,7 +78,7 @@ export function presetToFormatSelector(preset: Preset, formatId?: string): strin
 
   if (height === null) {
     // Best quality
-    return `bestvideo+bestaudio/best`;
+    return "bestvideo+bestaudio/best";
   }
 
   // Capped height
