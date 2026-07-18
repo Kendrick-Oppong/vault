@@ -6,8 +6,8 @@ export const SkeletonLoader = ({ type }: SkeletonLoaderProps) => {
   if (type === "format-modal-header") {
     return (
       <div className="space-y-2">
-        <div className="h-5 w-3/4 bg-secondary/90 rounded animate-pulse" />
-        <div className="h-4 w-1/2 bg-secondary/90 rounded animate-pulse" />
+        <div className="h-5 w-3/4 bg-foreground/5 rounded animate-pulse" />
+        <div className="h-4 w-1/2 bg-foreground/5 rounded animate-pulse" />
       </div>
     );
   }
