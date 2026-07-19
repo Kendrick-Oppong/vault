@@ -46,7 +46,7 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
 
               const baseJobInput = {
                 outputTemplate,
-                downloadPath: settings.downloadPath || undefined,
+                downloadPath: options.destination || settings.downloadPath || undefined,
                 formatSelector,
                 extra: {
                   embedThumbnail: options.embedThumbnail,
@@ -114,7 +114,7 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
 
               const titles = newJobs.map(j => j.meta?.title).filter(Boolean) as string[];
               const foundTitles = await checkFilesExist({
-                downloadPath: settings.downloadPath || "",
+                downloadPath: options.destination || settings.downloadPath || "",
                 titles,
                 mediaType: options.mediaType === "audio" ? "music" : "video"
               });
