@@ -351,9 +351,12 @@ export const FormatModal = ({
                     // Auto-select format based on preset height
                     if (preset.maxHeight != null && data.videoFormats) {
                       const maxHeight = preset.maxHeight;
-                      const match = data.videoFormats.find(
-                        (f) => extractHeight(f.resolution) <= maxHeight
-                      );
+                      // Find the closest format to the desired height (prefer exact match or closest higher)
+                      const match = data.videoFormats
+                        .filter((f) => extractHeight(f.resolution) <= maxHeight)
+                        .sort(
+                          (a, b) => extractHeight(b.resolution) - extractHeight(a.resolution)
+                        )[0];
                       setFormatId(match?.formatId || "");
                     } else {
                       setFormatId("");
@@ -410,9 +413,10 @@ export const FormatModal = ({
                       const selectedFormat = data.videoFormats.find((f) => f.formatId === v);
                       if (selectedFormat) {
                         const height = extractHeight(selectedFormat.resolution);
-                        const matchingPreset = data.videoPresets.find(
-                          (p) => p.maxHeight && height <= p.maxHeight
-                        );
+                        // Find the best matching preset (prefer exact match or closest higher)
+                        const matchingPreset = data.videoPresets
+                          .filter((p) => p.maxHeight && height <= p.maxHeight)
+                          .sort((a, b) => (a.maxHeight || 0) - (b.maxHeight || 0))[0];
                         if (matchingPreset) {
                           setSelectedPreset(matchingPreset);
                         }
