@@ -1,5 +1,6 @@
 import { Button } from "@vault/ui/components/button";
 import { CheckSquare, Square } from "lucide-react";
+import { useModalStore } from "@/stores/ui/modal.store";
 
 interface BulkActionsProps {
   selectedCount: number;
@@ -16,6 +17,8 @@ export const BulkActions = ({
   onSelectNone,
   onBulkAction
 }: BulkActionsProps) => {
+  const { openConfirmDialog } = useModalStore();
+
   if (selectedCount === 0) return null;
 
   const isAllSelected = selectedCount === totalCount;
@@ -81,7 +84,15 @@ export const BulkActions = ({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onBulkAction("cancel")}
+          onClick={() => {
+            openConfirmDialog({
+              title: "Remove selected items?",
+              description: `Are you sure you want to remove ${selectedCount} items? Partial files may be deleted.`,
+              confirmText: "Remove",
+              variant: "danger",
+              onConfirm: () => onBulkAction("cancel")
+            });
+          }}
           className="px-2.5 py-1.5 text-[12px] h-auto hover:border-destructive hover:text-destructive"
         >
           Remove
