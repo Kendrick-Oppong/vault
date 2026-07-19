@@ -80,7 +80,7 @@ export const useSetConcurrency = () => {
       });
     },
     onError: (error: Error) => {
-      toast.error("Failed to update concurrency", {
+      toast.error("Failed to update concurrency limit", {
         description: formatError(error)
       });
     }
@@ -175,6 +175,52 @@ export const useInstallDependencies = () => {
     },
     onError: (error: Error) => {
       toast.error("Failed to install dependencies", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
+export const useOpenFile = () => {
+  return useMutation({
+    mutationFn: async (filePath: string) => {
+      const exists = await downloadsApi.fileExists(filePath);
+      if (!exists) {
+        throw new Error("File not found at the specified path.");
+      }
+      const errorStr = await downloadsApi.openFile(filePath);
+      if (errorStr) {
+        throw new Error(`Failed to open file: ${errorStr}`);
+      }
+    },
+    onError: (error: Error) => {
+      toast.error("Could not open file", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
+export const useRevealFile = () => {
+  return useMutation({
+    mutationFn: async (filePath: string) => {
+      const exists = await downloadsApi.fileExists(filePath);
+      if (exists) {
+        await downloadsApi.revealFile(filePath);
+      } else {
+        // Fallback to opening parent directory
+        const parentPath = filePath.split(/[/\\]/).slice(0, -1).join("\\");
+        const parentExists = await downloadsApi.fileExists(parentPath);
+        if (parentExists) {
+          await downloadsApi.openFile(parentPath);
+          toast.warning("File not found. Opened parent folder instead.");
+        } else {
+          throw new Error("File and parent folder not found.");
+        }
+      }
+    },
+    onError: (error: Error) => {
+      toast.error("Could not open destination", {
         description: formatError(error)
       });
     }

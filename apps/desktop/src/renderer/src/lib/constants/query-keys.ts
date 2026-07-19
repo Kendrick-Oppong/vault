@@ -3,6 +3,7 @@ export const QueryKeys = {
     probe: (url: string) => ["formats", "probe", url] as const
   },
   history: {
+    base: () => ["history"] as const,
     all: (limit?: number, offset?: number) => ["history", { limit, offset }] as const,
     infinite: (limit: number) => ["history", "infinite", { limit }] as const
   },
