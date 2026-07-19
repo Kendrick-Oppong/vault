@@ -10,6 +10,7 @@ export const selectQuickActions = (state: ModalStore) => state.quickActions;
 const selectModalActions = (state: ModalStore) => ({
   openFormatModal: state.openFormatModal,
   updateFormatModal: state.updateFormatModal,
+  updateFormatModalData: state.updateFormatModalData,
   closeFormatModal: state.closeFormatModal,
   openConfirmDialog: state.openConfirmDialog,
   closeConfirmDialog: state.closeConfirmDialog,

@@ -1,17 +1,22 @@
 import { useState, useMemo } from "react";
 import { FilterTabs } from "./filter-tabs";
-import { LibraryCard } from "./library-card";
-import type { LibraryItem, LibrarySort, SortOrder, LibraryStats } from "../types";
+import { HistoryCard } from "./history-card";
+import { BulkActions } from "./bulk-actions";
+import type { HistoryItem, HistorySort, SortOrder, HistoryStats } from "../types";
 import { EmptyState } from "@/features/ui/components/empty-state";
-import { Search, Loader2, ChevronDown } from "lucide-react";
+import { Search, Loader2, ChevronDown, History } from "lucide-react";
 
 import { useHistoryInfinite } from "@/lib/queries/history";
+import { useBulkDeleteHistory } from "@/lib/mutations/history";
 import { formatBytes } from "@/lib/utils/platform";
 
-export const LibraryView = () => {
-  const [sortBy, setSortBy] = useState<LibrarySort>("date");
+export const HistoryView = () => {
+  const [sortBy, setSortBy] = useState<HistorySort>("date");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const { mutate: bulkDelete } = useBulkDeleteHistory();
 
   const {
     data: infiniteData,
@@ -21,9 +26,9 @@ export const LibraryView = () => {
     fetchNextPage
   } = useHistoryInfinite();
 
-  const history = useMemo(() => infiniteData?.pages.flat() || [], [infiniteData]);
+  const history = useMemo(() => infiniteData?.pages.flat() ?? [], [infiniteData]);
 
-  const mappedItems: LibraryItem[] = useMemo(() => {
+  const mappedItems: HistoryItem[] = useMemo(() => {
     return history.map((entry) => ({
       id: entry.job_id,
       title: entry.title || entry.url,
@@ -35,7 +40,8 @@ export const LibraryView = () => {
       addedAt: new Date(entry.completed_at || entry.created_at),
       thumbnail: entry.thumbnail_url || undefined,
       url: entry.url,
-      filePath: entry.file_path || undefined
+      filePath: entry.file_path || undefined,
+      status: entry.status
     }));
   }, [history]);
 
@@ -67,7 +73,7 @@ export const LibraryView = () => {
     return filtered;
   }, [mappedItems, searchQuery, sortBy, sortOrder]);
 
-  const handleSortChange = (sort: LibrarySort) => {
+  const handleSortChange = (sort: HistorySort) => {
     if (sort === sortBy) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -81,15 +87,39 @@ export const LibraryView = () => {
   };
 
   // Calculate stats based on loaded data
-  const stats: LibraryStats = {
-    total: history.length
+  const totalSizeBytes = mappedItems.reduce((acc, item) => acc + item.sizeBytes, 0);
+  const totalSize = formatBytes(totalSizeBytes);
+  const stats: HistoryStats = {
+    total: history.length,
+    totalSize,
+    totalSizeBytes
+  };
+
+  const handleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIds(new Set(filteredAndSortedItems.map((i) => i.id)));
+  };
+
+  const handleSelectNone = () => {
+    setSelectedIds(new Set());
   };
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Loader2 className="size-6 animate-spin text-muted-foreground mb-4" />
-        <p className="text-sm text-muted-foreground">Loading library...</p>
+        <p className="text-sm text-muted-foreground">Loading History...</p>
       </div>
     );
   }
@@ -112,7 +142,13 @@ export const LibraryView = () => {
         </div>
       </div>
 
-      {filteredAndSortedItems.length === 0 ? (
+      {mappedItems.length === 0 ? (
+        <EmptyState
+          icon={History}
+          title="No history yet"
+          description="Downloads you complete will appear here"
+        />
+      ) : filteredAndSortedItems.length === 0 ? (
         <EmptyState
           icon={Search}
           title="No results found"
@@ -120,9 +156,26 @@ export const LibraryView = () => {
         />
       ) : (
         <>
+          <BulkActions
+            selectedCount={selectedIds.size}
+            totalCount={filteredAndSortedItems.length}
+            onSelectAll={handleSelectAll}
+            onSelectNone={handleSelectNone}
+            onBulkDelete={() => {
+              bulkDelete([...selectedIds], {
+                onSuccess: () => setSelectedIds(new Set())
+              });
+            }}
+          />
+
           <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
             {filteredAndSortedItems.map((item) => (
-              <LibraryCard key={item.id} item={item} />
+              <HistoryCard
+                key={item.id}
+                item={item}
+                isSelected={selectedIds.has(item.id)}
+                onSelect={handleSelect}
+              />
             ))}
           </div>
 

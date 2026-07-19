@@ -7,7 +7,6 @@ export const useActiveJobs = () =>
   useQuery<Job[]>({
     queryKey: QueryKeys.jobs.active(),
     queryFn: () => downloadsApi.getJobs(),
-    initialData: [],
     refetchInterval: 2000 // Poll every 2 seconds for updates
   });
 

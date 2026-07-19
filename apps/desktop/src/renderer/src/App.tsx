@@ -10,7 +10,7 @@ import { OnboardingScreen } from "@/features/onboarding/components/onboarding-sc
 import { useOnboardingState } from "@/stores/onboarding/onboarding.selectors";
 import { CustomTitlebar } from "@/features/ui/components/custom-titlebar";
 
-import { LibraryView } from "@/features/library/components/shell";
+import { HistoryView } from "@/features/history/components/shell";
 import { SettingsView } from "@/features/settings/components/shell";
 import { QueueView } from "@/features/queue/components/shell";
 import { LogsView } from "@/features/logs/components/logs-view";
@@ -30,8 +30,8 @@ function App(): React.JSX.Element {
     switch (currentView) {
       case "queue":
         return <QueueView />;
-      case "library":
-        return <LibraryView />;
+      case "history":
+        return <HistoryView />;
       case "settings":
         return <SettingsView />;
       case "logs":

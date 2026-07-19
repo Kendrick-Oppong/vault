@@ -1,6 +1,6 @@
 import { app } from "electron";
-import { appendFileSync, mkdirSync } from "fs";
-import { join } from "path";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 type LogEntry = {
   level: "info" | "warn" | "error" | "debug";

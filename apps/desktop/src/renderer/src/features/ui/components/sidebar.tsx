@@ -1,4 +1,4 @@
-import { Library, Layers, Moon, Settings2, Sun, ScrollText } from "lucide-react";
+import { History, Layers, Moon, Settings2, Sun, ScrollText } from "lucide-react";
 import { Button } from "@vault/ui/components/button";
 import { useNavigationState } from "@/stores/navigation/navigation.selectors";
 import { useUIState } from "@/stores/ui/ui.selectors";
@@ -8,7 +8,7 @@ import type { NavigationView } from "@/stores/navigation/navigation.store";
 
 const sidebarItems: SidebarItem[] = [
   { id: "queue", label: "Queue", icon: Layers },
-  { id: "library", label: "Library", icon: Library },
+  { id: "history", label: "History", icon: History },
   { id: "logs", label: "Logs", icon: ScrollText },
   { id: "settings", label: "Settings", icon: Settings2 }
 ];
@@ -29,7 +29,7 @@ export const SideBar = () => {
     switch (id) {
       case "queue":
         return activeJobs.length || undefined;
-      case "library":
+      case "history":
         return history.length || undefined;
       default:
         return undefined;

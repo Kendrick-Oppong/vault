@@ -33,7 +33,11 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
   const MAX_COMPLETED = 100;
 
   function processQueue(): void {
-    logger.debug("Processing queue:", { queueSize: queue.length, activeCount: active.size, maxConcurrent });
+    logger.debug("Processing queue:", {
+      queueSize: queue.length,
+      activeCount: active.size,
+      maxConcurrent
+    });
     while (active.size < maxConcurrent && queue.length > 0) {
       const job = queue.shift()!;
       logger.debug("Dequeuing job:", job.id);
@@ -43,7 +47,14 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
 
   function startJob(job: Job, resume = false): void {
     logger.info("Starting job:", job.id, job.url, resume ? "(resume)" : "");
-    logger.debug("Job details:", { id: job.id, url: job.url, formatSelector: job.formatSelector, outputTemplate: job.outputTemplate, resume });
+    logger.debug("Job details:", {
+      id: job.id,
+      url: job.url,
+      formatSelector: job.formatSelector,
+      outputTemplate: job.outputTemplate,
+      downloadPath: job.downloadPath,
+      resume
+    });
     job.status = "active";
     emitter.emit("job:started", job);
 
@@ -54,7 +65,13 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
       job.outputTemplate,
       job.formatSelector,
       job.extra,
+      job.downloadPath,
       (progress: YtDlpProgress) => {
+        if (progress.filename) {
+          job.meta ??= {};
+          // Remove .part or .ytdl suffixes that yt-dlp uses for active downloads
+          job.meta.expectedPath = progress.filename.replace(/\.(part|ytdl)$/, "");
+        }
         const tracked = tracker.track(progress);
         emitter.emit("job:progress", job.id, tracked);
         if (tracker.isStalled(15000)) {
@@ -107,11 +124,12 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
   }
 
   function enqueue(input: JobInput, resume = false): string {
+    const existingJob = input as Partial<Job>;
     const job: Job = {
       ...input,
-      id: randomUUID(),
+      id: existingJob.id || randomUUID(),
       status: "pending",
-      createdAt: Date.now(),
+      createdAt: existingJob.createdAt || Date.now(),
       resume
     };
     logger.info("Enqueuing job:", job.id, job.url, resume ? "(resume)" : "");
@@ -153,6 +171,13 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
       logger.debug("Job cancelled from stored inputs:", jobId);
       // Emit cancelled event with the stored job data
       emitter.emit("job:cancelled", { ...stored.job, status: "cancelled" as const });
+      return true;
+    }
+    // Also check completed jobs
+    if (completed.has(jobId)) {
+      completed.delete(jobId);
+      logger.debug("Job removed from completed list:", jobId);
+      // It's already completed, so we just remove it silently from the pool
       return true;
     }
     logger.warn("Job not found for cancellation:", jobId);
@@ -221,7 +246,16 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
   }
 
   function getJobs(): Job[] {
-    return [...queue, ...active.values().map((a) => a.job), ...completed.values()];
+    const pausedJobs = Array.from(storedInputs.values())
+      .filter((stored) => stored.job.status === "paused")
+      .map((stored) => stored.job);
+    const jobs = [
+      ...queue,
+      ...active.values().map((a) => a.job),
+      ...completed.values(),
+      ...pausedJobs
+    ];
+    return jobs.sort((a, b) => b.createdAt - a.createdAt);
   }
 
   return {

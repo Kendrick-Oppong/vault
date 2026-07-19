@@ -9,8 +9,15 @@ declare global {
 
 const vaultApi = {
   // --- Invoke methods ---
-  probeFormats: (url: string): Promise<Record<string, unknown>[]> =>
-    ipcRenderer.invoke("formats:probe", url),
+  probeFormats: (url: string, playlistLimit?: number): Promise<Record<string, unknown>[]> =>
+    ipcRenderer.invoke("formats:probe", url, playlistLimit),
+
+  probePlaylistPage: (
+    url: string,
+    start: number,
+    end: number
+  ): Promise<Record<string, unknown>[]> =>
+    ipcRenderer.invoke("formats:playlistPage", url, start, end),
 
   queueDownload: (jobInput: JobInput): Promise<string> => ipcRenderer.invoke("queue:add", jobInput),
 
@@ -33,9 +40,16 @@ const vaultApi = {
 
   deleteHistory: (jobId: string): Promise<boolean> => ipcRenderer.invoke("history:delete", jobId),
 
+  bulkDeleteHistory: (jobIds: string[]): Promise<boolean> =>
+    ipcRenderer.invoke("history:bulkDelete", jobIds),
+
   openInFolder: (filePath: string): Promise<void> => ipcRenderer.invoke("fs:reveal", filePath),
 
   openFile: (filePath: string): Promise<string | null> => ipcRenderer.invoke("fs:open", filePath),
+
+  fileExists: (filePath: string): Promise<boolean> => ipcRenderer.invoke("fs:fileExists", filePath),
+
+  scanDir: (dirPath: string): Promise<string[]> => ipcRenderer.invoke("fs:scanDir", dirPath),
 
   openFileDialog: (opts?: {
     title?: string;
@@ -174,9 +188,8 @@ const vaultApi = {
   quitApp: (): Promise<void> => ipcRenderer.invoke("app:quit"),
 
   // Logger
-  getLogsHistory: (): Promise<
-    { level: string; message: string; timestamp: number }[]
-  > => ipcRenderer.invoke("logs:history"),
+  getLogsHistory: (): Promise<{ level: string; message: string; timestamp: number }[]> =>
+    ipcRenderer.invoke("logs:history"),
 
   // --- Event listeners (return cleanup) ---
   onJobQueued: (cb: (job: Job) => void): (() => void) => {

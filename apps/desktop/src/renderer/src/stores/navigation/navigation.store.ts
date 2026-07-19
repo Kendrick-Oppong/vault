@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type NavigationView = "queue" | "library" | "settings" | "logs";
+export type NavigationView = "queue" | "history" | "settings" | "logs";
 
 interface NavigationState {
   currentView: NavigationView;

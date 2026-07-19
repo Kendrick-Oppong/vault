@@ -6,9 +6,10 @@ export interface VaultDb {
   addHistoryEntry: (entry: HistoryEntry) => void;
   listHistory: (limit?: number, offset?: number) => HistoryEntry[];
   deleteHistory: (jobId: string) => void;
+  bulkDeleteHistory: (jobIds: string[]) => void;
   isArchived: (destinationFolder: string, videoId: string) => boolean;
   markArchived: (destinationFolder: string, videoId: string) => void;
-  getCachedFormats: (url: string, ttlMs?: number) => unknown | null;
+  getCachedFormats: (url: string, ttlMs?: number) => unknown;
   setCachedFormats: (url: string, payload: unknown) => void;
   clearFormatCache: (url?: string) => void;
 }
@@ -76,6 +77,12 @@ export function initDb(dbPath: string): VaultDb {
 
     deleteHistory(jobId) {
       db.prepare("DELETE FROM history WHERE job_id = ?").run(jobId);
+    },
+
+    bulkDeleteHistory(jobIds) {
+      if (jobIds.length === 0) return;
+      const placeholders = jobIds.map(() => "?").join(", ");
+      db.prepare(`DELETE FROM history WHERE job_id IN (${placeholders})`).run(...jobIds);
     },
 
     isArchived(destinationFolder, videoId) {

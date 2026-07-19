@@ -1,5 +1,7 @@
 // Shared types between main and renderer
 
+export * from "./presets";
+
 export interface JobMeta {
   videoId?: string;
   title?: string;
@@ -17,6 +19,7 @@ export interface JobInput {
   formatSelector: string;
   extra?: DownloadExtras;
   meta?: JobMeta;
+  downloadPath?: string;
 }
 
 export interface Job extends JobInput {
@@ -41,12 +44,12 @@ export interface DownloadExtras {
   sponsorBlock?: boolean;
   subtitles?: "none" | "external" | "burned";
   subtitleLanguages?: string[];
-  downloadArchive?: string;
-  archiveKey?: string;
   reencodeFormat?: "none" | "h264-aac" | "h265-aac";
   videoContainer?: "mp4" | "mkv";
   audioFormat?: string; // e.g., "mp3", "m4a", "opus", "flac", "wav"
+  audioBitrate?: number; // e.g., 320, 256, 192, 128, 96 (kbps)
   useDownloadArchive?: boolean;
+  overwrite?: boolean;
 }
 
 export interface YtDlpProgress {

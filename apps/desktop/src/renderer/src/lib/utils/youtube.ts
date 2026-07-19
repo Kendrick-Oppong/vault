@@ -4,27 +4,29 @@
 export function extractVideoId(url: string): string {
   try {
     const urlObj = new URL(url);
-    
+
     // youtube.com/watch?v=...
     if (urlObj.hostname === "www.youtube.com" || urlObj.hostname === "youtube.com") {
       return urlObj.searchParams.get("v") || "";
     }
-    
-    // youtu.be/...
+
+    // youtu.be/<id> — first path segment
     if (urlObj.hostname === "youtu.be") {
-      return urlObj.pathname.slice(1);
+      return urlObj.pathname.split("/")[1] ?? "";
     }
-    
-    // youtube.com/shorts/...
-    if (urlObj.pathname.startsWith("/shorts/")) {
-      return urlObj.pathname.slice(8);
+
+    // youtube.com/shorts/<id> and youtube.com/embed/<id> — second path segment
+    if (urlObj.pathname.startsWith("/shorts/") || urlObj.pathname.startsWith("/embed/")) {
+      return urlObj.pathname.split("/")[2] ?? "";
     }
   } catch {
-    // If URL parsing fails, try regex
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([^&\n?#]+)/);
+    // If URL parsing fails, fall back to regex
+    const match = url.match(
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([^&\n?#]+)/
+    );
     return match?.[1] || "";
   }
-  
+
   return "";
 }
 
@@ -39,6 +41,7 @@ export function isYouTubeVideoUrl(url: string): boolean {
  * Check if URL is a playlist URL
  */
 export function isPlaylistUrl(url: string): boolean {
-  return /[?&]list=/.test(url) || 
-    /(youtube\.com|youtu\.be)\/(channel|playlist|user|c|@)\//.test(url);
+  return (
+    /[?&]list=/.test(url) || /(youtube\.com|youtu\.be)\/(channel|playlist|user|c|@)\//.test(url)
+  );
 }

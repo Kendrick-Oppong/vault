@@ -1,25 +1,15 @@
-export type MediaType = "video" | "audio";
+import type { Preset, MediaType, VideoContainer, AudioFormat } from "@vault/types";
+
+export type { MediaType, Preset, VideoContainer, AudioFormat };
 export type LinkType = "video" | "playlist";
 
 export interface VideoFormat {
-  label: string;
+  formatId: string;
   resolution: string;
-  fps: number[];
-  codec: string;
-  size: string;
-  sizeBytes: number;
-  bitrate?: string;
-  formatId?: string;
-}
-
-export interface AudioFormat {
-  label: string;
-  codec: string;
-  bitrate: string;
-  size: string;
-  sizeBytes: number;
-  lossless?: boolean;
-  formatId?: string;
+  fps: number | null;
+  ext: string;
+  filesize: number | null;
+  tbr: number | null;
 }
 
 export interface PlaylistItem {
@@ -31,6 +21,7 @@ export interface PlaylistItem {
 }
 
 export interface FormatModalData {
+  id: string; // Unique identifier for the video/playlist (used for playlist tracking)
   title: string;
   channel: string;
   thumbnail?: string;
@@ -41,8 +32,28 @@ export interface FormatModalData {
   selectedCount?: number;
   totalCount?: number;
   duplicate?: boolean;
-  videoFormats: VideoFormat[];
-  audioFormats: AudioFormat[];
+  videoPresets: Preset[];
+  audioPresets: Preset[];
+  // Raw video formats for manual selection
+  videoFormats?: VideoFormat[];
+  url?: string; // Original URL for re-probing with different limits
+}
+
+export interface FormatOptions {
+  mediaType: MediaType;
+  preset: Preset;
+  formatId?: string; // Optional manual format override
+  videoContainer: VideoContainer;
+  audioFormat: AudioFormat;
+  audioBitrate?: number; // For non-lossless audio formats
+  embedThumbnail: boolean;
+  embedMetadata: boolean;
+  embedChapters: boolean;
+  sponsorBlock: boolean;
+  subtitles: "none" | "external";
+  subtitleLanguages?: string[];
+  destination: string;
+  selectedItems?: string[];
 }
 
 export interface FormatModalProps {
@@ -54,21 +65,4 @@ export interface FormatModalProps {
   error?: string | null;
   onRetry?: () => void;
   onConfirm: (options: FormatOptions) => void;
-}
-
-export interface FormatOptions {
-  mediaType: MediaType;
-  videoFormat?: VideoFormat;
-  audioFormat?: AudioFormat;
-  embedThumbnail: boolean;
-  embedMetadata: boolean;
-  embedChapters: boolean;
-  sponsorBlock: boolean;
-  subtitles: "none" | "external";
-  subtitleLanguages?: string[];
-  reencodeFormat?: "none" | "h264-aac" | "h265-aac";
-  videoContainer?: "mp4" | "mkv";
-  destination: string;
-  selectedItems?: string[];
-  audioCodec?: string; // e.g., "mp3", "m4a", "opus", "flac", "wav"
 }

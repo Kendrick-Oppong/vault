@@ -1,4 +1,5 @@
 export const historyApi = {
   list: (limit?: number, offset?: number) => globalThis.api.getHistory(limit, offset),
-  delete: (jobId: string) => globalThis.api.deleteHistory(jobId)
+  delete: (jobId: string) => globalThis.api.deleteHistory(jobId),
+  bulkDelete: (jobIds: string[]) => globalThis.api.bulkDeleteHistory(jobIds)
 };

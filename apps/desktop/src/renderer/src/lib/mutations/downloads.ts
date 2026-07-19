@@ -7,9 +7,22 @@ import type { JobInput, Job } from "@vault/types";
 
 export const useProbeFormatsMutation = () => {
   return useMutation({
-    mutationFn: (url: string) => downloadsApi.probeFormats(url),
+    mutationFn: ({ url, playlistLimit }: { url: string; playlistLimit?: number }) =>
+      downloadsApi.probeFormats(url, playlistLimit),
     onError: (error: Error) => {
       toast.error("Failed to fetch video information", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
+export const useProbePlaylistPageMutation = () => {
+  return useMutation({
+    mutationFn: ({ url, start, end }: { url: string; start: number; end: number }) =>
+      downloadsApi.probePlaylistPage(url, start, end),
+    onError: (error: Error) => {
+      toast.error("Failed to load more playlist items", {
         description: formatError(error)
       });
     }
@@ -21,7 +34,8 @@ export const useQueueDownload = () => {
   return useMutation({
     mutationFn: (input: JobInput) => downloadsApi.queueDownload(input),
     onSuccess: (jobId) => {
-      queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.jobs.active() });
       toast.success("Download queued successfully", {
         description: `Job ID: ${jobId.slice(0, 8)}...`
       });
@@ -34,7 +48,7 @@ export const useQueueDownload = () => {
   });
 };
 
-export const useCancelDownload = () => {
+export const useCancelDownload = (options?: { successMessage?: string; errorMessage?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (jobId: string) => downloadsApi.cancelDownload(jobId),
@@ -43,15 +57,15 @@ export const useCancelDownload = () => {
         queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old) =>
           old ? old.filter((j) => j.id !== jobId) : []
         );
-        toast.success("Download cancelled");
+        toast.success(options?.successMessage || "Download cancelled");
       } else {
-        toast.error("Failed to cancel download", {
+        toast.error(options?.errorMessage || "Failed to cancel download", {
           description: "Job not found or already completed"
         });
       }
     },
     onError: (error: Error) => {
-      toast.error("Failed to cancel download", {
+      toast.error(options?.errorMessage || "Failed to cancel download", {
         description: formatError(error)
       });
     }
@@ -67,7 +81,7 @@ export const useSetConcurrency = () => {
       });
     },
     onError: (error: Error) => {
-      toast.error("Failed to update concurrency", {
+      toast.error("Failed to update concurrency limit", {
         description: formatError(error)
       });
     }
@@ -107,9 +121,10 @@ export const useResumeDownload = () => {
     mutationFn: (jobId: string) => downloadsApi.resumeDownload(jobId),
     onSuccess: (newJobId, oldJobId) => {
       if (newJobId) {
-        // Remove the old paused entry — the new job:queued event will add the fresh one
+        // The job:queued event will add the new job and we'll handle the transition
+        // Optimistically update the old job status to indicate it's being resumed
         queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-          old.filter((j) => j.id !== oldJobId)
+          old.map((j) => (j.id === oldJobId ? { ...j, status: "pending" } : j))
         );
         toast.success("Download resumed");
       } else {
@@ -132,9 +147,10 @@ export const useRetryDownload = () => {
     mutationFn: (jobId: string) => downloadsApi.retryDownload(jobId),
     onSuccess: (newJobId, oldJobId) => {
       if (newJobId) {
-        // Remove the old failed entry — the new job:queued event will add the fresh one
+        //
+        // Optimistically update the old job status to indicate it's being retried
         queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-          old.filter((j) => j.id !== oldJobId)
+          old.map((j) => (j.id === oldJobId ? { ...j, status: "pending" } : j))
         );
         toast.success("Retrying download");
       } else {
@@ -160,6 +176,52 @@ export const useInstallDependencies = () => {
     },
     onError: (error: Error) => {
       toast.error("Failed to install dependencies", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
+export const useOpenFile = () => {
+  return useMutation({
+    mutationFn: async (filePath: string) => {
+      const exists = await downloadsApi.fileExists(filePath);
+      if (!exists) {
+        throw new Error("File not found at the specified path.");
+      }
+      const errorStr = await downloadsApi.openFile(filePath);
+      if (errorStr) {
+        throw new Error(`Failed to open file: ${errorStr}`);
+      }
+    },
+    onError: (error: Error) => {
+      toast.error("Could not open file", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
+export const useRevealFile = () => {
+  return useMutation({
+    mutationFn: async (filePath: string) => {
+      const exists = await downloadsApi.fileExists(filePath);
+      if (exists) {
+        await downloadsApi.revealFile(filePath);
+      } else {
+        // Fallback to opening parent directory
+        const parentPath = filePath.split(/[/\\]/).slice(0, -1).join("\\");
+        const parentExists = await downloadsApi.fileExists(parentPath);
+        if (parentExists) {
+          await downloadsApi.openFile(parentPath);
+          toast.warning("File not found. Opened parent folder instead.");
+        } else {
+          throw new Error("File and parent folder not found.");
+        }
+      }
+    },
+    onError: (error: Error) => {
+      toast.error("Could not open destination", {
         description: formatError(error)
       });
     }

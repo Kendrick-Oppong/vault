@@ -1,5 +1,5 @@
 import { Button } from "@vault/ui/components/button";
-import { CheckSquare, Square } from "lucide-react";
+import { CheckSquare, Square, Trash2 } from "lucide-react";
 import { useModalStore } from "@/stores/ui/modal.store";
 
 interface BulkActionsProps {
@@ -7,7 +7,7 @@ interface BulkActionsProps {
   totalCount: number;
   onSelectAll: () => void;
   onSelectNone: () => void;
-  onBulkAction: (action: "pause" | "resume" | "retry" | "cancel") => void;
+  onBulkDelete: () => void;
 }
 
 export const BulkActions = ({
@@ -15,7 +15,7 @@ export const BulkActions = ({
   totalCount,
   onSelectAll,
   onSelectNone,
-  onBulkAction
+  onBulkDelete
 }: BulkActionsProps) => {
   const { openConfirmDialog } = useModalStore();
 
@@ -55,47 +55,21 @@ export const BulkActions = ({
 
       <div className="flex items-center gap-1.5">
         <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onBulkAction("pause")}
-          className="px-2.5 py-1.5 text-[12px] h-auto hover:border-primary hover:text-primary"
-        >
-          Pause
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onBulkAction("resume")}
-          className="px-2.5 py-1.5 text-[12px] h-auto hover:border-primary hover:text-primary"
-        >
-          Resume
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onBulkAction("retry")}
-          className="px-2.5 py-1.5 text-[12px] h-auto hover:border-primary hover:text-primary"
-        >
-          Retry
-        </Button>
-
-        <Button
-          variant="outline"
+          variant="destructive"
           size="sm"
           onClick={() => {
             openConfirmDialog({
-              title: "Remove selected items?",
-              description: `Are you sure you want to remove ${selectedCount} items? Partial files may be deleted.`,
-              confirmText: "Remove",
+              title: "Delete selected items?",
+              description: `Are you sure you want to delete ${selectedCount} items from your history? This will only remove them from the list, not your disk.`,
+              confirmText: "Delete",
               variant: "danger",
-              onConfirm: () => onBulkAction("cancel")
+              onConfirm: () => onBulkDelete()
             });
           }}
           className="px-2.5 py-1.5 text-[12px] h-auto hover:border-destructive hover:text-destructive"
         >
-          Remove
+          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+          Delete
         </Button>
       </div>
     </div>

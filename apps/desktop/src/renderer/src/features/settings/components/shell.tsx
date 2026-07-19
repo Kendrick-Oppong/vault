@@ -432,7 +432,8 @@ export const SettingsView = () => {
 
               {!cookieInfo.cached && (
                 <div className="py-2 text-[11.5px] text-muted-foreground">
-                  Tip: Close {cookieInfo.effectiveLabel || "your browser"} completely before refreshing - a running browser locks its cookie database and the import will fail.
+                  Tip: Close {cookieInfo.effectiveLabel || "your browser"} completely before
+                  refreshing - a running browser locks its cookie database and the import will fail.
                 </div>
               )}
 

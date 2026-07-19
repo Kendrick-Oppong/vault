@@ -9,11 +9,27 @@ export const useDeleteHistory = () => {
   return useMutation({
     mutationFn: (jobId: string) => historyApi.delete(jobId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
-      toast.success("Removed from library");
+      queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
+      toast.success("Removed from history");
     },
     onError: (error: Error) => {
-      toast.error("Failed to remove from library", {
+      toast.error("Failed to remove from history", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
+export const useBulkDeleteHistory = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (jobIds: string[]) => historyApi.bulkDelete(jobIds),
+    onSuccess: (_data, jobIds) => {
+      queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
+      toast.success(`Removed ${jobIds.length} items from history`);
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to remove items from history", {
         description: formatError(error)
       });
     }

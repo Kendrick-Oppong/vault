@@ -3,8 +3,10 @@ import { join } from "node:path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { statSync } from "node:fs";
 import icon from "../../resources/icon.png?asset";
 import { createYtDlpManager, type YtDlpManager } from "./ytdlp-manager";
+import { probePlaylistPage } from "./ytdlp-manager";
 import { createWorkerPool, type WorkerPool } from "./worker-pool";
 import { initDb, type VaultDb } from "./db";
 import { JobInput } from "@vault/types";
@@ -52,6 +54,8 @@ function createWindow(): void {
     height: 800,
     show: false,
     autoHideMenuBar: true,
+    frame: false,
+    titleBarStyle: "hidden",
     ...(process.platform === "linux" ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
@@ -62,6 +66,14 @@ function createWindow(): void {
 
   mainWindow.on("ready-to-show", () => {
     mainWindow.show();
+  });
+
+  mainWindow.on("maximize", () => {
+    mainWindow.webContents.send("window:maximized");
+  });
+
+  mainWindow.on("unmaximize", () => {
+    mainWindow.webContents.send("window:unmaximized");
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -83,8 +95,59 @@ function forwardPoolEventsToRenderer(): void {
   pool.on("job:progress", (jobId, progress) =>
     mainWindow?.webContents.send("job:progress", jobId, progress)
   );
-  pool.on("job:completed", (job) => mainWindow?.webContents.send("job:completed", job));
-  pool.on("job:failed", (job, err) => mainWindow?.webContents.send("job:failed", job, err));
+  pool.on("job:completed", (job) => {
+    mainWindow?.webContents.send("job:completed", job);
+    try {
+      let file_size: number | null = null;
+      if (job.meta?.expectedPath) {
+        try {
+          file_size = statSync(job.meta.expectedPath).size;
+        } catch {
+          // File might not exist
+        }
+      }
+      db.addHistoryEntry({
+        job_id: job.id,
+        video_id: job.meta?.videoId || null,
+        title: job.meta?.title || null,
+        channel: job.meta?.channel || null,
+        url: job.url,
+        file_path: job.meta?.expectedPath || null,
+        thumbnail_url: job.meta?.thumbnailUrl || null,
+        status: job.status,
+        media_type: job.meta?.mediaType || null,
+        quality: job.meta?.quality || null,
+        file_size,
+        created_at: job.createdAt,
+        completed_at: Date.now()
+      });
+    } catch (err) {
+      logger.error("Failed to save completed job to history:", err);
+    }
+  });
+
+  pool.on("job:failed", (job, err) => {
+    mainWindow?.webContents.send("job:failed", job, err);
+    try {
+      db.addHistoryEntry({
+        job_id: job.id,
+        video_id: job.meta?.videoId || null,
+        title: job.meta?.title || null,
+        channel: job.meta?.channel || null,
+        url: job.url,
+        file_path: job.meta?.expectedPath || null,
+        thumbnail_url: job.meta?.thumbnailUrl || null,
+        status: job.status,
+        media_type: job.meta?.mediaType || null,
+        quality: job.meta?.quality || null,
+        file_size: null,
+        created_at: job.createdAt,
+        completed_at: Date.now()
+      });
+    } catch (e) {
+      logger.error("Failed to save failed job to history:", e);
+    }
+  });
   pool.on("job:cancelled", (job) => mainWindow?.webContents.send("job:cancelled", job));
   pool.on("job:paused", (job) => mainWindow?.webContents.send("job:paused", job));
 
@@ -94,23 +157,37 @@ function forwardPoolEventsToRenderer(): void {
 }
 
 function registerIpcHandlers(): void {
-  ipcMain.handle("formats:probe", async (_e, url: string) => {
+  ipcMain.handle("formats:probe", async (_e, url: string, playlistLimit?: number) => {
     const cached = db.getCachedFormats(url);
-    if (cached) return cached;
+    if (cached && !playlistLimit) return cached; // Only use cache if not requesting specific limit
 
     // Use cached cookies if available
     const cookieFile = cookies.getCookiesPath();
-    const probeExtras = cookieFile ? { cookiesFile: cookieFile } : undefined;
+    const probeExtras = cookieFile ? { cookiesFile: cookieFile, playlistLimit } : { playlistLimit };
 
     const formats = await ytdlp.probeFormats(url, probeExtras);
-    db.setCachedFormats(url, formats);
+    if (!playlistLimit) db.setCachedFormats(url, formats); // Only cache full results
     return formats;
+  });
+
+  ipcMain.handle("formats:playlistPage", async (_e, url: string, start: number, end: number) => {
+    // Use cached cookies if available
+    const cookieFile = cookies.getCookiesPath();
+    const probeExtras = cookieFile ? { cookiesFile: cookieFile } : {};
+
+    const binaryPaths = { ...resolveBinaryPaths(), userDataPath: app.getPath("userData") };
+    return await probePlaylistPage(binaryPaths, url, start, end, probeExtras);
   });
 
   // Intercept downloads: validate URL and format, inject cookies if available
   ipcMain.handle("queue:add", (_e, jobInput: JobInput) => {
     logger.info("Queueing download:", jobInput.url);
-    logger.debug("Job input details:", { url: jobInput.url, formatSelector: jobInput.formatSelector, outputTemplate: jobInput.outputTemplate, extra: jobInput.extra });
+    logger.debug("Job input details:", {
+      url: jobInput.url,
+      formatSelector: jobInput.formatSelector,
+      outputTemplate: jobInput.outputTemplate,
+      extra: jobInput.extra
+    });
 
     // Validate URL
     const urlValidation = validateYouTubeUrl(jobInput.url);
@@ -175,7 +252,6 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("queue:getJobs", () => {
-    logger.debug("IPC: queue:getJobs");
     return pool.getJobs();
   });
 
@@ -196,6 +272,12 @@ function registerIpcHandlers(): void {
     return true;
   });
 
+  ipcMain.handle("history:bulkDelete", (_e, jobIds: string[]) => {
+    logger.debug("IPC: history:bulkDelete", { count: jobIds.length });
+    db.bulkDeleteHistory(jobIds);
+    return true;
+  });
+
   ipcMain.handle("fs:reveal", (_e, filePath: string) => {
     logger.debug("IPC: fs:reveal", filePath);
     shell.showItemInFolder(filePath);
@@ -205,6 +287,26 @@ function registerIpcHandlers(): void {
     logger.debug("IPC: fs:open", filePath);
     const error = await shell.openPath(filePath);
     return error || null;
+  });
+
+  ipcMain.handle("fs:fileExists", async (_e, filePath: string) => {
+    logger.debug("IPC: fs:fileExists", filePath);
+    const fs = await import("node:fs");
+    return fs.existsSync(filePath);
+  });
+
+  ipcMain.handle("fs:scanDir", async (_e, dirPath: string) => {
+    logger.debug("IPC: fs:scanDir", dirPath);
+    try {
+      const fs = await import("node:fs");
+      if (!fs.existsSync(dirPath)) return [];
+      return fs
+        .readdirSync(dirPath, { withFileTypes: true })
+        .filter((e) => e.isFile())
+        .map((e) => e.name);
+    } catch {
+      return [];
+    }
   });
 
   ipcMain.handle(
@@ -311,7 +413,7 @@ function registerIpcHandlers(): void {
       ytDlp: status.ytDlp,
       ffmpeg: status.ffmpeg,
       errors: status.errors,
-      errorMessage: !status.allReady ? getDependencyErrorMessage(status) : null
+      errorMessage: status.allReady ? null : getDependencyErrorMessage(status)
     };
   });
 
@@ -332,7 +434,7 @@ function registerIpcHandlers(): void {
       ytDlp: status.ytDlp,
       ffmpeg: status.ffmpeg,
       errors: status.errors,
-      errorMessage: !status.allReady ? getDependencyErrorMessage(status) : null
+      errorMessage: status.allReady ? null : getDependencyErrorMessage(status)
     };
   });
 
@@ -517,7 +619,6 @@ function registerIpcHandlers(): void {
 
   // Logger IPC
   ipcMain.handle("logs:history", () => {
-    logger.debug("IPC: logs:history");
     return logger.history();
   });
 
@@ -554,15 +655,20 @@ app.whenReady().then(async () => {
 
   // Check dependencies before starting
   const depStatus = await checkDependencies(binaryPath, ffmpegPath);
-  if (!depStatus.allReady) {
-    logger.error("Dependencies missing:", depStatus.errors);
-  } else {
+  if (depStatus.allReady) {
     logger.info("All dependencies ready");
     logger.info(`yt-dlp: ${depStatus.ytDlp.version}`);
     logger.info(`ffmpeg: ${depStatus.ffmpeg.version}`);
+  } else {
+    logger.error("Dependencies missing:", depStatus.errors);
   }
 
-  ytdlp = createYtDlpManager({ binaryPath, ffmpegPath, pluginPath });
+  ytdlp = createYtDlpManager({
+    binaryPath,
+    ffmpegPath,
+    pluginPath,
+    userDataPath: app.getPath("userData")
+  });
 
   pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
   db = initDb(join(app.getPath("userData"), "library.db"));

@@ -13,15 +13,15 @@ export interface ValidationResult {
 
 /**
  * Extract YouTube video ID from URL
- * Supports: youtube.com, youtu.be, youtube-nocookie.com formats
+ * Supports: youtube.com (watch, shorts, embed, v), youtu.be, youtube-nocookie.com formats
  */
 export function extractVideoId(url: string): string | null {
   try {
     const urlObj = new URL(url);
 
-    // youtu.be format
+    // youtu.be/<id> — grab the first path segment
     if (urlObj.hostname.includes("youtu.be")) {
-      const id = urlObj.pathname.slice(1).split("?")[0];
+      const id = urlObj.pathname.split("/")[1] ?? "";
       return id && isValidVideoId(id) ? id : null;
     }
 
@@ -30,6 +30,18 @@ export function extractVideoId(url: string): string | null {
       urlObj.hostname.includes("youtube.com") ||
       urlObj.hostname.includes("youtube-nocookie.com")
     ) {
+      // /shorts/<id>, /embed/<id>, /v/<id> — the video ID is always the second path segment.
+      // Using split('/')[2] is explicit about structure; avoids magic-number slice offsets.
+      if (
+        urlObj.pathname.startsWith("/shorts/") ||
+        urlObj.pathname.startsWith("/embed/") ||
+        urlObj.pathname.startsWith("/v/")
+      ) {
+        const id = urlObj.pathname.split("/")[2] ?? "";
+        return id && isValidVideoId(id) ? id : null;
+      }
+
+      // Handle watch format with v parameter
       const id = urlObj.searchParams.get("v");
       return id && isValidVideoId(id) ? id : null;
     }
@@ -221,8 +233,8 @@ export function validateFormatSelector(selector: string): { valid: boolean; erro
   }
 
   // Basic format selector validation
-  // Allow common patterns: numbers, +, -, /, brackets, quotes
-  if (!/^[a-z0-9\s+\-/[\](),'"|&]*$/i.test(selector)) {
+  // Allow common patterns: numbers, +, -, /, brackets, quotes, colons, equals, less than, greater than
+  if (!/^[a-z0-9\s+\-/[\](),'"|&:=<>]*$/i.test(selector)) {
     return {
       valid: false,
       error: "Format selector contains invalid characters"

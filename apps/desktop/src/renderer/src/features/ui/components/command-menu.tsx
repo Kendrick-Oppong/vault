@@ -8,7 +8,7 @@ import {
   CommandList,
   CommandSeparator
 } from "@vault/ui/components/command";
-import { Library, Link as LinkIcon, ListOrdered, Moon, Settings, Sun } from "lucide-react";
+import { History, Link as LinkIcon, ListOrdered, Moon, Settings, Sun } from "lucide-react";
 import { useNavigationState } from "@/stores/navigation/navigation.selectors";
 import { useUIState } from "@/stores/ui/ui.selectors";
 import { Kbd } from "@vault/ui/components/kbd";
@@ -54,14 +54,14 @@ export const CommandMenu = ({ open, onOpenChange }: CommandMenuProps) => {
       {/* CommandList with proper height and overflow */}
       <CommandList className="max-h-[300px] overflow-y-auto">
         <CommandEmpty>No results found.</CommandEmpty>
-        <CommandGroup heading="Navigate">
+        <CommandGroup heading="Navigation">
           <CommandItem onSelect={() => run(() => navigate("queue"))}>
             <ListOrdered className="h-4 w-4" />
             <span>Go to Queue</span>
           </CommandItem>
-          <CommandItem onSelect={() => run(() => navigate("library"))}>
-            <Library className="h-4 w-4" />
-            <span>Go to Library</span>
+          <CommandItem onSelect={() => run(() => navigate("history"))}>
+            <History className="h-4 w-4" />
+            <span>Go to History</span>
           </CommandItem>
           <CommandItem onSelect={() => run(() => navigate("settings"))}>
             <Settings className="h-4 w-4" />

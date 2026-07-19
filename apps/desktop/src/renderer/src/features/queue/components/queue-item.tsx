@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Checkbox } from "@vault/ui/components/checkbox";
 import { Button } from "@vault/ui/components/button";
+import { useModalStore } from "@/stores/ui/modal.store";
 import { cn } from "@vault/ui/lib/utils";
 import {
   Video,
@@ -23,7 +24,7 @@ import {
   useResumeDownload,
   useRetryDownload
 } from "@/lib/mutations/downloads";
-import { formatBytes } from "@/lib/utils/platform";
+import { formatBytes, getTimeAgo } from "@/lib/utils/platform";
 
 interface QueueItemProps {
   item: QueueItemType;
@@ -57,8 +58,13 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const isCompleted = item.status === "completed";
   const [imgError, setImgError] = useState(false);
 
+  const { openConfirmDialog } = useModalStore();
   const { data: rawProgress } = useJobProgress(item.id);
-  const { mutate: cancelDownload } = useCancelDownload();
+  const { mutate: cancelDownload } = useCancelDownload({
+    successMessage: isCompleted || isError ? "Removed from queue" : "Download cancelled",
+    errorMessage:
+      isCompleted || isError ? "Failed to remove from queue" : "Failed to cancel download"
+  });
   const { mutate: pauseDownload } = usePauseDownload();
   const { mutate: resumeDownload } = useResumeDownload();
   const { mutate: retryDownload } = useRetryDownload();
@@ -69,15 +75,38 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
       ? (rawProgress.downloaded_bytes / rawProgress.total_bytes) * 100
       : item.progress;
 
-  const downloaded = !isCompleted && rawProgress?.downloaded_bytes
-    ? formatBytes(rawProgress.downloaded_bytes)
-    : item.downloaded;
+  // yt-dlp sets status to 'finished' when the download stream is done and it
+  // hands off to ffmpeg for merging/remuxing/audio-extraction. During this
+  // phase there is no meaningful percent or speed to show.
+  const isPostProcessing =
+    isDownloading &&
+    (rawProgress?.status === "finished" ||
+      rawProgress?.status === "processing" ||
+      rawProgress?.status === "postprocessing");
 
-  const size = !isCompleted && rawProgress?.total_bytes
-    ? formatBytes(rawProgress.total_bytes)
-    : rawProgress?.total_bytes_estimate
-      ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
-      : item.size;
+  const postProcessLabel = (() => {
+    if (!isPostProcessing) return null;
+    const filename = typeof rawProgress?.filename === "string" ? rawProgress.filename : "";
+    if (filename.match(/\.(mp3|m4a|opus|flac|wav)$/i)) return "Extracting audio\u2026";
+    return "Merging\u2026";
+  })();
+
+  const downloaded =
+    !isCompleted && rawProgress?.downloaded_bytes
+      ? formatBytes(rawProgress.downloaded_bytes)
+      : item.downloaded;
+
+  const size =
+    !isCompleted && rawProgress?.total_bytes
+      ? formatBytes(rawProgress.total_bytes)
+      : rawProgress?.total_bytes_estimate
+        ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
+        : item.size;
+
+  const speed =
+    !isCompleted && !isPostProcessing && rawProgress?.speed
+      ? `${formatBytes(rawProgress.speed)}/s`
+      : null;
 
   const getActions = () => {
     if (isDownloading) {
@@ -95,7 +124,16 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => cancelDownload(item.id)}
+            onClick={() => {
+              openConfirmDialog({
+                title: "Cancel download?",
+                description:
+                  "Are you sure you want to cancel this download? Partial files may be deleted.",
+                confirmText: "Cancel Download",
+                variant: "danger",
+                onConfirm: () => cancelDownload(item.id)
+              });
+            }}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Cancel"
           >
@@ -120,7 +158,16 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => cancelDownload(item.id)}
+            onClick={() => {
+              openConfirmDialog({
+                title: "Cancel download?",
+                description:
+                  "Are you sure you want to cancel this download? Partial files may be deleted.",
+                confirmText: "Cancel Download",
+                variant: "danger",
+                onConfirm: () => cancelDownload(item.id)
+              });
+            }}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Cancel"
           >
@@ -188,6 +235,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
 
   const getStatusLabel = () => {
     if (isError) return "Failed";
+    if (postProcessLabel) return postProcessLabel;
     return item.status.charAt(0).toUpperCase() + item.status.slice(1);
   };
 
@@ -215,7 +263,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <Checkbox
             checked={isSelected}
             onCheckedChange={() => onSelect(item.id)}
-            className="w-4 h-4 shrink-0 self-start mt-1"
+            className="w-4 h-4 dark:border-gray-300 shrink-0 self-start mt-1"
             onClick={(e) => e.stopPropagation()}
           />
 
@@ -266,7 +314,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {progress !== undefined && !isQueued && !isError && (
+                {progress !== undefined && !isQueued && !isError && !isPostProcessing && (
                   <span className="text-[20px] leading-none font-bold text-muted-foreground">
                     {progress.toFixed(1)}
                     <span className="text-[12px]">%</span>
@@ -288,6 +336,14 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                 <span className="chip text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
                   {item.format}
                 </span>
+              )}
+              {isCompleted && item.addedAt && (
+                <>
+                  <span className="text-muted-foreground/30">·</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {getTimeAgo(item.addedAt)}
+                  </span>
+                </>
               )}
             </div>
 
@@ -317,17 +373,33 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
             {(isPaused || isDownloading) && progress !== undefined && (
               <div className="mt-2">
                 <div className="h-1 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-muted-foreground transition-all"
-                    style={{ width: `${progress}%` }}
-                  />
+                  {isPostProcessing ? (
+                    // Indeterminate bar during ffmpeg post-processing: the bar
+                    // sits at 100% but the label makes clear we're not done yet.
+                    <div className="h-full rounded-full bg-muted-foreground w-full opacity-40 animate-pulse" />
+                  ) : (
+                    <div
+                      className="h-full rounded-full bg-muted-foreground transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  )}
                 </div>
                 <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
-                  <span>{isPaused ? "Paused" : "Downloading"}</span>
-                  {downloaded && size && (
-                    <span>
-                      {downloaded} / {size}
-                    </span>
+                  <span>
+                    {isPaused ? "Paused" : isPostProcessing ? postProcessLabel : "Downloading"}
+                  </span>
+                  {!isPostProcessing && downloaded && size && (
+                    <div className="flex items-center gap-3">
+                      <span>
+                        {downloaded} / {size}
+                      </span>
+                      {speed && (
+                        <>
+                          <span className="text-muted-foreground/30">·</span>
+                          <span className="tabular-nums">{speed}</span>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

@@ -1,6 +1,5 @@
 import { create } from "zustand";
-import type { FormatModalData } from "@/features/modals/format-modal/types";
-import type { FormatOptions } from "@/features/modals/format-modal/components/format-modal";
+import type { FormatModalData, FormatOptions } from "@/features/modals/format-modal/types";
 import type { ConfirmationVariant } from "@/features/ui/components/confirmation-dialog";
 
 export interface FormatModalState {
@@ -50,6 +49,7 @@ interface ModalActions {
     }
   ) => void;
   updateFormatModal: (updates: Partial<FormatModalState>) => void;
+  updateFormatModalData: (newData: FormatModalData) => void;
   closeFormatModal: () => void;
 
   openConfirmDialog: (config: Omit<ConfirmationDialogState, "isOpen">) => void;
@@ -88,6 +88,15 @@ export const useModalStore = create<ModalStore>((set) => ({
         ...options
       }
     }),
+
+  // Add a helper to update modal data for Load More
+  updateFormatModalData: (newData: FormatModalData) =>
+    set((state) => ({
+      formatModal: {
+        ...state.formatModal,
+        data: newData
+      }
+    })),
 
   updateFormatModal: (updates) =>
     set((state) => ({

@@ -1,57 +1,57 @@
 # Vault
 
-> Advanced Desktop YouTube Downloader - A feature-rich, high-performance, local media downloader for YouTube and other video platforms
-> [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
-> [![React](https://img.shields.io/badge/React-19.2-61dafb.svg)](https://reactjs.org/)
-> [![Electron](https://img.shields.io/badge/Electron-39.2-47848f.svg)](https://www.electronjs.org/)
-> [![yt-dlp](https://img.shields.io/badge/yt--dlp-powered-red.svg)](https://github.com/yt-dlp/yt-dlp)
-> [![pnpm](https://img.shields.io/badge/pnpm-workspace-orange.svg)](https://pnpm.io/)
-> [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8.svg)](https://tailwindcss.com/)
+> Advanced Desktop YouTube Downloader — a feature-rich, high-performance, local media downloader for YouTube and 1000+ other sites, powered by yt-dlp.
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19.2-61dafb.svg)](https://reactjs.org/)
+[![Electron](https://img.shields.io/badge/Electron-39-47848f.svg)](https://www.electronjs.org/)
+[![yt-dlp](https://img.shields.io/badge/yt--dlp-powered-red.svg)](https://github.com/yt-dlp/yt-dlp)
+[![pnpm](https://img.shields.io/badge/pnpm-workspace-orange.svg)](https://pnpm.io/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8.svg)](https://tailwindcss.com/)
 
 ---
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Why Vault?](#why-vault)
-- [Key Features](#key-features)
-- [Architecture](#architecture)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Development](#development)
-- [Technology Stack](#technology-stack)
-- [Documentation](#documentation)
-- [Scripts](#scripts)
-- [Contributing](#contributing)
-- [License](#license)
+- [Overview](#-overview)
+- [Why Vault?](#-why-vault)
+- [Key Features](#-key-features)
+- [Architecture](#-architecture)
+- [Project Structure](#-project-structure)
+- [Database Schema](#-database-schema)
+- [IPC API Surface](#-ipc-api-surface)
+- [Getting Started](#-getting-started)
+- [Development](#-development)
+- [Technology Stack](#-technology-stack)
+- [Documentation](#-documentation)
+- [Contributing](#-contributing)
+- [Legal & Disclaimer](#-legal--disclaimer)
+- [License](#-license)
 
 ---
 
 ## 🎯 Overview
 
-Vault is a **powerful desktop application** for downloading YouTube videos and media from various platforms. Unlike web-based solutions, Vault runs entirely on your local machine, giving you:
+Vault is a **desktop application** for downloading YouTube videos and media from various platforms. Unlike web-based solutions, Vault runs entirely on your local machine:
 
-- **No server costs** - Everything runs locally on your hardware
-- **No timeouts** - Download hours-long content without platform limits
-- **Bypass IP blocks** - Use your residential IP instead of flagged data center IPs
-- **Full control** - Choose formats, quality, output paths, and metadata
-- **Privacy** - No data leaves your machine except to the video platforms
+- **No server costs** — everything runs locally on your hardware
+- **No timeouts** — download hours-long content without platform limits
+- **Bypass IP blocks** — use your residential IP instead of flagged data-center IPs
+- **Full control** — choose formats, quality, output paths, and metadata
+- **Privacy** — nothing leaves your machine except requests to the video platforms
 
-- **Desktop-first** Electron application with yt-dlp integration
-- **Type-safe** development with shared TypeScript types
-- **Real-time progress** tracking via IPC event streaming
-- **Modern UI/UX** with Tailwind CSS v4 and shadcn/ui components
-- **Robust architecture** - Worker pools, SQLite database, React Query data layer
+Under the hood it is an **Electron** app with a **React 19 + Tailwind v4** renderer, a **Node.js main process** that drives **yt-dlp** and **ffmpeg**, a **worker-pool** download queue, a **better-sqlite3** database for history/archive/cache, and a **React Query + Zustand** data layer with real-time IPC event streaming.
 
 ### What Makes Vault Special?
 
-🚀 **Local processing power** - Utilize your full CPU/GPU without cloud bottlenecks  
-📥 **Download queue** - Queue unlimited videos with configurable concurrency  
-🎨 **Beautiful interface** - Modern design with light/dark themes  
-� **History tracking** - SQLite-backed history with metadata and thumbnails  
-🔄 **Channel sync** - Sync entire channels and track what's downloaded  
-⚡ **Real-time updates** - Live progress bars and status updates  
-🎯 **Format selection** - Probe and choose exact video/audio formats
+- 🚀 **Local processing** — use your full CPU/GPU with no cloud bottlenecks
+- 📦 **Zero manual setup** — yt-dlp and ffmpeg are **auto-downloaded** on first run (cross-platform, no scripts)
+- 🍪 **Browser cookies** — pull cookies straight from your installed browser to download age/members-only content
+- 🔎 **In-app YouTube search** — paste a URL *or* search by keyword without leaving the app
+- 🎛️ **Smart presets** — one-click Best / 1080p / 720p / Audio-MP3 / Audio-FLAC, plus full manual format probing
+- 📜 **History, queue & live progress** — SQLite-backed history, a concurrent queue, and real-time progress bars
+- 🎨 **Modern UI** — frameless custom titlebar, light/dark themes, command palette, onboarding
+- ♻️ **Self-updating** — built-in app auto-update via `electron-updater`
 
 ---
 
@@ -59,254 +59,222 @@ Vault is a **powerful desktop application** for downloading YouTube videos and m
 
 ### The Problem with Web-Based Downloaders
 
-❌ **Server costs** - Running video processing servers is expensive  
-❌ **Timeout limits** - Cloud platforms kill long-running downloads  
-❌ **IP blocking** - Data center IPs get flagged and blocked  
-❌ **Privacy concerns** - Your viewing history passes through third-party servers  
-❌ **Rate limiting** - Shared servers hit platform rate limits  
-❌ **Unreliable** - Services go down or disappear
+❌ Server costs · ❌ Timeout limits · ❌ IP blocking · ❌ Privacy concerns · ❌ Rate limiting · ❌ Unreliable uptime
 
 ### The Vault Solution
 
-✅ **Zero server costs** - Runs entirely on your local machine  
-✅ **Unlimited duration** - Download 10-hour videos without timeouts  
-✅ **Residential IP** - Use your home IP that platforms trust  
-✅ **Complete privacy** - Nothing leaves your machine except platform requests  
-✅ **No rate limits** - Your own IP, your own quotas  
-✅ **Always available** - Offline-first, no dependencies on external services
+✅ Zero server costs · ✅ Unlimited duration · ✅ Residential IP · ✅ Complete privacy · ✅ No shared rate limits · ✅ Offline-first, always available
 
 ### Who Is This For?
 
-- **Content archivists** - Save educational, research, or personal content
-- **Creators** - Download your own content with full quality
-- **Privacy-focused users** - Keep your downloads private
-- **Power users** - Need advanced format selection and customization
-- **Anyone** tired of web-based downloader limitations
+- **Content archivists** — save educational, research, or personal content
+- **Creators** — download your own content at full quality
+- **Privacy-focused users** — keep your downloads private
+- **Power users** — advanced format selection and customization
 
 ---
 
 ## ✨ Key Features
 
-### High-Level Overview
+### 📥 Download Management
+- **Concurrent queue** with configurable concurrency (default 3) via a worker pool
+- **Full lifecycle control** — pause, resume, retry, cancel (individually or in bulk), with confirmation dialogs
+- **Job resumption** — interrupted downloads resume; the queue is ordered by creation time
+- **Custom destination per job** — override the default download folder from the URL/search input
+- **Download archive** — format-specific archives skip already-downloaded items, with an **overwrite** prompt when a file already exists on disk
+- **Real-time progress** — live progress, speed, ETA, and status streamed over IPC
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        VAULT DESKTOP                          │
-│              (YouTube Downloader Application)                 │
-└─────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┴─────────────────────┐
-        │                                           │
-┌───────▼────────┐                         ┌───────▼────────┐
-│  USER          │                         │  yt-dlp        │
-│  INTERFACE     │                         │  ENGINE        │
-│                │                         │                │
-│  • React UI    │◄────────────────────────┤  • Download    │
-│  • Progress    │                         │  • Format      │
-│  • History     │                         │  • Metadata    │
-└────────────────┘                         └────────────────┘
-        │                                           │
-        └───────────────┬───────────────────────────┘
-                        │
-                ┌───────▼────────┐
-                │  SQLite DB     │
-                │  • History     │
-                │  • Archive     │
-                │  • Cache       │
-                └────────────────┘
-```
+### 🎛️ Format Selection & Presets
+- **Smart presets** (`packages/types/presets.ts`): `Best`, `1080p`, `720p`, `Audio MP3`, `Audio FLAC` — converted to consistent yt-dlp selectors shared by main and renderer
+- **Manual probing** — inspect every available video/audio format before downloading
+- **Container & codec control** — mp4/mkv containers, audio format (mp3/m4a/opus/flac/wav) and bitrate
+- **Metadata embedding** — thumbnails, metadata, chapters
+- **SponsorBlock** and **subtitle** options (write subtitles, choose languages)
+- **Format cache** — probe results cached in SQLite (10-minute TTL) to speed up re-downloads
 
-### Desktop App Architecture (Electron)
+### 📚 History & Playlists
+- **History view** (replaces the old Library) with rich cards (title, channel, thumbnail, quality, size, timestamps)
+- **Filter & search tabs**, **infinite scrolling**, and **bulk delete**
+- **Missing-file detection** — cards detect when a downloaded file has been moved/removed and surface clear messaging
+- **Playlist support** — page-by-page playlist probing and a configurable **playlist fetch limit**
+- **Channel archive** — track which videos are already downloaded per destination folder
+
+### 🔎 Discovery & Cookies
+- **In-app YouTube search** (`search:youtube`) — search by keyword, browse result cards, and queue directly
+- **Browser-based cookie management** — auto-detect installed browsers and use their cookies (`cookies:info/set/refresh/clear`) for gated content
+- **Subtitle listing** — enumerate available subtitle tracks for a URL
+
+### 🖥️ Desktop Experience
+- **Frameless custom titlebar** with native minimize/maximize/close and maximize/unmaximize events
+- **First-run onboarding** and an **auto dependency installer** for yt-dlp + ffmpeg with per-binary download progress
+- **Command palette / quick actions**, **system alert banners**, and a built-in **Logs** view
+- **Light/dark themes**, toast notifications, and a storage indicator
+- **App auto-update** — check, download, and install updates from within the app
+
+---
+
+## 🏗️ Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                     RENDERER (React UI)                       │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │  • Download Queue UI                                   │  │
-│  │  • Progress Bars & Status                              │  │
-│  │  • History Browser                                     │  │
-│  │  • Format Selector                                     │  │
-│  │  • Settings & Configuration                            │  │
-│  │                                                         │  │
-│  │  React Query: Queries, Mutations, Real-time Events    │  │
-│  └────────────────────────────────────────────────────────┘  │
+│                     RENDERER (React 19 UI)                    │
+│  Views: Queue · History · Logs · Settings · Onboarding       │
+│  State: Zustand stores  ·  Data: React Query (queries/       │
+│         mutations)  ·  Real-time IPC event listeners         │
 └──────────────────────────────────────────────────────────────┘
                               ▲
-                              │ IPC (contextBridge)
+                              │ contextBridge  (preload: window.api)
                               ▼
 ┌──────────────────────────────────────────────────────────────┐
-│                      MAIN PROCESS (Node.js)                   │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │  • yt-dlp Manager - Spawns yt-dlp processes            │  │
-│  │  • Worker Pool - Manages download queue/concurrency    │  │
-│  │  • SQLite Database - History, archive, cache           │  │
-│  │  • File System - Output path management                │  │
-│  │  • IPC Handlers - API for renderer                     │  │
-│  │  • Event Emitters - Push updates to renderer           │  │
-│  └────────────────────────────────────────────────────────┘  │
+│                     MAIN PROCESS (Node.js)                    │
+│  • ytdlp-manager   — spawn/probe/search/subtitles/playlist   │
+│  • worker-pool     — queue, concurrency, pause/resume/cancel  │
+│  • ffmpeg-manager  — post-processing / muxing                │
+│  • dependencies    — auto-download yt-dlp + ffmpeg           │
+│  • cookies         — browser cookie detection & caching      │
+│  • db (SQLite)     — history · archive · format_cache        │
+│  • IPC handlers + event emitters                             │
 └──────────────────────────────────────────────────────────────┘
                               ▲
-                              │ Child Process
+                              │ child process
                               ▼
 ┌──────────────────────────────────────────────────────────────┐
-│                         yt-dlp Binary                         │
-│  • Download videos from YouTube & 1000+ sites                │
-│  • Extract metadata, thumbnails, subtitles                   │
-│  • Probe available formats                                   │
-│  • Merge video + audio streams                               │
+│                       yt-dlp + ffmpeg                         │
+│  Download, probe formats, extract metadata/subs, mux streams  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 ### Data Flow
-
-1. **User action** → Renderer sends IPC request to Main process
-2. **Main process** → Validates, queries database, or spawns yt-dlp
-3. **yt-dlp** → Downloads video, emits progress events
-4. **Main process** → Forwards events to Renderer via IPC
-5. **Renderer** → React Query updates UI in real-time
-6. **Database** → Stores history, metadata, and cache
+1. **User action** → renderer calls `window.api.*` (React Query mutation/query)
+2. **Preload** forwards the call over IPC to the **main process**
+3. **Main** validates input, hits SQLite, or spawns **yt-dlp**/**ffmpeg**
+4. **yt-dlp** downloads and emits progress; the worker pool tracks job state
+5. **Main** pushes `job:*` events back to the renderer over IPC
+6. **Renderer** updates React Query caches → UI updates in real time; completed jobs are persisted to **history**
 
 ---
 
 ## 📁 Project Structure
 
-````
+```
 vault/
 ├── apps/
-│   ├── desktop/                    # Main Electron application
-│   │   ├── bin/                   # yt-dlp and ffmpeg binaries
-│   │   │   ├── win32/
-│   │   │   ├── darwin/
-│   │   │   └── linux/
-│   │   ├── src/
-│   │   │   ├── main/              # Main process (Node.js)
-│   │   │   │   ├── index.ts       # Entry point + IPC handlers
-│   │   │   │   ├── db.ts          # SQLite database layer
-│   │   │   │   ├── ytdlp-manager.ts  # yt-dlp wrapper
-│   │   │   │   └── worker-pool.ts # Download queue manager
-│   │   │   ├── preload/           # IPC bridge (security layer)
-│   │   │   │   ├── index.ts       # API exposure to renderer
-│   │   │   │   └── index.d.ts     # TypeScript definitions
-│   │   │   └── renderer/          # Renderer process (React)
-│   │   │       └── src/
-│   │   │           ├── lib/       # Data layer (React Query)
-│   │   │           │   ├── api/   # IPC API wrappers
-│   │   │           │   │   ├── downloads.ts  # Download operations
-│   │   │           │   │   ├── history.ts    # History queries
-│   │   │           │   │   ├── archive.ts    # Channel archive
-│   │   │           │   │   └── cache.ts      # Format cache
-│   │   │           │   ├── queries/          # React Query queries
-│   │   │           │   │   ├── formats.ts    # Format probing
-│   │   │           │   │   └── history.ts    # History fetching
-│   │   │           │   ├── mutations/        # React Query mutations
-│   │   │           │   │   ├── downloads.ts  # Queue, cancel, etc.
-│   │   │           │   │   ├── archive.ts    # Channel sync
-│   │   │           │   │   └── cache.ts      # Cache management
-│   │   │           │   ├── event-listeners/  # IPC event handlers
-│   │   │           │   │   └── use-job-events.ts  # Real-time updates
-│   │   │           │   ├── utils/
-│   │   │           │   │   └── format-error.ts  # Error formatting
-│   │   │           │   └── query-keys.ts     # Centralized query keys
-│   │   │           ├── providers/            # React providers
-│   │   │           │   ├── query-provider.tsx   # React Query setup
-│   │   │           │   └── toast-provider.tsx   # Toast notifications
-│   │   │           ├── components/           # UI components
-│   │   │           │   ├── download-queue.tsx
-│   │   │           │   ├── history-view.tsx
-│   │   │           │   └── format-selector.tsx
-│   │   │           └── assets/              # Styles
-│   │   │               └── globals.css      # Tailwind theme
-│   │   ├── components.json        # shadcn/ui config
-│   │   ├── electron.vite.config.ts
-│   │   ├── electron-builder.yml   # Build configuration
-│   │   └── package.json
+│   ├── desktop/                      # Electron application
+│   │   ├── bin/                      # yt-dlp / ffmpeg binaries (auto-downloaded, git-ignored)
+│   │   ├── download-binaries.ps1     # Optional Windows helper (auto-download is the default)
+│   │   ├── electron-builder.yml      # Packaging config
+│   │   ├── electron.vite.config.ts   # Electron-Vite config + aliases
+│   │   └── src/
+│   │       ├── main/                 # Main process (Node.js)
+│   │       │   ├── index.ts          # Entry point + IPC handlers + window/titlebar
+│   │       │   ├── ytdlp-manager.ts  # yt-dlp wrapper (probe, playlist, search, subtitles)
+│   │       │   ├── worker-pool.ts    # Download queue & concurrency
+│   │       │   ├── ffmpeg-manager.ts # ffmpeg post-processing
+│   │       │   ├── dependencies.ts   # Auto-download yt-dlp + ffmpeg
+│   │       │   ├── cookies.ts        # Browser cookie detection/caching
+│   │       │   ├── db.ts             # SQLite (history / archive / format_cache)
+│   │       │   ├── progress-tracker.ts
+│   │       │   ├── validators.ts
+│   │       │   └── logger.ts
+│   │       ├── preload/              # Secure IPC bridge (exposes window.api)
+│   │       └── renderer/src/
+│   │           ├── features/         # Feature-based UI modules
+│   │           │   ├── queue/        # Queue view, url-input handler, search results, overwrite dialog
+│   │           │   ├── history/      # History cards, filter tabs, bulk actions
+│   │           │   ├── modals/       # Format modal (header/footer/playlist/error) + video preview
+│   │           │   ├── settings/     # Settings view
+│   │           │   ├── logs/         # Logs view
+│   │           │   ├── onboarding/   # First-run onboarding
+│   │           │   ├── dependency-checker/
+│   │           │   └── ui/           # Sidebar, custom titlebar, command menu, alerts, presets
+│   │           ├── stores/           # Zustand stores (navigation, settings, ui, playlist, search, …)
+│   │           ├── lib/
+│   │           │   ├── api/          # window.api wrappers (downloads, history, …)
+│   │           │   ├── queries/      # React Query queries (history, jobs, formats)
+│   │           │   ├── mutations/    # React Query mutations (downloads, history)
+│   │           │   ├── event-listeners/  # Real-time IPC event hooks
+│   │           │   ├── constants/    # Centralized query keys
+│   │           │   └── utils/        # format-probe, youtube, platform helpers
+│   │           └── providers/        # React Query & toast providers
 │   │
-│   └── web/                       # Next.js landing page (future)
-│       ├── src/
-│       │   ├── app/
-│       │   ├── components/
-│       │   └── lib/
-│       └── package.json
+│   └── web/                          # Next.js landing page (future)
 │
 ├── packages/
-│   ├── config/                    # Shared configuration
-│   │   ├── src/
-│   │   │   └── index.ts          # Constants (APP_NAME, VERSION, etc.)
-│   │   └── package.json
-│   │
-│   ├── types/                     # Shared TypeScript types
-│   │   ├── src/
-│   │   │   └── index.ts          # Job, HistoryEntry, YtDlpProgress, etc.
-│   │   └── package.json
-│   │
-│   └── ui/                        # Shared UI components
-│       ├── src/
-│       │   ├── components/       # shadcn/ui components
-│       │   │   ├── button.tsx
-│       │   │   ├── card.tsx
-│       │   │   ├── input.tsx
-│       │   │   └── progress.tsx
-│       │   ├── lib/
-│       │   │   └── utils.ts      # cn() utility
-│       │   └── styles/
-│       │       └── globals.css   # Base Tailwind config
-│       └── package.json
+│   ├── config/                       # Shared constants (APP_NAME, APP_VERSION)
+│   ├── types/                        # Shared TS types (Job, JobInput, HistoryEntry, presets)
+│   └── ui/                           # Shared shadcn/ui component library
 │
-├── .github/                       # CI/CD workflows
-├── .vscode/                       # VSCode settings
-├── pnpm-workspace.yaml           # Workspace configuration
-├── package.json                  # Root package scripts
-└── README.md                     # This file
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── vault-roadmap.md
+├── WORKSPACE.md
+└── README.md
+```
 
-### Key Configuration Files
+---
 
-| File | Purpose |
-|------|---------|
-| `pnpm-workspace.yaml` | Defines workspace packages and native build allowlist |
-| `components.json` | shadcn/ui configuration for each app/package |
-| `electron.vite.config.ts` | Vite config with import aliases for Electron |
-| `electron-builder.yml` | Electron packaging and distribution config |
-| `tsconfig.web.json` | TypeScript config for renderer process |
-| `globals.css` | Tailwind v4 custom theme (light/dark modes) |
+## 🗄️ Database Schema
 
-### Database Schema (SQLite)
+SQLite (`better-sqlite3`, WAL mode). Tables are created on first launch, and the `history` table auto-migrates to add newer columns for upgrading users.
 
-**history** - Download history with metadata
+**history** — download history with metadata
 ```sql
 CREATE TABLE history (
-  job_id TEXT PRIMARY KEY,
-  video_id TEXT,
-  title TEXT,
-  channel TEXT,
-  url TEXT,
-  file_path TEXT,
+  job_id        TEXT PRIMARY KEY,
+  video_id      TEXT,
+  title         TEXT,
+  channel       TEXT,
+  url           TEXT,
+  file_path     TEXT,
   thumbnail_url TEXT,
-  status TEXT,           -- 'completed', 'failed', 'cancelled'
-  created_at INTEGER,
-  completed_at INTEGER
+  status        TEXT,      -- 'completed' | 'failed' | 'cancelled'
+  media_type    TEXT,      -- 'video' | 'audio'
+  quality       TEXT,
+  file_size     INTEGER,
+  created_at    INTEGER,
+  completed_at  INTEGER
 );
-````
+CREATE INDEX idx_history_created_at ON history(created_at DESC);
+```
 
-**archive** - Track downloaded videos per channel
-
+**archive** — track downloaded videos per destination folder
 ```sql
 CREATE TABLE archive (
   destination_folder TEXT,
-  video_id TEXT,
-  downloaded_at INTEGER,
+  video_id           TEXT,
+  downloaded_at      INTEGER,
   PRIMARY KEY (destination_folder, video_id)
 );
 ```
 
-**format_cache** - Cache format probe results (10 min TTL)
-
+**format_cache** — cache format-probe results (10-minute TTL)
 ```sql
 CREATE TABLE format_cache (
-  url TEXT PRIMARY KEY,
-  payload TEXT,          -- JSON of available formats
+  url       TEXT PRIMARY KEY,
+  payload   TEXT,          -- JSON of available formats
   cached_at INTEGER
 );
 ```
+
+---
+
+## 🔌 IPC API Surface
+
+The preload script exposes a type-safe `window.api` (`VaultApi`) to the renderer. Highlights:
+
+| Group | Methods |
+|-------|---------|
+| **Formats** | `probeFormats(url, playlistLimit?)`, `probePlaylistPage(url, start, end)` |
+| **Queue** | `queueDownload(jobInput)`, `cancelDownload`, `pauseDownload`, `resumeDownload`, `retryDownload`, `getJobs`, `setConcurrency` |
+| **History** | `getHistory(limit?, offset?)`, `deleteHistory`, `bulkDeleteHistory` |
+| **Filesystem** | `openInFolder`, `openFile`, `fileExists`, `scanDir`, `openFileDialog`, `openFolderDialog` |
+| **Cookies** | `getCookieInfo`, `setCookieBrowser`, `refreshCookies`, `clearCookies` |
+| **Search / Subtitles** | `searchYoutube(query, page?)`, `listSubtitles(url)` |
+| **Cache** | `clearFormatCache(url?)`, `clearDownloadArchive(downloadPath)` |
+| **Dependencies** | `dependenciesCheck`, `dependenciesDownload`, `onDependencyDownloadProgress` |
+| **App / Update** | `getAppInfo`, `checkForUpdates`, `installUpdate`, `quitApp`, `getLogsHistory` |
+| **Window** | `minimizeWindow`, `maximizeWindow`, `closeWindow`, `onWindowMaximize`, `onWindowUnmaximize` |
+| **Job events** | `onJobQueued`, `onJobStarted`, `onJobProgress`, `onJobCompleted`, `onJobFailed`, `onJobCancelled`, `onJobPaused` |
 
 ---
 
@@ -314,543 +282,190 @@ CREATE TABLE format_cache (
 
 ### Prerequisites
 
-Ensure you have the following installed:
+- **Node.js** — see [`.nvmrc`](./.nvmrc) (currently **24**; use `nvm use`)
+- **pnpm** `>= 8` ([install](https://pnpm.io/installation))
+- **Git**
 
-- **Node.js** `>= 18.0.0` ([Download](https://nodejs.org/))
-- **pnpm** `>= 8.0.0` ([Install](https://pnpm.io/installation))
-- **Git** ([Download](https://git-scm.com/))
-
-**Required for desktop app:**
-
-- **yt-dlp** - Download from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases)
-- **ffmpeg** - Download from [ffmpeg.org](https://ffmpeg.org/download.html)
-
-> **Note:** yt-dlp and ffmpeg binaries should be placed in `apps/desktop/bin/<platform>/` where `<platform>` is `win32`, `darwin`, or `linux`.
+> **yt-dlp and ffmpeg are handled for you.** On first launch Vault checks for the required binaries and, if missing, **auto-downloads** the correct build for your platform (Windows/macOS/Linux) into the app's data directory — no manual download needed.
 
 ### Installation
 
-1. **Clone the repository**
-
 ```bash
-git clone https://github.com/yourusername/vault.git
+# 1. Clone
+git clone https://github.com/Kendrick-Oppong/vault.git
 cd vault
-```
 
-2. **Install dependencies**
-
-```bash
+# 2. Install all workspaces
 pnpm install
-```
 
-This installs all dependencies for all workspaces using pnpm's efficient linking.
-
-3. **Download required binaries**
-
-**Option 1: Automated Script (Recommended for Windows)**
-
-Run the PowerShell script to automatically download yt-dlp, ffmpeg, ffprobe, and plugins:
-
-```powershell
-cd apps/desktop
-.\download-binaries.ps1
-```
-
-This will download:
-- **yt-dlp.exe** - YouTube downloader
-- **ffmpeg.exe** - Video processing
-- **ffprobe.exe** - Media file analysis
-- **ChromeCookieUnlock plugin** - Fixes Chrome cookie database locking on Windows
-
-> **Note:** The ChromeCookieUnlock plugin automatically resolves the `ERROR: Unable to extract webpage` error when Chrome is running by unlocking the Chrome cookie database.
-
-If you get an execution policy error:
-```powershell
-PowerShell -ExecutionPolicy Bypass -File .\download-binaries.ps1
-```
-
-**Option 2: Manual Download**
-
-Download and place the binaries in `apps/desktop/bin/<platform>/`:
-
-- **yt-dlp**: https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
-- **ffmpeg & ffprobe**: https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
-  - Extract the zip file
-  - Copy `bin/ffmpeg.exe` and `bin/ffprobe.exe` from the extracted folder
-- **ChromeCookieUnlock plugin** (optional but recommended): 
-  - Create folder: `apps/desktop/bin/win32/yt-dlp-plugins/yt_dlp_plugins/postprocessor/`
-  - Download: https://raw.githubusercontent.com/seproDev/yt-dlp-ChromeCookieUnlock/main/yt_dlp_plugins/postprocessor/chrome_cookie_unlock.py
-  - Create empty `__init__.py` files in `yt_dlp_plugins/` and `yt_dlp_plugins/postprocessor/`
-
-**Platform-specific paths:**
-```
-# Windows
-apps/desktop/bin/win32/
-  ├── yt-dlp.exe
-  ├── ffmpeg.exe
-  └── ffprobe.exe
-
-# macOS
-apps/desktop/bin/darwin/
-  ├── yt-dlp
-  ├── ffmpeg
-  └── ffprobe
-
-# Linux  
-apps/desktop/bin/linux/
-  ├── yt-dlp
-  ├── ffmpeg
-  └── ffprobe
-```
-
-> **Note:** Binaries are excluded from git via `.gitignore`. Each developer needs to download them.
-
-4. **Create shadcn/ui configuration files**
-
-Create these manually (see [SHADCN_SETUP.md](./SHADCN_SETUP.md)):
-
-- `packages/ui/components.json`
-- `apps/desktop/components.json`
-
-5. **Add UI components** (optional)
-
-```bash
-cd apps/desktop
-npx shadcn@latest add button card input
-```
-
-### Quick Start
-
-**Run the desktop app in development:**
-
-```bash
+# 3. Run the desktop app (yt-dlp + ffmpeg are fetched on first run)
 pnpm dev:desktop
 ```
 
-**Run the web app** (once set up):
+### Binaries (optional / offline)
 
-```bash
-pnpm dev:web
+Auto-download is the default. If you prefer to provide binaries manually (e.g. offline or a locked-down network), place them in `apps/desktop/bin/<platform>/` where `<platform>` is `win32`, `darwin`, or `linux`:
+
 ```
+apps/desktop/bin/<platform>/
+  ├── yt-dlp(.exe)
+  ├── ffmpeg(.exe)
+  └── ffprobe(.exe)
+```
+
+A convenience script is available for Windows:
+
+```powershell
+cd apps/desktop
+powershell -ExecutionPolicy Bypass -File .\download-binaries.ps1
+```
+
+> Binaries are git-ignored.
 
 ---
 
 ## 💻 Development
 
-### Available Scripts
-
-From the **root**:
+### Root scripts
 
 ```bash
-# Development
-pnpm dev:desktop          # Start Vault desktop app with hot reload
-pnpm dev:web              # Start landing page (Next.js dev server)
-
-# Build
-pnpm build:desktop        # Build desktop app for production
-pnpm build:web            # Build landing page for production
-
-# Code Quality
-pnpm format               # Format all code with Prettier
-pnpm lint                 # Lint all workspaces
+pnpm dev:desktop      # Start the desktop app with hot reload
+pnpm dev:web          # Start the Next.js landing page
+pnpm build:desktop    # Build the desktop app
+pnpm build:web        # Build the landing page
+pnpm format           # Prettier across the repo
+pnpm lint             # Lint all workspaces
 ```
 
-From **apps/desktop**:
+### `apps/desktop` scripts
 
 ```bash
-pnpm dev                  # Development mode
-pnpm build                # Build for production
-pnpm build:win            # Build Windows installer (.exe)
-pnpm build:mac            # Build macOS app (.dmg)
-pnpm build:linux          # Build Linux package (.AppImage, .deb)
-pnpm typecheck            # Run TypeScript checks
+pnpm dev              # electron-vite dev
+pnpm build            # typecheck + electron-vite build
+pnpm build:win        # Windows installer
+pnpm build:mac        # macOS .dmg
+pnpm build:linux      # Linux AppImage/deb
+pnpm typecheck        # tsc for main (node) and renderer (web)
+pnpm lint             # eslint
 ```
 
-### Development Workflow
+### Import aliases
 
-1. **Start the dev server**
-
-   ```bash
-   pnpm dev:desktop
-   ```
-
-   This opens Vault with hot reload enabled. Edit renderer code and see changes instantly.
-
-2. **Add a download**
-   - Paste a YouTube URL
-   - Click "Probe Formats" to see available qualities
-   - Select format and output path
-   - Click "Download"
-   - Watch real-time progress in the UI
-
-3. **Add shared components**
-
-   ```bash
-   cd apps/desktop
-   npx shadcn@latest add card input progress
-   ```
-
-4. **Use shared packages**
-
-   ```typescript
-   import { Button } from "@vault/ui/components/button";
-   import type { Job, JobInput } from "@vault/types";
-   import { APP_NAME, APP_VERSION } from "@vault/config";
-   ```
-
-5. **Format and lint**
-   ```bash
-   pnpm format
-   pnpm lint
-   ```
-
-### Using the Download API
-
-```typescript
-import { useQueueDownload, useProbeFormats, useHistory } from '@/lib'
-
-function DownloadManager() {
-  const queue = useQueueDownload()
-  const probe = useProbeFormats('https://youtube.com/watch?v=dQw4w9WgXcQ')
-  const { data: history } = useHistory()
-
-  const handleDownload = () => {
-    queue.mutate({
-      url: 'https://youtube.com/watch?v=dQw4w9WgXcQ',
-      outputTemplate: 'C:\\Downloads\\%(title)s.%(ext)s',
-      formatSelector: 'bestvideo[height<=1080]+bestaudio/best',
-      extra: {
-        embedThumbnail: true,
-        embedMetadata: true,
-        embedSubs: false
-      },
-      meta: {
-        title: 'My Video Title',
-        channel: 'Channel Name'
-      }
-    })
-  }
-
-  return (
-    <div>
-      <button onClick={handleDownload} disabled={queue.isPending}>
-        {queue.isPending ? 'Queuing...' : 'Download'}
-      </button>
-      {probe.data && (
-        <select>
-          {probe.data.formats.map(fmt => (
-            <option key={fmt.format_id} value={fmt.format_id}>
-              {fmt.format_note} - {fmt.ext}
-            </option>
-          ))}
-        </select>
-      )}
-    </div>
-  )
-}
-```
-
-### Import Aliases
-
-All apps have consistent import aliases:
-
-```typescript
+```ts
 // Shared packages
 import { Button } from "@vault/ui/components/button";
-import type { Job } from "@vault/types";
+import type { Job, JobInput, Preset } from "@vault/types";
 import { APP_NAME } from "@vault/config";
 
-// App-specific
-import { useHistory } from "@/lib"; // lib/
-import { Header } from "@/components"; // components/
-import { QueryProvider } from "@/providers"; // providers/
+// App-local (renderer)
+import { useHistory } from "@/lib/queries/history";
+import { QueueView } from "@/features/queue/components/shell";
+```
+
+### Using the download API (renderer)
+
+```ts
+import { PRESETS, presetToFormatSelector, getPreset } from "@vault/types";
+
+const preset = getPreset("1080p")!;              // { id:'1080p', mediaType:'video', maxHeight:1080 }
+const formatSelector = presetToFormatSelector(preset);
+// → "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
+
+await window.api.queueDownload({
+  url: "https://youtube.com/watch?v=dQw4w9WgXcQ",
+  outputTemplate: "%(title)s.%(ext)s",
+  formatSelector,
+  downloadPath: "/path/to/Videos",
+  extra: { embedThumbnail: true, embedMetadata: true, useDownloadArchive: true },
+  meta: { title: "My Video", channel: "Channel Name", mediaType: "video" }
+});
 ```
 
 ---
 
 ## 🛠️ Technology Stack
 
-### Core Technologies
-
-| Technology                                    | Version | Purpose                  |
-| --------------------------------------------- | ------- | ------------------------ |
-| [TypeScript](https://www.typescriptlang.org/) | 5.9     | Type-safe development    |
-| [React](https://react.dev/)                   | 19.2    | UI library               |
-| [Electron](https://www.electronjs.org/)       | 39.2    | Desktop app framework    |
-| [yt-dlp](https://github.com/yt-dlp/yt-dlp)    | Latest  | Video downloading engine |
-| [pnpm](https://pnpm.io/)                      | 8+      | Fast package manager     |
-
-### Desktop App Stack
-
-| Technology                                                   | Purpose                           |
-| ------------------------------------------------------------ | --------------------------------- |
-| [Electron Vite](https://electron-vite.org/)                  | Fast build tooling for Electron   |
-| [React Query](https://tanstack.com/query)                    | Server state management & caching |
-| [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) | Embedded SQLite database          |
-| [Sonner](https://sonner.emilkowal.ski/)                      | Beautiful toast notifications     |
-| [Lucide React](https://lucide.dev/)                          | Consistent icon library           |
-| [ffmpeg](https://ffmpeg.org/)                                | Video/audio processing            |
-
-### Styling Stack
-
-| Technology                                                  | Purpose            |
-| ----------------------------------------------------------- | ------------------ |
-| [Tailwind CSS v4](https://tailwindcss.com/)                 | Utility-first CSS  |
-| [shadcn/ui](https://ui.shadcn.com/)                         | Component library  |
-| [class-variance-authority](https://cva.style/)              | Variant management |
-| [tailwind-merge](https://github.com/dcastil/tailwind-merge) | Class merging      |
-
-### Build & Tooling
-
-| Tool                                            | Purpose                 |
-| ----------------------------------------------- | ----------------------- |
-| [Vite](https://vitejs.dev/)                     | Build tool & dev server |
-| [Electron Builder](https://www.electron.build/) | App packaging           |
-| [ESLint](https://eslint.org/)                   | Code linting            |
-| [Prettier](https://prettier.io/)                | Code formatting         |
-
----
-
-## ✨ Features
-
-### 📥 Download Management
-
-- **Queue system** - Queue unlimited videos with configurable concurrency
-- **Format selection** - Probe and select specific video/audio formats
-- **Quality control** - Choose resolution, codec, bitrate
-- **Custom output** - Full control over file naming and destination
-- **Metadata embedding** - Automatically embed thumbnails and metadata
-- **Worker pool** - Parallel downloads with resource management
-- **Cancel/pause** - Full control over download lifecycle
-
-### 📊 History & Organization
-
-- **SQLite database** - Fast, local storage for download history
-- **Rich metadata** - Title, channel, thumbnail, timestamps
-- **Channel archiving** - Track which videos are downloaded per channel
-- **Search & filter** - Find past downloads quickly
-- **Format caching** - Cache format probes to speed up re-downloads
-
-### 🎨 Modern UI/UX
-
-- **Beautiful interface** - Clean, intuitive design with shadcn/ui
-- **Light/dark themes** - Amber (light) and gold (dark) branding
-- **Real-time progress** - Live progress bars and status updates
-- **Toast notifications** - User-friendly success/error messages
-- **Responsive design** - Works on any screen size
-- **Keyboard shortcuts** - Power user productivity
-
-### 🔧 Advanced Features
-
-- **yt-dlp powered** - Best-in-class downloader engine
-- **Platform support** - YouTube, Vimeo, Twitter, and 1000+ sites
-- **Custom arguments** - Pass any yt-dlp flags you need
-- **Error recovery** - Automatic retry with exponential backoff
-- **Format probing** - See all available formats before downloading
-- **Channel sync** - Download entire channels incrementally
-
----
-
-## 🏗️ Architecture
+| Technology | Purpose |
+|------------|---------|
+| [TypeScript 5.9](https://www.typescriptlang.org/) | Type-safe development |
+| [React 19](https://react.dev/) | UI library |
+| [Electron 39](https://www.electronjs.org/) + [Electron-Vite](https://electron-vite.org/) | Desktop framework & build tooling |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) + [ffmpeg](https://ffmpeg.org/) | Downloading & media processing |
+| [TanStack Query](https://tanstack.com/query) | Server-state management & caching |
+| [Zustand](https://zustand-demo.pmnd.rs/) | Client-side state stores |
+| [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) | Embedded SQLite database |
+| [electron-updater](https://www.electron.build/auto-update) | In-app auto-updates |
+| [Tailwind CSS v4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) | Styling & components |
+| [Sonner](https://sonner.emilkowal.ski/) · [Lucide](https://lucide.dev/) | Toasts & icons |
+| [pnpm](https://pnpm.io/) workspaces | Monorepo package management |
+| [ESLint](https://eslint.org/) · [Prettier](https://prettier.io/) | Linting & formatting |
 
 ---
 
 ## 📚 Documentation
 
-Comprehensive guides are available in the repository:
-
-| Document                                                 | Description                 |
-| -------------------------------------------------------- | --------------------------- |
-| [COMPLETE_SETUP_SUMMARY.md](./COMPLETE_SETUP_SUMMARY.md) | Complete setup overview     |
-| [WORKSPACE.md](./WORKSPACE.md)                           | Monorepo workspace guide    |
-| [STYLING.md](./STYLING.md)                               | Design system documentation |
-| [SHADCN_SETUP.md](./SHADCN_SETUP.md)                     | shadcn/ui integration guide |
-| [DATA_LAYER.md](./apps/desktop/DATA_LAYER.md)            | React Query architecture    |
-| [ERROR_HANDLING.md](./apps/desktop/ERROR_HANDLING.md)    | Error formatting guide      |
-| [SETUP_COMPLETE.md](./apps/desktop/SETUP_COMPLETE.md)    | Data layer setup details    |
-
-### Quick Links
-
-- **Getting Started**: See [Installation](#installation)
-- **Adding Components**: See [SHADCN_SETUP.md](./SHADCN_SETUP.md)
-- **Styling Guide**: See [STYLING.md](./STYLING.md)
-- **Data Layer**: See [DATA_LAYER.md](./apps/desktop/DATA_LAYER.md)
-- **Monorepo Usage**: See [WORKSPACE.md](./WORKSPACE.md)
+| Document | Description |
+|----------|-------------|
+| [WORKSPACE.md](./WORKSPACE.md) | Monorepo workspace guide |
+| [vault-roadmap.md](./vault-roadmap.md) | Feature roadmap & phased plan |
+| Package READMEs | See `packages/ui`, `packages/types`, `packages/config` |
 
 ---
 
 ## 🎯 Monorepo Benefits
 
-### Why Monorepo?
-
-✅ **Code Sharing**
-
-- Share components, types, and utilities
-- Single source of truth for design system
-- Reuse business logic across apps
-
-✅ **Consistent Dependencies**
-
-- One `pnpm-lock.yaml` for entire project
-- Shared dependencies installed once
-- Reduced disk space and install time
-
-✅ **Type Safety**
-
-- Types flow across package boundaries
-- Refactor with confidence
-- IDE autocomplete across packages
-
-✅ **Unified Tooling**
-
-- Single ESLint, Prettier, TypeScript config
-- Consistent code style
-- Shared scripts and workflows
-
-✅ **Atomic Changes**
-
-- Change types, components, and apps together
-- Single PR for cross-package features
-- No version mismatches
-
-✅ **Better Developer Experience**
-
-- One `pnpm install` for everything
-- Hot reload across packages
-- Faster development cycles
-
-### Workspace Structure
+- **Code sharing** — shared UI, types, and config across apps
+- **Type safety** — types flow across package boundaries; refactor with confidence
+- **Consistent tooling** — one ESLint/Prettier/TypeScript setup
+- **Atomic changes** — change types, components, and apps in a single PR
 
 ```yaml
 # pnpm-workspace.yaml
 packages:
-  - "apps/*" # Applications (desktop, web)
-  - "packages/*" # Shared packages (ui, types, config)
+  - "apps/*"      # desktop, web
+  - "packages/*"  # ui, types, config
 ```
 
-### Package Linking
-
-```json
-{
-  "dependencies": {
-    "@vault/ui": "workspace:*", // Links to local package
-    "@vault/types": "workspace:*",
-    "@vault/config": "workspace:*"
-  }
-}
-```
-
-Changes to `packages/ui` are **immediately** reflected in `apps/desktop`!
+Packages are linked with `"@vault/ui": "workspace:*"` etc., so changes to a package are reflected immediately in the apps.
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how to get started:
-
-### Development Setup
-
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/yourusername/vault.git`
-3. Create a branch: `git checkout -b feature/amazing-feature`
-4. Install dependencies: `pnpm install`
-5. Make your changes
-6. Run tests: `pnpm test` (if available)
-7. Format code: `pnpm format`
-8. Commit: `git commit -m 'Add amazing feature'`
-9. Push: `git push origin feature/amazing-feature`
-10. Open a Pull Request
+1. Fork and clone the repo
+2. Create a branch: `git checkout -b feat/your-feature`
+3. `pnpm install`
+4. Make your changes, then `pnpm format` and `pnpm lint`
+5. Commit using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `style:`)
+6. Open a Pull Request
 
 ### Code Style
-
-- **TypeScript**: Strict mode enabled
-- **File naming**: kebab-case (`use-job-events.ts`, `query-provider.tsx`)
+- **TypeScript** strict mode
+- **File naming**: kebab-case (`use-job-events.ts`)
 - **Components**: PascalCase function names
-- **Imports**: Absolute imports with aliases
-- **Formatting**: Prettier with 100-char line length
-- **Linting**: ESLint with React + TypeScript rules
-
-### Commit Convention
-
-We follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-feat: add new download feature
-fix: resolve progress bar issue
-docs: update README
-style: format code
-refactor: simplify error handler
-test: add unit tests
-chore: update dependencies
-```
-
-### Pull Request Checklist
-
-- [ ] Code follows style guidelines
-- [ ] Types are properly defined
-- [ ] Comments explain complex logic
-- [ ] No console errors or warnings
-- [ ] Tested in development
-- [ ] Documentation updated (if needed)
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-### Built With
-
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) - The most powerful YouTube downloader
-- [Electron](https://www.electronjs.org/) - Desktop app framework
-- [React](https://react.dev/) - UI library
-- [Tanstack Query](https://tanstack.com/query) - Server state management
-- [shadcn/ui](https://ui.shadcn.com/) - Beautiful component library
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
-- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) - Fast SQLite bindings
-- [pnpm](https://pnpm.io/) - Efficient package manager
-
-### Inspired By
-
-- [youtube-dl](https://youtube-dl.org/) - The original
-- [Stacher](https://stacher.io/) - Desktop YouTube downloader
-- [4K Video Downloader](https://www.4kdownload.com/) - Commercial alternative
+- **Formatting**: Prettier (100-char line length)
+- **Imports**: absolute imports with aliases
 
 ---
 
 ## ⚖️ Legal & Disclaimer
 
-**Vault is intended for personal use only.** Users are responsible for complying with:
+**Vault is intended for personal use only.** You are responsible for complying with YouTube's Terms of Service, copyright laws in your jurisdiction, and platform-specific content policies.
 
-- YouTube's Terms of Service
-- Copyright laws in their jurisdiction
-- Platform-specific content policies
+✅ Download your own content, Creative Commons content, or material you have permission to download; archive educational/research materials within fair use.
 
-**Use cases:**
-
-- ✅ Downloading your own uploaded content
-- ✅ Downloading Creative Commons licensed content
-- ✅ Archiving educational or research materials within fair use
-- ✅ Downloading content you have explicit permission to download
-
-**Do NOT use Vault to:**
-
-- ❌ Pirate copyrighted content
-- ❌ Violate platform terms of service
-- ❌ Distribute downloaded content without permission
-- ❌ Circumvent DRM or access controls
+❌ Do not pirate copyrighted content, violate platform terms, redistribute content without permission, or circumvent DRM.
 
 The developers of Vault are not responsible for how you use this software.
 
 ---
 
-## 📞 Support
+## 📄 License
 
-- **Documentation**: Check the [docs](#documentation) section
-- **Issues**: [GitHub Issues](https://github.com/yourusername/vault/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/vault/discussions)
+Licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
+
+## 🙏 Acknowledgments
+
+Built with [yt-dlp](https://github.com/yt-dlp/yt-dlp), [Electron](https://www.electronjs.org/), [React](https://react.dev/), [TanStack Query](https://tanstack.com/query), [shadcn/ui](https://ui.shadcn.com/), [Tailwind CSS](https://tailwindcss.com/), [better-sqlite3](https://github.com/WiseLibs/better-sqlite3), and [pnpm](https://pnpm.io/).

@@ -13,48 +13,68 @@ export function useJobEvents() {
 
     const unsubscribes: Array<() => void> = [];
 
-    // On progress, store progress separately (only for active jobs)
-    const unsubProgress = globalThis.api.onJobProgress((jobId: string, progress: YtDlpProgress) => {
-      // Check if job is still active before updating progress
+    const updateJobStatus = (jobId: string, status: Job["status"]) => {
+      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
+        old.map((j) => (j.id === jobId ? { ...j, status } : j))
+      );
+    };
+
+    const handleJobQueued = () => {
+      // Don't add optimistically - let polling handle it to avoid duplicates
+      // The polling will pick up the new job within 2 seconds
+    };
+
+    const handleJobStarted = (job: Job) => {
+      updateJobStatus(job.id, "active");
+    };
+
+    const handleJobProgress = (jobId: string, progress: YtDlpProgress) => {
       const activeJobs = queryClient.getQueryData<Job[]>(QueryKeys.jobs.active()) || [];
       const job = activeJobs.find((j) => j.id === jobId);
       if (job && job.status === "active") {
         queryClient.setQueryData(QueryKeys.jobs.progress(jobId), progress);
       }
-    });
-    unsubscribes.push(unsubProgress);
+    };
 
-    // On completion, show toast and invalidate history
-    const unsubCompleted = globalThis.api.onJobCompleted((job: Job) => {
+    const handleJobCompleted = (job: Job) => {
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
-      queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
       toast.success(`Download completed: ${job.meta?.title || job.url}`);
-    });
-    unsubscribes.push(unsubCompleted);
+    };
 
-    // On failure, show toast and invalidate history
-    const unsubFailed = globalThis.api.onJobFailed((job: Job, err) => {
-      const errorMessage = formatError(err?.message || err);
+    const handleJobFailed = (job: Job, err: unknown) => {
+      const errorMessage = formatError(
+        typeof err === "object" && err !== null && "message" in err
+          ? (err as { message?: string }).message
+          : err
+      );
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
-      queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
       toast.error(`Download failed: ${job.meta?.title || job.url}`, {
         description: errorMessage
       });
-    });
-    unsubscribes.push(unsubFailed);
+    };
 
-    // On cancellation, invalidate history
-    const unsubCancelled = globalThis.api.onJobCancelled((job: Job) => {
+    const handleJobCancelled = (job: Job) => {
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
-      queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
-    });
-    unsubscribes.push(unsubCancelled);
+      queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
+    };
 
-    // On pause, remove progress
-    const unsubPaused = globalThis.api.onJobPaused((job: Job) => {
+    const handleJobPaused = (job: Job) => {
+      updateJobStatus(job.id, "paused");
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
-    });
-    unsubscribes.push(unsubPaused);
+    };
+
+    // Subscribe to all job events
+    unsubscribes.push(
+      globalThis.api.onJobQueued(handleJobQueued),
+      globalThis.api.onJobStarted(handleJobStarted),
+      globalThis.api.onJobProgress(handleJobProgress),
+      globalThis.api.onJobCompleted(handleJobCompleted),
+      globalThis.api.onJobFailed(handleJobFailed),
+      globalThis.api.onJobCancelled(handleJobCancelled),
+      globalThis.api.onJobPaused(handleJobPaused)
+    );
 
     return () => {
       unsubscribes.forEach((unsub) => unsub());

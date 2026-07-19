@@ -104,7 +104,7 @@ export const LogsView = () => {
 
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto rounded-xl border border-border bg-black/30 p-3 font-mono text-xs leading-relaxed"
+        className="flex-1 overflow-y-auto rounded-xl border border-border bg-secondary/60 p-3 font-mono text-xs leading-relaxed"
       >
         {isLoading ? (
           <p className="text-muted-foreground">Loading logs...</p>
