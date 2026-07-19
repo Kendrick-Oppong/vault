@@ -4,6 +4,7 @@ import type { HistoryItem } from "../types";
 import { getTimeAgo } from "@/lib/utils/platform";
 import { useVideoPreviewActions } from "@/stores/video-preview/video-preview.selectors";
 import { useOpenFile } from "@/lib/mutations/downloads";
+import { toast } from "sonner";
 
 import { Checkbox } from "@vault/ui/components/checkbox";
 import { cn } from "@vault/ui/lib/utils";
@@ -23,6 +24,7 @@ export const HistoryCard = ({ item, isSelected, onSelect }: HistoryCardProps) =>
     if (item.status === "completed" && item.filePath) {
       openFileMutation.mutate(item.filePath);
     } else if (isVideo && item.url && item.status !== "failed") {
+      // Fallback to preview if it's a video and file is missing (or it's still downloading)
       openPreview({
         url: item.url,
         title: item.title,
@@ -30,6 +32,11 @@ export const HistoryCard = ({ item, isSelected, onSelect }: HistoryCardProps) =>
         thumbnail: item.thumbnail || null,
         duration: null,
         description: ""
+      });
+    } else if (item.status === "completed") {
+      toast.error("File path not available", {
+        description:
+          "This file might have been downloaded with an older version, or it was moved/deleted."
       });
     }
   };
