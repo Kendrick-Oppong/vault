@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { join } from "node:path";
 import type { YtDlpProgress, DownloadExtras } from "@vault/types";
 import { validateYouTubeUrl } from "./validators";
 import { logger } from "./logger";
@@ -7,6 +8,7 @@ export interface YtDlpOptions {
   binaryPath: string;
   ffmpegPath: string;
   pluginPath?: string;
+  userDataPath: string;
 }
 
 export interface ProbeOptions extends DownloadExtras {
@@ -391,7 +393,12 @@ function buildThumbnailAndMetadataArgs(
   }
 }
 
-function buildSubtitleAndArchiveArgs(args: string[], extras: DownloadExtras | undefined): void {
+function buildSubtitleAndArchiveArgs(
+  args: string[],
+  opts: YtDlpOptions,
+  extras: DownloadExtras | undefined,
+  formatSelector?: string
+): void {
   if (extras?.subtitles === "external") {
     args.push("--write-subs", "--write-auto-subs");
     if (extras.subtitleLanguages && extras.subtitleLanguages.length > 0) {
@@ -401,9 +408,14 @@ function buildSubtitleAndArchiveArgs(args: string[], extras: DownloadExtras | un
       logger.debug("External subtitles enabled (all languages)");
     }
   }
-  if (extras?.useDownloadArchive) {
-    args.push("--download-archive", "archive.txt");
-    logger.debug("Download archive enabled");
+  if (extras?.useDownloadArchive && !extras?.overwrite) {
+    // Create format-specific archive file to track different quality downloads separately
+    const formatKey = formatSelector ? formatSelector.replace(/[^a-zA-Z0-9]/g, "_") : "best";
+    const archiveFile = join(opts.userDataPath, `archive-${formatKey}.txt`);
+    args.push("--download-archive", archiveFile);
+    logger.debug("Download archive enabled for format:", formatKey, "file:", archiveFile);
+  } else if (extras?.useDownloadArchive && extras?.overwrite) {
+    logger.debug("Download archive disabled because overwrite mode is active");
   }
 }
 
@@ -515,7 +527,10 @@ export function download(
 
   buildMediaArgs(args, extras);
 
-  if (resume) {
+  if (extras?.overwrite) {
+    args.push("--force-overwrites");
+    logger.debug("Overwrite mode enabled");
+  } else if (resume) {
     args.push("--continue");
     logger.debug("Resume mode enabled");
   }
@@ -539,7 +554,7 @@ export function download(
   });
 
   buildThumbnailAndMetadataArgs(args, extras, formatSelector, audioFormat, videoContainer);
-  buildSubtitleAndArchiveArgs(args, extras);
+  buildSubtitleAndArchiveArgs(args, opts, extras, formatSelector);
 
   args.push(url);
   logger.debug("Final yt-dlp command:", args.join(" "));
@@ -571,7 +586,8 @@ export function createYtDlpManager(opts: YtDlpOptions) {
       download(opts, url, outputTemplate, formatSelector, extras, downloadPath, onProgress, resume),
     binaryPath: opts.binaryPath,
     ffmpegPath: opts.ffmpegPath,
-    pluginPath: opts.pluginPath
+    pluginPath: opts.pluginPath,
+    userDataPath: opts.userDataPath
   };
 }
 

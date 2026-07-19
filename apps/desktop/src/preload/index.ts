@@ -44,6 +44,10 @@ const vaultApi = {
 
   openFile: (filePath: string): Promise<string | null> => ipcRenderer.invoke("fs:open", filePath),
 
+  fileExists: (filePath: string): Promise<boolean> => ipcRenderer.invoke("fs:fileExists", filePath),
+
+  scanDir: (dirPath: string): Promise<string[]> => ipcRenderer.invoke("fs:scanDir", dirPath),
+
   openFileDialog: (opts?: {
     title?: string;
     filters?: { name: string; extensions: string[] }[];
