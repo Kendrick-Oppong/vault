@@ -54,9 +54,7 @@ export const useCancelDownload = (options?: { successMessage?: string; errorMess
     mutationFn: (jobId: string) => downloadsApi.cancelDownload(jobId),
     onSuccess: (success, jobId) => {
       if (success) {
-        queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old) =>
-          old ? old.filter((j) => j.id !== jobId) : []
-        );
+        queryClient.invalidateQueries({ queryKey: QueryKeys.jobs.active() });
         toast.success(options?.successMessage || "Download cancelled");
       } else {
         toast.error(options?.errorMessage || "Failed to cancel download", {
@@ -94,11 +92,7 @@ export const usePauseDownload = () => {
     mutationFn: (jobId: string) => downloadsApi.pauseDownload(jobId),
     onSuccess: (success, jobId) => {
       if (success) {
-        // The job:paused event from the main process will update the cache,
-        // but we optimistically update here for snappy UI.
-        queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-          old.map((j) => (j.id === jobId ? { ...j, status: "paused" as const } : j))
-        );
+        queryClient.invalidateQueries({ queryKey: QueryKeys.jobs.active() });
         queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(jobId) });
         toast.info("Download paused");
       } else {
@@ -121,11 +115,7 @@ export const useResumeDownload = () => {
     mutationFn: (jobId: string) => downloadsApi.resumeDownload(jobId),
     onSuccess: (newJobId, oldJobId) => {
       if (newJobId) {
-        // The job:queued event will add the new job and we'll handle the transition
-        // Optimistically update the old job status to indicate it's being resumed
-        queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-          old.map((j) => (j.id === oldJobId ? { ...j, status: "pending" } : j))
-        );
+        queryClient.invalidateQueries({ queryKey: QueryKeys.jobs.active() });
         toast.success("Download resumed");
       } else {
         toast.error("Failed to resume download", {
@@ -147,11 +137,7 @@ export const useRetryDownload = () => {
     mutationFn: (jobId: string) => downloadsApi.retryDownload(jobId),
     onSuccess: (newJobId, oldJobId) => {
       if (newJobId) {
-        //
-        // Optimistically update the old job status to indicate it's being retried
-        queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-          old.map((j) => (j.id === oldJobId ? { ...j, status: "pending" } : j))
-        );
+        queryClient.invalidateQueries({ queryKey: QueryKeys.jobs.active() });
         toast.success("Retrying download");
       } else {
         toast.error("Failed to retry download", {

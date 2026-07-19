@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
-import type { ChildProcess } from "node:child_process";
+import { execSync, type ChildProcess } from "node:child_process";
 import type { Job, JobInput, YtDlpProgress } from "@vault/types";
 import type { YtDlpManager } from "./ytdlp-manager";
 import { createProgressTracker } from "./progress-tracker";
@@ -20,6 +20,18 @@ interface ActiveJob {
 interface StoredJobInput {
   job: Job;
   resume?: boolean;
+}
+
+function killProcessTree(proc: ChildProcess): void {
+  if (proc.pid && process.platform === "win32") {
+    try {
+      execSync(`taskkill /pid ${proc.pid} /T /F`);
+    } catch {
+      // Ignore errors if process already exited
+    }
+  } else {
+    proc.kill("SIGTERM");
+  }
 }
 
 export function createWorkerPool(opts: WorkerPoolOptions) {
@@ -155,7 +167,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     const activeJob = active.get(jobId);
     if (activeJob) {
       intentionallyKilled.add(jobId);
-      activeJob.process.kill("SIGTERM");
+      killProcessTree(activeJob.process);
       activeJob.job.status = "cancelled";
       active.delete(jobId);
       storedInputs.delete(jobId);
@@ -202,7 +214,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
       return false;
     }
     intentionallyKilled.add(jobId);
-    activeJob.process.kill("SIGTERM");
+    killProcessTree(activeJob.process);
     storedInputs.set(jobId, { job: { ...activeJob.job, status: "paused", resume: true } });
     active.delete(jobId);
     logger.debug("Job paused from active:", jobId);
