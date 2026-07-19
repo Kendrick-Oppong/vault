@@ -9,7 +9,7 @@ export interface VaultDb {
   bulkDeleteHistory: (jobIds: string[]) => void;
   isArchived: (destinationFolder: string, videoId: string) => boolean;
   markArchived: (destinationFolder: string, videoId: string) => void;
-  getCachedFormats: (url: string, ttlMs?: number) => unknown | null;
+  getCachedFormats: (url: string, ttlMs?: number) => unknown;
   setCachedFormats: (url: string, payload: unknown) => void;
   clearFormatCache: (url?: string) => void;
 }

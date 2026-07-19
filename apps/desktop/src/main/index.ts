@@ -413,7 +413,7 @@ function registerIpcHandlers(): void {
       ytDlp: status.ytDlp,
       ffmpeg: status.ffmpeg,
       errors: status.errors,
-      errorMessage: !status.allReady ? getDependencyErrorMessage(status) : null
+      errorMessage: status.allReady ? null : getDependencyErrorMessage(status)
     };
   });
 
@@ -434,7 +434,7 @@ function registerIpcHandlers(): void {
       ytDlp: status.ytDlp,
       ffmpeg: status.ffmpeg,
       errors: status.errors,
-      errorMessage: !status.allReady ? getDependencyErrorMessage(status) : null
+      errorMessage: status.allReady ? null : getDependencyErrorMessage(status)
     };
   });
 
@@ -655,12 +655,12 @@ app.whenReady().then(async () => {
 
   // Check dependencies before starting
   const depStatus = await checkDependencies(binaryPath, ffmpegPath);
-  if (!depStatus.allReady) {
-    logger.error("Dependencies missing:", depStatus.errors);
-  } else {
+  if (depStatus.allReady) {
     logger.info("All dependencies ready");
     logger.info(`yt-dlp: ${depStatus.ytDlp.version}`);
     logger.info(`ffmpeg: ${depStatus.ffmpeg.version}`);
+  } else {
+    logger.error("Dependencies missing:", depStatus.errors);
   }
 
   ytdlp = createYtDlpManager({
