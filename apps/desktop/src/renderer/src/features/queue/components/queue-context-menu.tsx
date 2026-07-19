@@ -89,8 +89,10 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
           if (item.filePath) {
             revealFile(item.filePath);
           } else {
-            toast.info("File not available yet", {
-              description: "The file path will be available once the download completes."
+            toast.info(isCompleted ? "File path not available" : "File not available yet", {
+              description: isCompleted
+                ? "The destination path was not recorded for this download."
+                : "The file path will be available once the download completes."
             });
           }
         }}
