@@ -34,7 +34,8 @@ export const useQueueDownload = () => {
   return useMutation({
     mutationFn: (input: JobInput) => downloadsApi.queueDownload(input),
     onSuccess: (jobId) => {
-      queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.jobs.active() });
       toast.success("Download queued successfully", {
         description: `Job ID: ${jobId.slice(0, 8)}...`
       });
@@ -47,7 +48,7 @@ export const useQueueDownload = () => {
   });
 };
 
-export const useCancelDownload = () => {
+export const useCancelDownload = (options?: { successMessage?: string; errorMessage?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (jobId: string) => downloadsApi.cancelDownload(jobId),
@@ -56,15 +57,15 @@ export const useCancelDownload = () => {
         queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old) =>
           old ? old.filter((j) => j.id !== jobId) : []
         );
-        toast.success("Download cancelled");
+        toast.success(options?.successMessage || "Download cancelled");
       } else {
-        toast.error("Failed to cancel download", {
+        toast.error(options?.errorMessage || "Failed to cancel download", {
           description: "Job not found or already completed"
         });
       }
     },
     onError: (error: Error) => {
-      toast.error("Failed to cancel download", {
+      toast.error(options?.errorMessage || "Failed to cancel download", {
         description: formatError(error)
       });
     }
