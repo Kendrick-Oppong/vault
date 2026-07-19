@@ -15,5 +15,8 @@ export const downloadsApi = {
   listSubtitles: (url: string) => globalThis.api.listSubtitles(url),
   dependenciesCheck: () => globalThis.api.dependenciesCheck(),
   dependenciesDownload: () => globalThis.api.dependenciesDownload(),
-  getJobs: () => globalThis.api.getJobs()
+  getJobs: () => globalThis.api.getJobs(),
+  openFile: (filePath: string) => globalThis.api.openFile(filePath),
+  revealFile: (filePath: string) => globalThis.api.openInFolder(filePath),
+  fileExists: (filePath: string) => globalThis.api.fileExists(filePath)
 };
