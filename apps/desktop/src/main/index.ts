@@ -233,7 +233,8 @@ function registerIpcHandlers(): void {
     try {
       const fs = await import("node:fs");
       if (!fs.existsSync(dirPath)) return [];
-      return fs.readdirSync(dirPath, { withFileTypes: true })
+      return fs
+        .readdirSync(dirPath, { withFileTypes: true })
         .filter((e) => e.isFile())
         .map((e) => e.name);
     } catch {
@@ -596,9 +597,9 @@ app.whenReady().then(async () => {
     logger.info(`ffmpeg: ${depStatus.ffmpeg.version}`);
   }
 
-  ytdlp = createYtDlpManager({ 
-    binaryPath, 
-    ffmpegPath, 
+  ytdlp = createYtDlpManager({
+    binaryPath,
+    ffmpegPath,
     pluginPath,
     userDataPath: app.getPath("userData")
   });
