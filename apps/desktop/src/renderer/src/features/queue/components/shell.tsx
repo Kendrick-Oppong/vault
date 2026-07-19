@@ -11,8 +11,8 @@ import {
   useRetryDownload,
   useCancelDownload
 } from "@/lib/mutations/downloads";
-import { Loader2 } from "lucide-react";
 import { useSearchState } from "@/stores/search/search.selectors";
+import { SkeletonLoader } from "@/features/ui/components/skeleton-loader";
 
 export const QueueView = () => {
   const [activeFilter, setActiveFilter] = useState<QueueFilter>("all");
@@ -106,12 +106,7 @@ export const QueueView = () => {
   const isSearching = results.length > 0;
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64">
-        <Loader2 className="size-6 animate-spin text-muted-foreground mb-4" />
-        <p className="text-sm text-muted-foreground">Loading queue...</p>
-      </div>
-    );
+    return <SkeletonLoader type="queue" />;
   }
 
   return (
