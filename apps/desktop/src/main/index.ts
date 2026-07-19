@@ -242,7 +242,6 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("queue:getJobs", () => {
-    logger.debug("IPC: queue:getJobs");
     return pool.getJobs();
   });
 
@@ -610,7 +609,6 @@ function registerIpcHandlers(): void {
 
   // Logger IPC
   ipcMain.handle("logs:history", () => {
-    logger.debug("IPC: logs:history");
     return logger.history();
   });
 
