@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { statSync } from "node:fs";
 import icon from "../../resources/icon.png?asset";
 import { createYtDlpManager, type YtDlpManager } from "./ytdlp-manager";
 import { probePlaylistPage } from "./ytdlp-manager";
@@ -84,8 +85,59 @@ function forwardPoolEventsToRenderer(): void {
   pool.on("job:progress", (jobId, progress) =>
     mainWindow?.webContents.send("job:progress", jobId, progress)
   );
-  pool.on("job:completed", (job) => mainWindow?.webContents.send("job:completed", job));
-  pool.on("job:failed", (job, err) => mainWindow?.webContents.send("job:failed", job, err));
+  pool.on("job:completed", (job) => {
+    mainWindow?.webContents.send("job:completed", job);
+    try {
+      let file_size: number | null = null;
+      if (job.meta?.expectedPath) {
+        try {
+          file_size = statSync(job.meta.expectedPath).size;
+        } catch {
+          // File might not exist
+        }
+      }
+      db.addHistoryEntry({
+        job_id: job.id,
+        video_id: job.meta?.videoId || null,
+        title: job.meta?.title || null,
+        channel: job.meta?.channel || null,
+        url: job.url,
+        file_path: job.meta?.expectedPath || null,
+        thumbnail_url: job.meta?.thumbnailUrl || null,
+        status: job.status,
+        media_type: job.meta?.mediaType || null,
+        quality: job.meta?.quality || null,
+        file_size,
+        created_at: job.createdAt,
+        completed_at: Date.now()
+      });
+    } catch (err) {
+      logger.error("Failed to save completed job to history:", err);
+    }
+  });
+
+  pool.on("job:failed", (job, err) => {
+    mainWindow?.webContents.send("job:failed", job, err);
+    try {
+      db.addHistoryEntry({
+        job_id: job.id,
+        video_id: job.meta?.videoId || null,
+        title: job.meta?.title || null,
+        channel: job.meta?.channel || null,
+        url: job.url,
+        file_path: job.meta?.expectedPath || null,
+        thumbnail_url: job.meta?.thumbnailUrl || null,
+        status: job.status,
+        media_type: job.meta?.mediaType || null,
+        quality: job.meta?.quality || null,
+        file_size: null,
+        created_at: job.createdAt,
+        completed_at: Date.now()
+      });
+    } catch (e) {
+      logger.error("Failed to save failed job to history:", e);
+    }
+  });
   pool.on("job:cancelled", (job) => mainWindow?.webContents.send("job:cancelled", job));
   pool.on("job:paused", (job) => mainWindow?.webContents.send("job:paused", job));
 
@@ -113,7 +165,7 @@ function registerIpcHandlers(): void {
     const cookieFile = cookies.getCookiesPath();
     const probeExtras = cookieFile ? { cookiesFile: cookieFile } : {};
 
-    const binaryPaths = resolveBinaryPaths();
+    const binaryPaths = { ...resolveBinaryPaths(), userDataPath: app.getPath("userData") };
     return await probePlaylistPage(binaryPaths, url, start, end, probeExtras);
   });
 
@@ -208,6 +260,12 @@ function registerIpcHandlers(): void {
   ipcMain.handle("history:delete", (_e, jobId: string) => {
     logger.debug("IPC: history:delete", jobId);
     db.deleteHistory(jobId);
+    return true;
+  });
+
+  ipcMain.handle("history:bulkDelete", (_e, jobIds: string[]) => {
+    logger.debug("IPC: history:bulkDelete", { count: jobIds.length });
+    db.bulkDeleteHistory(jobIds);
     return true;
   });
 
