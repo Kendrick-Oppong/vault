@@ -222,6 +222,25 @@ function registerIpcHandlers(): void {
     return error || null;
   });
 
+  ipcMain.handle("fs:fileExists", async (_e, filePath: string) => {
+    logger.debug("IPC: fs:fileExists", filePath);
+    const fs = await import("node:fs");
+    return fs.existsSync(filePath);
+  });
+
+  ipcMain.handle("fs:scanDir", async (_e, dirPath: string) => {
+    logger.debug("IPC: fs:scanDir", dirPath);
+    try {
+      const fs = await import("node:fs");
+      if (!fs.existsSync(dirPath)) return [];
+      return fs.readdirSync(dirPath, { withFileTypes: true })
+        .filter((e) => e.isFile())
+        .map((e) => e.name);
+    } catch {
+      return [];
+    }
+  });
+
   ipcMain.handle(
     "dialog:openFile",
     async (_e, opts: { title?: string; filters?: { name: string; extensions: string[] }[] }) => {
