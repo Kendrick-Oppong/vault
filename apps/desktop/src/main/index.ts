@@ -54,6 +54,8 @@ function createWindow(): void {
     height: 800,
     show: false,
     autoHideMenuBar: true,
+    frame: false,
+    titleBarStyle: "hidden",
     ...(process.platform === "linux" ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
@@ -64,6 +66,14 @@ function createWindow(): void {
 
   mainWindow.on("ready-to-show", () => {
     mainWindow.show();
+  });
+
+  mainWindow.on("maximize", () => {
+    mainWindow.webContents.send("window:maximized");
+  });
+
+  mainWindow.on("unmaximize", () => {
+    mainWindow.webContents.send("window:unmaximized");
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
