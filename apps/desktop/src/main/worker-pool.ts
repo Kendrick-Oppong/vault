@@ -67,6 +67,11 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
       job.extra,
       job.downloadPath,
       (progress: YtDlpProgress) => {
+        if (progress.filename) {
+          job.meta ??= {};
+          // Remove .part or .ytdl suffixes that yt-dlp uses for active downloads
+          job.meta.expectedPath = progress.filename.replace(/\.(part|ytdl)$/, "");
+        }
         const tracked = tracker.track(progress);
         emitter.emit("job:progress", job.id, tracked);
         if (tracker.isStalled(15000)) {
@@ -168,6 +173,13 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
       emitter.emit("job:cancelled", { ...stored.job, status: "cancelled" as const });
       return true;
     }
+    // Also check completed jobs
+    if (completed.has(jobId)) {
+      completed.delete(jobId);
+      logger.debug("Job removed from completed list:", jobId);
+      // It's already completed, so we just remove it silently from the pool
+      return true;
+    }
     logger.warn("Job not found for cancellation:", jobId);
     return false;
   }
@@ -237,7 +249,12 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     const pausedJobs = Array.from(storedInputs.values())
       .filter((stored) => stored.job.status === "paused")
       .map((stored) => stored.job);
-    const jobs = [...queue, ...active.values().map((a) => a.job), ...completed.values(), ...pausedJobs];
+    const jobs = [
+      ...queue,
+      ...active.values().map((a) => a.job),
+      ...completed.values(),
+      ...pausedJobs
+    ];
     return jobs.sort((a, b) => b.createdAt - a.createdAt);
   }
 
