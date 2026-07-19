@@ -31,7 +31,10 @@ export const HistoryContextMenu = ({ children, item }: HistoryContextMenuProps) 
             if (item.filePath) {
               openFileMutation.mutate(item.filePath);
             } else {
-              toast.error("File path not available");
+              toast.error("File path not available", {
+                description:
+                  "This file might have been downloaded with an older version, or it was moved/deleted."
+              });
             }
           }}
           className="flex items-center gap-2"
@@ -45,7 +48,10 @@ export const HistoryContextMenu = ({ children, item }: HistoryContextMenuProps) 
             if (item.filePath) {
               revealFileMutation.mutate(item.filePath);
             } else {
-              toast.error("File path not available");
+              toast.error("File path not available", {
+                description:
+                  "This file might have been downloaded with an older version, or it was moved/deleted."
+              });
             }
           }}
           className="flex items-center gap-2"
