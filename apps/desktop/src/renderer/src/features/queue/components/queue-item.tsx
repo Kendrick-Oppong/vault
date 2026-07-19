@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Checkbox } from "@vault/ui/components/checkbox";
 import { Button } from "@vault/ui/components/button";
+import { useModalStore } from "@/stores/ui/modal.store";
 import { cn } from "@vault/ui/lib/utils";
 import {
   Video,
@@ -57,8 +58,13 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const isCompleted = item.status === "completed";
   const [imgError, setImgError] = useState(false);
 
+  const { openConfirmDialog } = useModalStore();
   const { data: rawProgress } = useJobProgress(item.id);
-  const { mutate: cancelDownload } = useCancelDownload();
+  const { mutate: cancelDownload } = useCancelDownload({
+    successMessage: isCompleted || isError ? "Removed from queue" : "Download cancelled",
+    errorMessage:
+      isCompleted || isError ? "Failed to remove from queue" : "Failed to cancel download"
+  });
   const { mutate: pauseDownload } = usePauseDownload();
   const { mutate: resumeDownload } = useResumeDownload();
   const { mutate: retryDownload } = useRetryDownload();
@@ -118,7 +124,16 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => cancelDownload(item.id)}
+            onClick={() => {
+              openConfirmDialog({
+                title: "Cancel download?",
+                description:
+                  "Are you sure you want to cancel this download? Partial files may be deleted.",
+                confirmText: "Cancel Download",
+                variant: "danger",
+                onConfirm: () => cancelDownload(item.id)
+              });
+            }}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Cancel"
           >
@@ -143,7 +158,16 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => cancelDownload(item.id)}
+            onClick={() => {
+              openConfirmDialog({
+                title: "Cancel download?",
+                description:
+                  "Are you sure you want to cancel this download? Partial files may be deleted.",
+                confirmText: "Cancel Download",
+                variant: "danger",
+                onConfirm: () => cancelDownload(item.id)
+              });
+            }}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Cancel"
           >
@@ -239,7 +263,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <Checkbox
             checked={isSelected}
             onCheckedChange={() => onSelect(item.id)}
-            className="w-4 h-4 shrink-0 self-start mt-1"
+            className="w-4 h-4 dark:border-gray-300 shrink-0 self-start mt-1"
             onClick={(e) => e.stopPropagation()}
           />
 
@@ -361,7 +385,9 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                   )}
                 </div>
                 <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
-                  <span>{isPaused ? "Paused" : isPostProcessing ? postProcessLabel : "Downloading"}</span>
+                  <span>
+                    {isPaused ? "Paused" : isPostProcessing ? postProcessLabel : "Downloading"}
+                  </span>
                   {!isPostProcessing && downloaded && size && (
                     <div className="flex items-center gap-3">
                       <span>
