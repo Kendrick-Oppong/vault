@@ -56,6 +56,10 @@ jobs:
         env:
           # GitHub Releases upload
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Don't scan the runner keychain for a signing identity. When CSC_LINK
+          # is empty this lets macOS/Windows build cleanly UNSIGNED instead of
+          # failing; when a cert secret is provided it is still imported and used.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
           # Code signing (set these repo secrets to enable signed/notarized builds).
           # macOS: Developer ID cert (.p12 base64) + notarization credentials.
           CSC_LINK: ${{ secrets.CSC_LINK }}

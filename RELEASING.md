@@ -33,8 +33,14 @@ for a test build.
 
 electron-updater **cannot install updates on macOS unless the build is signed and
 notarized**. Windows updates work unsigned but show SmartScreen warnings, so signing is
-recommended there too. Add these as **repository secrets** (Settings → Secrets and
-variables → Actions):
+recommended there too.
+
+**Current state:** no signing secrets are set, so all three platforms build **unsigned**.
+Windows and Linux still auto-update normally; macOS installers are published but **Mac
+clients will not auto-update** until the Apple secrets below are added (requires the paid
+Apple Developer Program, $99/yr).
+
+Add these as **repository secrets** (Settings → Secrets and variables → Actions):
 
 | Secret | Platform | Purpose |
 | --- | --- | --- |
