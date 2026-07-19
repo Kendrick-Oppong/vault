@@ -15,7 +15,7 @@ import { Video, Music, Info, AudioLines, FolderOpen, Volume2 } from "lucide-reac
 import { cn } from "@vault/ui/lib/utils";
 import type { FormatModalData, FormatModalProps, MediaType, Preset } from "../types";
 import { useSettingsStore } from "@/stores/settings/settings.store";
-import { selectSettings } from "@/stores/settings/settings.selectors";
+import { selectSettings, useSettingsActions } from "@/stores/settings/settings.selectors";
 import { useModalActions } from "@/stores/ui/modal.selectors";
 import { SkeletonLoader } from "@/features/ui/components/skeleton-loader";
 import { useOpenFolderDialog } from "@/lib/mutations/files";
@@ -50,6 +50,7 @@ export const FormatModal = ({
   onConfirm
 }: FormatModalProps) => {
   const settings = useSettingsStore(selectSettings);
+  const { updateSetting } = useSettingsActions();
   const openFolderMutation = useOpenFolderDialog();
   const { updateFormatModalData } = useModalActions();
   const playlistPageMutation = useProbePlaylistPageMutation();
@@ -691,7 +692,10 @@ export const FormatModal = ({
                   onClick={() =>
                     openFolderMutation.mutate(undefined, {
                       onSuccess: (folder) => {
-                        if (folder) setDestination(folder);
+                        if (folder) {
+                          setDestination(folder);
+                          updateSetting("downloadPath", folder);
+                        }
                       }
                     })
                   }
