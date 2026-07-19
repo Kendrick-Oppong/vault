@@ -596,7 +596,12 @@ app.whenReady().then(async () => {
     logger.info(`ffmpeg: ${depStatus.ffmpeg.version}`);
   }
 
-  ytdlp = createYtDlpManager({ binaryPath, ffmpegPath, pluginPath });
+  ytdlp = createYtDlpManager({ 
+    binaryPath, 
+    ffmpegPath, 
+    pluginPath,
+    userDataPath: app.getPath("userData")
+  });
 
   pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
   db = initDb(join(app.getPath("userData"), "library.db"));
