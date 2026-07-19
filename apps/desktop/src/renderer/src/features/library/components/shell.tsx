@@ -21,7 +21,7 @@ export const LibraryView = () => {
     fetchNextPage
   } = useHistoryInfinite();
 
-  const history = infiniteData?.pages.flat() || [];
+  const history = useMemo(() => infiniteData?.pages.flat() || [], [infiniteData]);
 
   const mappedItems: LibraryItem[] = useMemo(() => {
     return history.map((entry) => ({
@@ -81,12 +81,8 @@ export const LibraryView = () => {
   };
 
   // Calculate stats based on loaded data
-  const totalSizeBytes = mappedItems.reduce((acc, item) => acc + item.sizeBytes, 0);
-  const totalSize = formatBytes(totalSizeBytes);
   const stats: LibraryStats = {
-    total: history.length,
-    totalSize,
-    totalSizeBytes
+    total: history.length
   };
 
   if (isLoading) {
@@ -102,7 +98,7 @@ export const LibraryView = () => {
     <div className="space-y-2">
       <div className="flex items-center justify-between py-2">
         <p className="text-[13px] font-semibold text-muted-foreground whitespace-nowrap">
-          {stats.total} items · {stats.totalSize}
+          {stats.total} items
         </p>
         <div className="flex-1 max-w-1/2">
           <FilterTabs
