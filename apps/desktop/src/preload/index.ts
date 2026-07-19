@@ -40,7 +40,8 @@ const vaultApi = {
 
   deleteHistory: (jobId: string): Promise<boolean> => ipcRenderer.invoke("history:delete", jobId),
 
-  bulkDeleteHistory: (jobIds: string[]): Promise<boolean> => ipcRenderer.invoke("history:bulkDelete", jobIds),
+  bulkDeleteHistory: (jobIds: string[]): Promise<boolean> =>
+    ipcRenderer.invoke("history:bulkDelete", jobIds),
 
   openInFolder: (filePath: string): Promise<void> => ipcRenderer.invoke("fs:reveal", filePath),
 
