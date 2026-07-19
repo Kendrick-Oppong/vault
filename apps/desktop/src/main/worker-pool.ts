@@ -119,11 +119,12 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
   }
 
   function enqueue(input: JobInput, resume = false): string {
+    const existingJob = input as Partial<Job>;
     const job: Job = {
       ...input,
-      id: randomUUID(),
+      id: existingJob.id || randomUUID(),
       status: "pending",
-      createdAt: Date.now(),
+      createdAt: existingJob.createdAt || Date.now(),
       resume
     };
     logger.info("Enqueuing job:", job.id, job.url, resume ? "(resume)" : "");
@@ -236,7 +237,8 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     const pausedJobs = Array.from(storedInputs.values())
       .filter((stored) => stored.job.status === "paused")
       .map((stored) => stored.job);
-    return [...queue, ...active.values().map((a) => a.job), ...completed.values(), ...pausedJobs];
+    const jobs = [...queue, ...active.values().map((a) => a.job), ...completed.values(), ...pausedJobs];
+    return jobs.sort((a, b) => b.createdAt - a.createdAt);
   }
 
   return {
