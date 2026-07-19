@@ -38,7 +38,7 @@ export function useJobEvents() {
 
     const handleJobCompleted = (job: Job) => {
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
-      queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
       toast.success(`Download completed: ${job.meta?.title || job.url}`);
     };
 
@@ -49,7 +49,7 @@ export function useJobEvents() {
           : err
       );
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
-      queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
       toast.error(`Download failed: ${job.meta?.title || job.url}`, {
         description: errorMessage
       });
@@ -57,7 +57,7 @@ export function useJobEvents() {
 
     const handleJobCancelled = (job: Job) => {
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
-      queryClient.invalidateQueries({ queryKey: QueryKeys.history.all() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
     };
 
     const handleJobPaused = (job: Job) => {
