@@ -8,6 +8,7 @@ import {
   useSystemAlertsActions
 } from "@/stores/system-alerts/system-alerts.selectors";
 import { useDownloadUpdate, useInstallUpdate } from "@/lib/queries/app";
+import { formatBytes } from "@/lib/utils/platform";
 
 interface AlertBannerProps {
   type: "offline" | "disk" | "update";
@@ -28,8 +29,8 @@ const alertConfig = {
     textColor: "text-destructive",
     iconColor: "text-destructive",
     defaultMessage:
-      "Connection lost. Active downloads are paused and will resume automatically when connection is restored.",
-    defaultActionText: "Retry"
+      "Connection lost. Active downloads have been paused. Resume them manually when reconnected.",
+    defaultActionText: "Check connection"
   },
   disk: {
     icon: AlertTriangle,
@@ -38,7 +39,7 @@ const alertConfig = {
     borderColor: "border-primary/20",
     textColor: "text-primary",
     iconColor: "text-primary",
-    defaultMessage: "Low disk space — 2.1 GB free. Downloads may pause until space is available.",
+    defaultMessage: "Low disk space. Downloads may fail.",
     defaultActionText: "Manage"
   },
   update: {
@@ -116,13 +117,14 @@ export const AlertBanners = () => {
   const {
     offline,
     lowDisk,
+    diskSpaceFree,
     updateAvailable,
     updateVersion,
     updateProgress,
     updateError,
     updateStatus
   } = useSystemAlertsState();
-  const { dismissUpdateAlert, setUpdateStatus } = useSystemAlertsActions();
+  const { dismissUpdateAlert, setUpdateStatus, setOffline } = useSystemAlertsActions();
   const downloadUpdateMutation = useDownloadUpdate();
   const installUpdateMutation = useInstallUpdate();
 
@@ -144,8 +146,17 @@ export const AlertBanners = () => {
   };
 
   const handleOfflineAction = () => {
-    // Retry connection - would be called when network comes back online
+    // Check if we're actually back online and update state accordingly
+    if (navigator.onLine) {
+      setOffline(false);
+      setDismissedOffline(false);
+    }
   };
+
+  const diskMessage =
+    diskSpaceFree > 0
+      ? `Low disk space — ${formatBytes(diskSpaceFree)} free. Downloads may fail.`
+      : "Low disk space. Downloads may fail.";
 
   const handleDiskAction = () => {
     // Open the settings view where storage info is visible
@@ -224,7 +235,12 @@ export const AlertBanners = () => {
       )}
 
       {lowDisk && !dismissedDisk && (
-        <AlertBanner type="disk" onDismiss={handleDiskDismiss} onAction={handleDiskAction} />
+        <AlertBanner
+          type="disk"
+          message={diskMessage}
+          onDismiss={handleDiskDismiss}
+          onAction={handleDiskAction}
+        />
       )}
 
       {updateAvailable && !dismissedUpdate && (
