@@ -2,7 +2,6 @@ import { Play, Video, Music, RefreshCw } from "lucide-react";
 import { LibraryContextMenu } from "./library-context-menu";
 import type { LibraryItem } from "../types";
 import { getTimeAgo } from "@/lib/utils/platform";
-import { useVideoPreviewActions } from "@/stores/video-preview/video-preview.selectors";
 import { useOpenFile } from "@/lib/mutations/files";
 
 interface LibraryCardProps {
@@ -11,21 +10,10 @@ interface LibraryCardProps {
 
 export const LibraryCard = ({ item }: LibraryCardProps) => {
   const isVideo = item.type === "video";
-  const { open: openPreview } = useVideoPreviewActions();
   const openFileMutation = useOpenFile();
 
   const handlePlayClick = () => {
-    if (isVideo && item.url) {
-      openPreview({
-        url: item.url,
-        title: item.title,
-        channel: item.channel,
-        thumbnail: item.thumbnail || null,
-        duration: null,
-        description: ""
-      });
-    } else if (item.filePath) {
-      // For audio or local files, try to open the file
+    if (item.filePath) {
       openFileMutation.mutate(item.filePath);
     }
   };

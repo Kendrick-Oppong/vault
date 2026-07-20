@@ -2,7 +2,6 @@ import { Play, Video, Music, RefreshCw } from "lucide-react";
 import { HistoryContextMenu } from "./history-context-menu";
 import type { HistoryItem } from "../types";
 import { getTimeAgo } from "@/lib/utils/platform";
-import { useVideoPreviewActions } from "@/stores/video-preview/video-preview.selectors";
 import { useOpenFile } from "@/lib/mutations/downloads";
 import { toast } from "sonner";
 
@@ -17,22 +16,11 @@ interface HistoryCardProps {
 
 export const HistoryCard = ({ item, isSelected, onSelect }: HistoryCardProps) => {
   const isVideo = item.type === "video";
-  const { open: openPreview } = useVideoPreviewActions();
   const openFileMutation = useOpenFile();
 
   const handlePlayClick = () => {
     if (item.status === "completed" && item.filePath) {
       openFileMutation.mutate(item.filePath);
-    } else if (isVideo && item.url && item.status !== "failed") {
-      // Fallback to preview if it's a video and file is missing (or it's still downloading)
-      openPreview({
-        url: item.url,
-        title: item.title,
-        channel: item.channel,
-        thumbnail: item.thumbnail || null,
-        duration: null,
-        description: ""
-      });
     } else if (item.status === "completed") {
       toast.error("File path not available", {
         description:
