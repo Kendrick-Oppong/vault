@@ -1,10 +1,16 @@
 import { create } from "zustand";
 
+export type UpdateStatus = "idle" | "available" | "downloading" | "downloaded" | "error";
+
 export interface SystemAlerts {
   offline: boolean;
   lowDisk: boolean;
   updateAvailable: boolean;
   diskSpaceFree: number; // in bytes
+  updateVersion: string | null;
+  updateProgress: number | null; // 0-100
+  updateError: string | null;
+  updateStatus: UpdateStatus;
 }
 
 export interface SystemAlertsState {
@@ -14,9 +20,12 @@ export interface SystemAlertsState {
 export interface SystemAlertsActions {
   setOffline: (offline: boolean) => void;
   setLowDisk: (lowDisk: boolean, freeSpace?: number) => void;
-  setUpdateAvailable: (available: boolean) => void;
+  setUpdateAvailable: (available: boolean, version?: string) => void;
   setDiskSpace: (bytes: number) => void;
   dismissUpdateAlert: () => void;
+  setUpdateProgress: (percent: number) => void;
+  setUpdateError: (error: string) => void;
+  setUpdateStatus: (status: UpdateStatus) => void;
 }
 
 export type SystemAlertsStore = SystemAlertsState & SystemAlertsActions;
@@ -25,7 +34,11 @@ const initialState: SystemAlerts = {
   offline: false,
   lowDisk: false,
   updateAvailable: false,
-  diskSpaceFree: 0
+  diskSpaceFree: 0,
+  updateVersion: null,
+  updateProgress: null,
+  updateError: null,
+  updateStatus: "idle"
 };
 
 export const useSystemAlertsStore = create<SystemAlertsStore>((set) => ({
@@ -45,9 +58,14 @@ export const useSystemAlertsStore = create<SystemAlertsStore>((set) => ({
       }
     })),
 
-  setUpdateAvailable: (available: boolean) =>
+  setUpdateAvailable: (available: boolean, version?: string) =>
     set((state) => ({
-      alerts: { ...state.alerts, updateAvailable: available }
+      alerts: {
+        ...state.alerts,
+        updateAvailable: available,
+        updateVersion: version ?? state.alerts.updateVersion,
+        updateStatus: available ? "available" : "idle"
+      }
     })),
 
   setDiskSpace: (bytes: number) =>
@@ -61,6 +79,36 @@ export const useSystemAlertsStore = create<SystemAlertsStore>((set) => ({
 
   dismissUpdateAlert: () =>
     set((state) => ({
-      alerts: { ...state.alerts, updateAvailable: false }
+      alerts: {
+        ...state.alerts,
+        updateAvailable: false,
+        updateStatus: "idle",
+        updateProgress: null,
+        updateError: null
+      }
+    })),
+
+  setUpdateProgress: (percent: number) =>
+    set((state) => ({
+      alerts: {
+        ...state.alerts,
+        updateProgress: percent,
+        updateStatus: "downloading"
+      }
+    })),
+
+  setUpdateError: (error: string) =>
+    set((state) => ({
+      alerts: {
+        ...state.alerts,
+        updateError: error,
+        updateStatus: "error",
+        updateProgress: null
+      }
+    })),
+
+  setUpdateStatus: (status: UpdateStatus) =>
+    set((state) => ({
+      alerts: { ...state.alerts, updateStatus: status }
     }))
 }));

@@ -8,7 +8,11 @@ export const useSystemAlertsState = () =>
       offline: state.alerts.offline,
       lowDisk: state.alerts.lowDisk,
       updateAvailable: state.alerts.updateAvailable,
-      diskSpaceFree: state.alerts.diskSpaceFree
+      diskSpaceFree: state.alerts.diskSpaceFree,
+      updateVersion: state.alerts.updateVersion,
+      updateProgress: state.alerts.updateProgress,
+      updateError: state.alerts.updateError,
+      updateStatus: state.alerts.updateStatus
     }))
   );
 
@@ -19,7 +23,10 @@ export const useSystemAlertsActions = () =>
       setLowDisk: state.setLowDisk,
       setUpdateAvailable: state.setUpdateAvailable,
       setDiskSpace: state.setDiskSpace,
-      dismissUpdateAlert: state.dismissUpdateAlert
+      dismissUpdateAlert: state.dismissUpdateAlert,
+      setUpdateProgress: state.setUpdateProgress,
+      setUpdateError: state.setUpdateError,
+      setUpdateStatus: state.setUpdateStatus
     }))
   );
 
