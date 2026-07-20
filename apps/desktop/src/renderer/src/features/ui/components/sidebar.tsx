@@ -1,7 +1,6 @@
-import { History, Layers, Moon, Settings2, Sun, ScrollText } from "lucide-react";
+import { History, Layers, Settings2, ScrollText } from "lucide-react";
 import { Button } from "@vault/ui/components/button";
 import { useNavigationState } from "@/stores/navigation/navigation.selectors";
-import { useUIState } from "@/stores/ui/ui.selectors";
 import { StorageIndicator } from "@/features/ui/components/storage-indicator";
 import type { SidebarItem } from "../types";
 import type { NavigationView } from "@/stores/navigation/navigation.store";
@@ -18,8 +17,6 @@ import { useHistory } from "@/lib/queries/history";
 
 export const SideBar = () => {
   const { currentView, navigate } = useNavigationState();
-  const { theme, setTheme } = useUIState();
-  const isDark = theme === "dark";
 
   // Fetch real counts
   const { data: activeJobs = [] } = useActiveJobs();
@@ -72,17 +69,6 @@ export const SideBar = () => {
       <div className="mt-auto flex flex-col gap-2 px-2 pb-4 pt-2">
         {/* Storage indicator */}
         <StorageIndicator />
-
-        {/* Theme toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          className="h-8 w-8 rounded-md text-sidebar-foreground hover:bg-sidebar-accent/50"
-          aria-label="Toggle theme"
-        >
-          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </Button>
       </div>
     </aside>
   );
