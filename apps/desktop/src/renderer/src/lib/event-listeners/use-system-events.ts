@@ -12,7 +12,7 @@ const LOW_DISK_THRESHOLD_BYTES = 1 * 1024 * 1024 * 1024;
  * Mount this once at the app root (inside QueryClientProvider).
  */
 export function useSystemEvents() {
-  const { setOffline, setDiskSpace } = useSystemAlertsActions();
+  const { setOffline, setNetworkRestored, setDiskSpace } = useSystemAlertsActions();
   const pauseAllMutation = usePauseAllDownloads();
   const diskSpaceQuery = useDiskSpace();
 
@@ -23,25 +23,31 @@ export function useSystemEvents() {
 
     const handleOffline = () => {
       setOffline(true);
+      setNetworkRestored(false);
       // Auto-pause all active downloads when connection is lost
       pauseAllMutation.mutate();
     };
 
     const handleOnline = () => {
       setOffline(false);
+      setNetworkRestored(true);
       // User must manually resume — do not auto-resume
+      // Auto-hide the "network restored" notification after 5 seconds
+      setTimeout(() => {
+        setNetworkRestored(false);
+      }, 5000);
     };
 
-    window.addEventListener("offline", handleOffline);
-    window.addEventListener("online", handleOnline);
+    globalThis.addEventListener("offline", handleOffline);
+    globalThis.addEventListener("online", handleOnline);
 
     return () => {
-      window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("online", handleOnline);
+      globalThis.removeEventListener("offline", handleOffline);
+      globalThis.removeEventListener("online", handleOnline);
     };
     // pauseAllMutation is stable (from useMutation), no need in deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setOffline]);
+  }, [setOffline, setNetworkRestored]);
 
   // --- Disk space: push query results into the store ---
   useEffect(() => {
