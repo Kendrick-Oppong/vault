@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@vault/ui/components/button";
 import { Progress } from "@vault/ui/components/progress";
-import { WifiOff, AlertTriangle, Sparkles, X, Download } from "lucide-react";
+import { WifiOff, AlertTriangle, Sparkles, X, Download, CheckCircle2 } from "lucide-react";
 import { cn } from "@vault/ui/lib/utils";
 import {
   useSystemAlertsState,
@@ -116,6 +116,7 @@ export const AlertBanner = ({
 export const AlertBanners = () => {
   const {
     offline,
+    networkRestored,
     lowDisk,
     diskSpaceFree,
     updateAvailable,
@@ -128,13 +129,8 @@ export const AlertBanners = () => {
   const downloadUpdateMutation = useDownloadUpdate();
   const installUpdateMutation = useInstallUpdate();
 
-  const [dismissedOffline, setDismissedOffline] = useState(false);
   const [dismissedDisk, setDismissedDisk] = useState(false);
   const [dismissedUpdate, setDismissedUpdate] = useState(false);
-
-  const handleOfflineDismiss = () => {
-    setDismissedOffline(true);
-  };
 
   const handleDiskDismiss = () => {
     setDismissedDisk(true);
@@ -145,22 +141,10 @@ export const AlertBanners = () => {
     dismissUpdateAlert();
   };
 
-  const handleOfflineAction = () => {
-    // Check if we're actually back online and update state accordingly
-    if (navigator.onLine) {
-      setOffline(false);
-      setDismissedOffline(false);
-    }
-  };
-
   const diskMessage =
     diskSpaceFree > 0
       ? `Low disk space — ${formatBytes(diskSpaceFree)} free. Downloads may fail.`
       : "Low disk space. Downloads may fail.";
-
-  const handleDiskAction = () => {
-    // Open the settings view where storage info is visible
-  };
 
   const handleDownloadUpdate = () => {
     downloadUpdateMutation.mutate();
@@ -226,21 +210,29 @@ export const AlertBanners = () => {
 
   return (
     <div className="flex flex-col">
-      {offline && !dismissedOffline && (
+      {offline && (
         <AlertBanner
           type="offline"
-          onDismiss={handleOfflineDismiss}
-          onAction={handleOfflineAction}
+          message="Connection lost. Active downloads are paused and will resume automatically when connection is restored."
+          onAction={() => {
+            // if we're back online, update state
+            if (navigator.onLine) {
+              setOffline(false);
+            }
+          }}
+          actionText="Retry"
         />
       )}
 
+      {networkRestored && (
+        <div className="flex items-center gap-2 px-4 py-2 text-[12.5px] border-b bg-primary/10 border-primary/20 text-primary">
+          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-primary" />
+          <span className="flex-1">Connection restored. Network is now online.</span>
+        </div>
+      )}
+
       {lowDisk && !dismissedDisk && (
-        <AlertBanner
-          type="disk"
-          message={diskMessage}
-          onDismiss={handleDiskDismiss}
-          onAction={handleDiskAction}
-        />
+        <AlertBanner type="disk" message={diskMessage} onDismiss={handleDiskDismiss} />
       )}
 
       {updateAvailable && !dismissedUpdate && (
