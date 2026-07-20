@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { FilterTabs } from "./filter-tabs";
 import { LibraryCard } from "./library-card";
-import type { LibraryItem, LibrarySort, SortOrder, LibraryStats } from "../types";
+import type { LibraryItem, LibrarySort, SortOrder } from "../types";
 import { EmptyState } from "@/features/ui/components/empty-state";
 import { Search, Loader2, ChevronDown } from "lucide-react";
 
