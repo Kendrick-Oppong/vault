@@ -4,6 +4,7 @@ export type UpdateStatus = "idle" | "available" | "downloading" | "downloaded" |
 
 export interface SystemAlerts {
   offline: boolean;
+  networkRestored: boolean; // Track when network comes back online
   lowDisk: boolean;
   updateAvailable: boolean;
   diskSpaceFree: number; // in bytes
@@ -20,6 +21,7 @@ export interface SystemAlertsState {
 
 export interface SystemAlertsActions {
   setOffline: (offline: boolean) => void;
+  setNetworkRestored: (restored: boolean) => void;
   setLowDisk: (lowDisk: boolean, freeSpace?: number) => void;
   setUpdateAvailable: (available: boolean, version?: string) => void;
   setDiskSpace: (freeBytes: number, totalBytes: number) => void;
@@ -33,6 +35,7 @@ export type SystemAlertsStore = SystemAlertsState & SystemAlertsActions;
 
 const initialState: SystemAlerts = {
   offline: false,
+  networkRestored: false,
   lowDisk: false,
   updateAvailable: false,
   diskSpaceFree: 0,
@@ -49,6 +52,11 @@ export const useSystemAlertsStore = create<SystemAlertsStore>((set) => ({
   setOffline: (offline: boolean) =>
     set((state) => ({
       alerts: { ...state.alerts, offline }
+    })),
+
+  setNetworkRestored: (restored: boolean) =>
+    set((state) => ({
+      alerts: { ...state.alerts, networkRestored: restored }
     })),
 
   setLowDisk: (lowDisk: boolean, freeSpace?: number) =>

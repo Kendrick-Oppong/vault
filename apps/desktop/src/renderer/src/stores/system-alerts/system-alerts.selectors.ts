@@ -6,6 +6,7 @@ export const useSystemAlertsState = () =>
   useSystemAlertsStore(
     useShallow((state) => ({
       offline: state.alerts.offline,
+      networkRestored: state.alerts.networkRestored,
       lowDisk: state.alerts.lowDisk,
       updateAvailable: state.alerts.updateAvailable,
       diskSpaceFree: state.alerts.diskSpaceFree,
@@ -21,6 +22,7 @@ export const useSystemAlertsActions = () =>
   useSystemAlertsStore(
     useShallow((state) => ({
       setOffline: state.setOffline,
+      setNetworkRestored: state.setNetworkRestored,
       setLowDisk: state.setLowDisk,
       setUpdateAvailable: state.setUpdateAvailable,
       setDiskSpace: state.setDiskSpace,
