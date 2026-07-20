@@ -26,13 +26,13 @@ import {
   Loader2,
   FolderOpen
 } from "lucide-react";
-import { toast } from "sonner";
 import { useSettingsStore } from "@/stores/settings/settings.store";
 import { selectSettings, useSettingsActions } from "@/stores/settings/settings.selectors";
 import { useSetConcurrency } from "@/lib/mutations/downloads";
 import { useUIState } from "@/stores/ui/ui.selectors";
 import { useCookieInfo } from "@/lib/queries/cookies";
 import { useSetCookieBrowser, useRefreshCookies, useClearCookies } from "@/lib/mutations/cookies";
+import { useClearDownloadArchive } from "@/lib/mutations/cache";
 import { useCheckForUpdates } from "@/lib/queries/app";
 import { useOpenFolderDialog } from "@/lib/mutations/files";
 import { useDependenciesCheck } from "@/lib/queries/dependencies";
@@ -59,6 +59,7 @@ export const SettingsView = () => {
   const clearMutation = useClearCookies();
   const checkUpdatesMutation = useCheckForUpdates();
   const openFolderMutation = useOpenFolderDialog();
+  const clearDownloadArchiveMutation = useClearDownloadArchive();
   const { data: deps, isLoading: depsLoading } = useDependenciesCheck();
 
   const handleConcurrentChange = (delta: number) => {
@@ -510,15 +511,8 @@ export const SettingsView = () => {
                     "This will clear the record of all previously downloaded videos. Vault won't know what's already been downloaded and may re-download duplicates.",
                   confirmText: "Reset",
                   variant: "danger",
-                  onConfirm: async () => {
-                    const result = await globalThis.api.clearDownloadArchive(settings.downloadPath);
-                    if (result.success) {
-                      toast.success("Download archive reset");
-                    } else {
-                      toast.error("Failed to reset download archive", {
-                        description: result.error
-                      });
-                    }
+                  onConfirm: () => {
+                    clearDownloadArchiveMutation.mutate(settings.downloadPath);
                   }
                 })
               }
