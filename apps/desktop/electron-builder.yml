@@ -1,4 +1,4 @@
-appId: com.electron.app
+appId: com.vault.app
 productName: vault
 directories:
   buildResources: build
@@ -32,7 +32,6 @@ dmg:
 linux:
   target:
     - AppImage
-    - snap
     - deb
   maintainer: electronjs.org
   category: Utility
@@ -40,5 +39,6 @@ appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: true
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: Kendrick-Oppong
+  repo: vault
