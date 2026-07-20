@@ -9,6 +9,7 @@ export const useSystemAlertsState = () =>
       lowDisk: state.alerts.lowDisk,
       updateAvailable: state.alerts.updateAvailable,
       diskSpaceFree: state.alerts.diskSpaceFree,
+      diskSizeTotal: state.alerts.diskSizeTotal,
       updateVersion: state.alerts.updateVersion,
       updateProgress: state.alerts.updateProgress,
       updateError: state.alerts.updateError,
