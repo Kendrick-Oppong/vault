@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { downloadsApi } from "@/lib/api/downloads";
 import { QueryKeys } from "@/lib/constants/query-keys";
 import { formatError } from "@/lib/utils/format-error";
-import type { JobInput, Job } from "@vault/types";
+import type { JobInput } from "@vault/types";
 
 export const useProbeFormatsMutation = () => {
   return useMutation({
@@ -52,7 +52,7 @@ export const useCancelDownload = (options?: { successMessage?: string; errorMess
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (jobId: string) => downloadsApi.cancelDownload(jobId),
-    onSuccess: (success, jobId) => {
+    onSuccess: (success) => {
       if (success) {
         queryClient.invalidateQueries({ queryKey: QueryKeys.jobs.active() });
         toast.success(options?.successMessage || "Download cancelled");
@@ -113,7 +113,7 @@ export const useResumeDownload = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (jobId: string) => downloadsApi.resumeDownload(jobId),
-    onSuccess: (newJobId, oldJobId) => {
+    onSuccess: (newJobId) => {
       if (newJobId) {
         queryClient.invalidateQueries({ queryKey: QueryKeys.jobs.active() });
         toast.success("Download resumed");
@@ -135,7 +135,7 @@ export const useRetryDownload = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (jobId: string) => downloadsApi.retryDownload(jobId),
-    onSuccess: (newJobId, oldJobId) => {
+    onSuccess: (newJobId) => {
       if (newJobId) {
         queryClient.invalidateQueries({ queryKey: QueryKeys.jobs.active() });
         toast.success("Retrying download");
