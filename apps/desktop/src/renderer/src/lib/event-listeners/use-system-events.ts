@@ -31,7 +31,6 @@ export function useSystemEvents() {
     const handleOnline = () => {
       setOffline(false);
       setNetworkRestored(true);
-      // User must manually resume — do not auto-resume
       // Auto-hide the "network restored" notification after 5 seconds
       setTimeout(() => {
         setNetworkRestored(false);
