@@ -3,6 +3,7 @@ import { LibraryContextMenu } from "./library-context-menu";
 import type { LibraryItem } from "../types";
 import { getTimeAgo } from "@/lib/utils/platform";
 import { useVideoPreviewActions } from "@/stores/video-preview/video-preview.selectors";
+import { useOpenFile } from "@/lib/mutations/files";
 
 interface LibraryCardProps {
   item: LibraryItem;
@@ -11,6 +12,7 @@ interface LibraryCardProps {
 export const LibraryCard = ({ item }: LibraryCardProps) => {
   const isVideo = item.type === "video";
   const { open: openPreview } = useVideoPreviewActions();
+  const openFileMutation = useOpenFile();
 
   const handlePlayClick = () => {
     if (isVideo && item.url) {
@@ -24,7 +26,7 @@ export const LibraryCard = ({ item }: LibraryCardProps) => {
       });
     } else if (item.filePath) {
       // For audio or local files, try to open the file
-      globalThis.api?.openFile?.(item.filePath);
+      openFileMutation.mutate(item.filePath);
     }
   };
 
