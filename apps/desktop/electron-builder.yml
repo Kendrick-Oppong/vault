@@ -1,44 +1,77 @@
-appId: com.electron.app
-productName: vault
+appId: com.vault.app
+productName: Vault
+copyright: Copyright © 2026 Kendrick-Oppong
+
 directories:
+  output: dist
   buildResources: build
+
 files:
   - "!**/.vscode/*"
   - "!src/*"
+  - "!docs/*"
+  - "!tests/*"
   - "!electron.vite.config.{js,ts,mjs,cjs}"
-  - "!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}"
+  - "!{.eslintignore,.eslintrc.cjs,eslint.config.mjs,.prettierignore,.prettierrc.json}"
+  - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,postcss.config.cjs}"
+  - "!{.editorconfig,.gitignore,.gitattributes}"
   - "!{.env,.env.*,.npmrc,pnpm-lock.yaml}"
-  - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"
+  - "!{README.md,LICENSE}"
+
 asarUnpack:
   - resources/**
   - node_modules/better-sqlite3/**
+
 win:
-  executableName: vault
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.png
+  artifactName: Vault-${version}-Windows-Setup.${ext}
+
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
-  shortcutName: ${productName}
-  uninstallDisplayName: ${productName}
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
   createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Vault
+  differentialPackage: false
+
 mac:
+  category: public.app-category.utilities
+  icon: build/icon.png
+  hardenedRuntime: true
+  gatekeeperAssess: false
   entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
+  target:
+    - target: dmg
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+  artifactName: Vault-${version}-macOS-Updater.${ext}
+
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: Vault-${version}-macOS-Installer.${ext}
+
 linux:
   target:
-    - AppImage
-    - snap
-    - deb
-  maintainer: electronjs.org
-  category: Utility
-appImage:
-  artifactName: ${name}-${version}.${ext}
-npmRebuild: true
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  icon: build/icon.png
+  category: AudioVideo
+  maintainer: Kendrick-Oppong
+  artifactName: Vault-${version}-Linux-Installer.${ext}
+
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: Kendrick-Oppong
+  repo: vault
