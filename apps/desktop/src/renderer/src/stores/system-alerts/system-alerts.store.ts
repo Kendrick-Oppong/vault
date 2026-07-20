@@ -7,6 +7,7 @@ export interface SystemAlerts {
   lowDisk: boolean;
   updateAvailable: boolean;
   diskSpaceFree: number; // in bytes
+  diskSizeTotal: number; // in bytes
   updateVersion: string | null;
   updateProgress: number | null; // 0-100
   updateError: string | null;
@@ -21,7 +22,7 @@ export interface SystemAlertsActions {
   setOffline: (offline: boolean) => void;
   setLowDisk: (lowDisk: boolean, freeSpace?: number) => void;
   setUpdateAvailable: (available: boolean, version?: string) => void;
-  setDiskSpace: (bytes: number) => void;
+  setDiskSpace: (freeBytes: number, totalBytes: number) => void;
   dismissUpdateAlert: () => void;
   setUpdateProgress: (percent: number) => void;
   setUpdateError: (error: string) => void;
@@ -35,6 +36,7 @@ const initialState: SystemAlerts = {
   lowDisk: false,
   updateAvailable: false,
   diskSpaceFree: 0,
+  diskSizeTotal: 0,
   updateVersion: null,
   updateProgress: null,
   updateError: null,
@@ -68,12 +70,13 @@ export const useSystemAlertsStore = create<SystemAlertsStore>((set) => ({
       }
     })),
 
-  setDiskSpace: (bytes: number) =>
+  setDiskSpace: (freeBytes: number, totalBytes: number) =>
     set((state) => ({
       alerts: {
         ...state.alerts,
-        diskSpaceFree: bytes,
-        lowDisk: bytes < 1 * 1024 * 1024 * 1024 // Less than 1GB
+        diskSpaceFree: freeBytes,
+        diskSizeTotal: totalBytes,
+        lowDisk: freeBytes < 1 * 1024 * 1024 * 1024 // Less than 1GB
       }
     })),
 
