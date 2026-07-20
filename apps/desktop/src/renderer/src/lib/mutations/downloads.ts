@@ -109,6 +109,24 @@ export const usePauseDownload = () => {
   });
 };
 
+export const usePauseAllDownloads = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => downloadsApi.pauseAllDownloads(),
+    onSuccess: (count: number) => {
+      queryClient.invalidateQueries({ queryKey: QueryKeys.jobs.active() });
+      if (count > 0) {
+        toast.info(`${count} download${count > 1 ? "s" : ""} paused`);
+      }
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to pause all downloads", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
 export const useResumeDownload = () => {
   const queryClient = useQueryClient();
   return useMutation({
