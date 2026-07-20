@@ -1,5 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from "electron";
 import { join } from "node:path";
+import fs from "node:fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -239,6 +240,11 @@ function registerIpcHandlers(): void {
   ipcMain.handle("queue:pause", (_e, jobId: string) => {
     logger.debug("IPC: queue:pause", jobId);
     return pool.pause(jobId);
+  });
+
+  ipcMain.handle("queue:pauseAll", () => {
+    logger.debug("IPC: queue:pauseAll");
+    return pool.pauseAll();
   });
 
   ipcMain.handle("queue:resume", (_e, jobId: string) => {
@@ -618,6 +624,21 @@ function registerIpcHandlers(): void {
       autoUpdater.downloadUpdate();
     } catch {
       logger.debug("electron-updater not available for download");
+    }
+  });
+
+  ipcMain.handle("system:checkDiskSpace", async (_e, path: string) => {
+    logger.debug("IPC: system:checkDiskSpace for", path);
+    try {
+      if (!path) return { available: 0, total: 0 };
+      const stats = await fs.promises.statfs(path);
+      return {
+        available: stats.bavail * stats.bsize,
+        total: stats.blocks * stats.bsize
+      };
+    } catch (err) {
+      logger.error("Failed to check disk space:", err);
+      return { available: 0, total: 0 };
     }
   });
 
