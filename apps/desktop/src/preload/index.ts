@@ -183,6 +183,8 @@ const vaultApi = {
   checkForUpdates: (): Promise<{ updateAvailable: boolean; version?: string }> =>
     ipcRenderer.invoke("app:checkUpdate"),
 
+  downloadUpdate: (): Promise<void> => ipcRenderer.invoke("app:downloadUpdate"),
+
   installUpdate: (): Promise<void> => ipcRenderer.invoke("app:installUpdate"),
 
   quitApp: (): Promise<void> => ipcRenderer.invoke("app:quit"),
@@ -251,6 +253,23 @@ const vaultApi = {
     const handler = (_e: Electron.IpcRendererEvent, info: { version: string }) => cb(info);
     ipcRenderer.on("update:downloaded", handler);
     return () => ipcRenderer.removeListener("update:downloaded", handler);
+  },
+
+  onUpdateProgress: (
+    cb: (info: { percent: number; transferred: number; total: number }) => void
+  ): (() => void) => {
+    const handler = (
+      _e: Electron.IpcRendererEvent,
+      info: { percent: number; transferred: number; total: number }
+    ) => cb(info);
+    ipcRenderer.on("update:progress", handler);
+    return () => ipcRenderer.removeListener("update:progress", handler);
+  },
+
+  onUpdateError: (cb: (error: { message: string }) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, error: { message: string }) => cb(error);
+    ipcRenderer.on("update:error", handler);
+    return () => ipcRenderer.removeListener("update:error", handler);
   },
 
   onOpenQuickActions: (cb: () => void): (() => void) => {
