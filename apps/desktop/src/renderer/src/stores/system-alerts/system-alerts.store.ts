@@ -73,7 +73,7 @@ export const useSystemAlertsStore = create<SystemAlertsStore>((set) => ({
       alerts: {
         ...state.alerts,
         diskSpaceFree: bytes,
-        lowDisk: bytes < 2 * 1024 * 1024 * 1024 // Less than 2GB
+        lowDisk: bytes < 1 * 1024 * 1024 * 1024 // Less than 1GB
       }
     })),
 
