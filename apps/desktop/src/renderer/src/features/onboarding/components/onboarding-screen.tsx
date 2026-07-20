@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useOnboardingStore } from "@/stores/onboarding/onboarding.store";
 import { useDependenciesCheck } from "@/lib/queries/dependencies";
-import { useQueryClient } from "@tanstack/react-query";
+import { useInstallDependencies } from "@/lib/mutations/downloads";
 import { CheckCircle2, Loader2, XCircle, HardDriveDownload, Download } from "lucide-react";
 import { Button } from "@vault/ui/components/button";
 
@@ -18,11 +18,11 @@ export const OnboardingScreen = () => {
     useShallow((s) => ({ completed: s.completed, completeOnboarding: s.completeOnboarding }))
   );
   const { data: deps, isLoading } = useDependenciesCheck();
-  const queryClient = useQueryClient();
+  const installDependenciesMutation = useInstallDependencies();
 
-  const [installing, setInstalling] = useState(false);
-  const [installError, setInstallError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<Partial<Record<"ytdlp" | "ffmpeg", DownloadProgress>>>({});
+  const [progress, setProgress] = useState<Partial<Record<"ytdlp" | "ffmpeg", DownloadProgress>>>(
+    {}
+  );
 
   useEffect(() => {
     if (!completed && deps?.ytDlp.installed && deps?.ffmpeg.installed) {
@@ -41,18 +41,8 @@ export const OnboardingScreen = () => {
 
   const allReady = deps?.ytDlp.installed && deps?.ffmpeg.installed;
 
-  const handleAutoInstall = async () => {
-    setInstalling(true);
-    setInstallError(null);
-    setProgress({});
-    try {
-      await globalThis.api.dependenciesDownload();
-      await queryClient.invalidateQueries({ queryKey: ["dependencies", "check"] });
-    } catch (err) {
-      setInstallError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setInstalling(false);
-    }
+  const handleAutoInstall = () => {
+    installDependenciesMutation.mutate();
   };
 
   const currentMessage = progress["ffmpeg"]?.message ?? progress["ytdlp"]?.message;
@@ -74,7 +64,9 @@ export const OnboardingScreen = () => {
           <div className="text-center">
             <h1 className="text-2xl font-bold tracking-tight">Welcome to Vault</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {installing ? "Installing dependencies…" : "Checking for required dependencies…"}
+              {installDependenciesMutation.isPending
+                ? "Installing dependencies…"
+                : "Checking for required dependencies…"}
             </p>
           </div>
         </div>
@@ -111,7 +103,7 @@ export const OnboardingScreen = () => {
               All dependencies found — launching…
             </p>
           )}
-          {!isLoading && !allReady && !installing && (
+          {!isLoading && !allReady && !installDependenciesMutation.isPending && (
             <>
               <p className="text-center text-xs text-muted-foreground">
                 Required binaries are missing. Auto-install them now.
@@ -122,14 +114,18 @@ export const OnboardingScreen = () => {
               </Button>
             </>
           )}
-          {installing && (
+          {installDependenciesMutation.isPending && (
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               {currentMessage ?? "Downloading…"}
             </p>
           )}
-          {installError && (
-            <p className="text-center text-xs text-destructive">{installError}</p>
+          {installDependenciesMutation.error && (
+            <p className="text-center text-xs text-destructive">
+              {installDependenciesMutation.error instanceof Error
+                ? installDependenciesMutation.error.message
+                : "Installation failed"}
+            </p>
           )}
         </div>
       </div>
@@ -156,24 +152,34 @@ function BinaryRow({
   const stageLabel = () => {
     if (!progress) return description;
     switch (progress.stage) {
-      case "checking": return "Checking…";
-      case "downloading": return progress.percent != null ? `Downloading ${progress.percent}%` : "Downloading…";
-      case "extracting": return "Extracting…";
-      case "verifying": return "Verifying…";
-      case "done": return description;
-      case "error": return "Error";
+      case "checking":
+        return "Checking…";
+      case "downloading":
+        return progress.percent == null ? `Downloading ${progress.percent}%` : "Downloading…";
+      case "extracting":
+        return "Extracting…";
+      case "verifying":
+        return "Verifying…";
+      case "done":
+        return description;
+      case "error":
+        return "Error";
     }
   };
 
   return (
-    <div className={`flex flex-col gap-2 rounded-xl border px-4 py-3 transition-colors ${
-      isDone ? "border-success/20 bg-success/5" : "border-border bg-card"
-    }`}>
+    <div
+      className={`flex flex-col gap-2 rounded-xl border px-4 py-3 transition-colors ${
+        isDone ? "border-success/20 bg-success/5" : "border-border bg-card"
+      }`}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold font-mono ${
-            isDone ? "bg-success/15 text-success" : "bg-secondary text-muted-foreground"
-          }`}>
+          <div
+            className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold font-mono ${
+              isDone ? "bg-success/15 text-success" : "bg-secondary text-muted-foreground"
+            }`}
+          >
             {label.slice(0, 2)}
           </div>
           <div>
