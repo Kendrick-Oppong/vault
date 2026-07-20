@@ -25,6 +25,8 @@ const vaultApi = {
 
   pauseDownload: (jobId: string): Promise<boolean> => ipcRenderer.invoke("queue:pause", jobId),
 
+  pauseAllDownloads: (): Promise<number> => ipcRenderer.invoke("queue:pauseAll"),
+
   resumeDownload: (jobId: string): Promise<string | null> =>
     ipcRenderer.invoke("queue:resume", jobId),
 
@@ -188,6 +190,9 @@ const vaultApi = {
   installUpdate: (): Promise<void> => ipcRenderer.invoke("app:installUpdate"),
 
   quitApp: (): Promise<void> => ipcRenderer.invoke("app:quit"),
+
+  checkDiskSpace: (path: string): Promise<{ available: number; total: number }> =>
+    ipcRenderer.invoke("system:checkDiskSpace", path),
 
   // Logger
   getLogsHistory: (): Promise<{ level: string; message: string; timestamp: number }[]> =>
