@@ -8,6 +8,7 @@ export const downloadsApi = {
   queueDownload: (input: JobInput) => globalThis.api.queueDownload(input),
   cancelDownload: (jobId: string) => globalThis.api.cancelDownload(jobId),
   pauseDownload: (jobId: string) => globalThis.api.pauseDownload(jobId),
+  pauseAllDownloads: () => globalThis.api.pauseAllDownloads(),
   resumeDownload: (jobId: string) => globalThis.api.resumeDownload(jobId),
   retryDownload: (jobId: string) => globalThis.api.retryDownload(jobId),
   setConcurrency: (n: number) => globalThis.api.setConcurrency(n),
@@ -18,5 +19,6 @@ export const downloadsApi = {
   getJobs: () => globalThis.api.getJobs(),
   openFile: (filePath: string) => globalThis.api.openFile(filePath),
   revealFile: (filePath: string) => globalThis.api.openInFolder(filePath),
-  fileExists: (filePath: string) => globalThis.api.fileExists(filePath)
+  fileExists: (filePath: string) => globalThis.api.fileExists(filePath),
+  checkDiskSpace: (path: string) => globalThis.api.checkDiskSpace(path)
 };
