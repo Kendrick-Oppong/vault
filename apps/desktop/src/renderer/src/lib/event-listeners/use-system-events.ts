@@ -46,7 +46,7 @@ export function useSystemEvents() {
   // --- Disk space: push query results into the store ---
   useEffect(() => {
     if (diskSpaceQuery.data) {
-      setDiskSpace(diskSpaceQuery.data.available);
+      setDiskSpace(diskSpaceQuery.data.available, diskSpaceQuery.data.total);
     }
   }, [diskSpaceQuery.data, setDiskSpace]);
 
