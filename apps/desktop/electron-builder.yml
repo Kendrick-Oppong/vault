@@ -75,6 +75,3 @@ publish:
   provider: github
   owner: Kendrick-Oppong
   repo: vault
-  provider: github
-  owner: Kendrick-Oppong
-  repo: vault
