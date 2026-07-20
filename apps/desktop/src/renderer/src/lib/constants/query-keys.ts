@@ -19,5 +19,8 @@ export const QueryKeys = {
   },
   search: {
     youtube: (query: string, page?: number) => ["search", "youtube", query, page] as const
+  },
+  system: {
+    diskSpace: () => ["system", "diskSpace"] as const
   }
 } as const;
