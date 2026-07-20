@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { filesApi } from "@/lib/api/files";
 
 export interface FileExistenceCheckOptions {
   downloadPath: string;
@@ -57,7 +58,7 @@ export const useFileExistenceCheck = () => {
 
     try {
       // Scan the actual download directory
-      const files: string[] = await globalThis.api.scanDir(downloadPath);
+      const files: string[] = await filesApi.scanDir(downloadPath);
 
       const allowedExts = mediaType === "music" ? AUDIO_EXTENSIONS : VIDEO_EXTENSIONS;
       const foundTitles: string[] = [];
