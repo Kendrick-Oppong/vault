@@ -223,6 +223,25 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     return true;
   }
 
+  function pauseAll(): number {
+    logger.info("Pausing all jobs");
+    let pausedCount = 0;
+
+    // Pause queued jobs
+    for (let i = queue.length - 1; i >= 0; i--) {
+      const job = queue[i];
+      if (pause(job.id)) pausedCount++;
+    }
+
+    // Pause active jobs
+    const activeIds = Array.from(active.keys());
+    for (const id of activeIds) {
+      if (pause(id)) pausedCount++;
+    }
+
+    return pausedCount;
+  }
+
   function resume(jobId: string): string | null {
     logger.info("Resuming job:", jobId);
     const stored = storedInputs.get(jobId);
@@ -276,6 +295,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     enqueue,
     cancel,
     pause,
+    pauseAll,
     resume,
     retry,
     setMaxConcurrent,
