@@ -1,14 +1,22 @@
 import { useState } from "react";
 import { Button } from "@vault/ui/components/button";
-import { WifiOff, AlertTriangle, Sparkles, X } from "lucide-react";
+import { Progress } from "@vault/ui/components/progress";
+import { WifiOff, AlertTriangle, Sparkles, X, Download } from "lucide-react";
 import { cn } from "@vault/ui/lib/utils";
-import { useSystemAlertsState, useSystemAlertsActions } from "@/stores/system-alerts/system-alerts.selectors";
+import {
+  useSystemAlertsState,
+  useSystemAlertsActions
+} from "@/stores/system-alerts/system-alerts.selectors";
+import { useDownloadUpdate, useInstallUpdate } from "@/lib/queries/app";
 
 interface AlertBannerProps {
   type: "offline" | "disk" | "update";
   onDismiss?: () => void;
   onAction?: () => void;
   actionText?: string;
+  message?: string;
+  progress?: number | null;
+  icon?: React.ComponentType<{ className?: string }>;
 }
 
 const alertConfig = {
@@ -40,14 +48,23 @@ const alertConfig = {
     borderColor: "border-border",
     textColor: "text-foreground",
     iconColor: "text-primary",
-    defaultMessage: "Vault 0.2.0 is ready to install.",
+    defaultMessage: "Update available",
     defaultActionText: "Restart now"
   }
 };
 
-export const AlertBanner = ({ type, onDismiss, onAction, actionText }: AlertBannerProps) => {
+export const AlertBanner = ({
+  type,
+  onDismiss,
+  onAction,
+  actionText,
+  message,
+  progress,
+  icon
+}: AlertBannerProps) => {
   const config = alertConfig[type];
-  const Icon = config.icon;
+  const Icon = icon || config.icon;
+  const displayMessage = message || config.defaultMessage;
 
   return (
     <div
@@ -59,7 +76,13 @@ export const AlertBanner = ({ type, onDismiss, onAction, actionText }: AlertBann
       )}
     >
       <Icon className={cn("w-3.5 h-3.5 shrink-0", config.iconColor)} />
-      <span className="flex-1">{config.defaultMessage}</span>
+      <span className="flex-1">{displayMessage}</span>
+
+      {progress !== null && progress !== undefined && (
+        <div className="w-24">
+          <Progress value={progress} className="h-1.5" />
+        </div>
+      )}
 
       {onAction && (
         <Button
@@ -90,8 +113,18 @@ export const AlertBanner = ({ type, onDismiss, onAction, actionText }: AlertBann
 };
 
 export const AlertBanners = () => {
-  const { offline, lowDisk, updateAvailable } = useSystemAlertsState();
-  const { dismissUpdateAlert } = useSystemAlertsActions();
+  const {
+    offline,
+    lowDisk,
+    updateAvailable,
+    updateVersion,
+    updateProgress,
+    updateError,
+    updateStatus
+  } = useSystemAlertsState();
+  const { dismissUpdateAlert, setUpdateStatus } = useSystemAlertsActions();
+  const downloadUpdateMutation = useDownloadUpdate();
+  const installUpdateMutation = useInstallUpdate();
 
   const [dismissedOffline, setDismissedOffline] = useState(false);
   const [dismissedDisk, setDismissedDisk] = useState(false);
@@ -118,14 +151,76 @@ export const AlertBanners = () => {
     // Open the settings view where storage info is visible
   };
 
-  const handleUpdateAction = () => {
-    globalThis.api?.installUpdate?.();
+  const handleDownloadUpdate = () => {
+    downloadUpdateMutation.mutate();
+  };
+
+  const handleInstallUpdate = () => {
+    installUpdateMutation.mutate();
+  };
+
+  const handleRetryUpdate = () => {
+    setUpdateStatus("available");
+    handleDownloadUpdate();
+  };
+
+  const getUpdateMessage = () => {
+    if (updateError) {
+      return `Update failed: ${updateError}`;
+    }
+    if (updateStatus === "downloading") {
+      return `Downloading Vault ${updateVersion || "update"}...`;
+    }
+    if (updateStatus === "downloaded") {
+      return `Vault ${updateVersion || "update"} is ready to install.`;
+    }
+    return `Vault ${updateVersion || "update"} is available.`;
+  };
+
+  const getUpdateActionText = () => {
+    if (updateError) {
+      return "Retry";
+    }
+    if (updateStatus === "downloading") {
+      return undefined;
+    }
+    if (updateStatus === "downloaded") {
+      return "Restart now";
+    }
+    return "Download now";
+  };
+
+  const getUpdateAction = () => {
+    if (updateError) {
+      return handleRetryUpdate;
+    }
+    if (updateStatus === "downloading") {
+      return undefined;
+    }
+    if (updateStatus === "downloaded") {
+      return handleInstallUpdate;
+    }
+    return handleDownloadUpdate;
+  };
+
+  const getUpdateIcon = () => {
+    if (updateError) {
+      return AlertTriangle;
+    }
+    if (updateStatus === "downloading") {
+      return Download;
+    }
+    return Sparkles;
   };
 
   return (
     <div className="flex flex-col">
       {offline && !dismissedOffline && (
-        <AlertBanner type="offline" onDismiss={handleOfflineDismiss} onAction={handleOfflineAction} />
+        <AlertBanner
+          type="offline"
+          onDismiss={handleOfflineDismiss}
+          onAction={handleOfflineAction}
+        />
       )}
 
       {lowDisk && !dismissedDisk && (
@@ -136,8 +231,11 @@ export const AlertBanners = () => {
         <AlertBanner
           type="update"
           onDismiss={handleUpdateDismiss}
-          onAction={handleUpdateAction}
-          actionText="Restart now"
+          onAction={getUpdateAction()}
+          actionText={getUpdateActionText()}
+          message={getUpdateMessage()}
+          progress={updateProgress}
+          icon={getUpdateIcon()}
         />
       )}
     </div>
