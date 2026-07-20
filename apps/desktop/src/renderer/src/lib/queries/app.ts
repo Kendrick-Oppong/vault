@@ -10,31 +10,11 @@ export const useAppInfo = () =>
     staleTime: Infinity // App version doesn't change at runtime
   });
 
-export const useCheckForUpdates = () => {
-  const installUpdateMutation = useInstallUpdate();
-
+export const useDownloadUpdate = () => {
   return useMutation({
-    mutationFn: () => appApi.checkForUpdates(),
-    onSuccess: (result) => {
-      if (result.updateAvailable) {
-        toast.success("Update available!", {
-          description: result.version
-            ? `Version ${result.version} is ready to install`
-            : "A new version is available",
-          action: {
-            label: "Install & Restart",
-            onClick: () => installUpdateMutation.mutate()
-          },
-          duration: 10000
-        });
-      } else {
-        toast.info("You're up to date", {
-          description: "No updates available right now"
-        });
-      }
-    },
+    mutationFn: () => appApi.downloadUpdate(),
     onError: (error: Error) => {
-      toast.error("Could not check for updates", {
+      toast.error("Could not download update", {
         description: formatError(error)
       });
     }
@@ -46,6 +26,37 @@ export const useInstallUpdate = () => {
     mutationFn: () => appApi.installUpdate(),
     onError: (error: Error) => {
       toast.error("Could not install update", {
+        description: formatError(error)
+      });
+    }
+  });
+};
+
+export const useCheckForUpdates = () => {
+  const downloadUpdateMutation = useDownloadUpdate();
+
+  return useMutation({
+    mutationFn: () => appApi.checkForUpdates(),
+    onSuccess: (result) => {
+      if (result.updateAvailable) {
+        toast.success("Update available!", {
+          description: result.version
+            ? `Version ${result.version} is available`
+            : "A new version is available",
+          action: {
+            label: "Download now",
+            onClick: () => downloadUpdateMutation.mutate()
+          },
+          duration: 10000
+        });
+      } else {
+        toast.info("You're up to date", {
+          description: "No updates available right now"
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast.error("Could not check for updates", {
         description: formatError(error)
       });
     }
