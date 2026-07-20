@@ -1,9 +1,15 @@
 {
   "name": "vault",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "Advanced Desktop YouTube Downloader",
-  "author": "example.com",
+  "description": "A fast, modern desktop YouTube downloader — powered by yt-dlp & FFmpeg",
+  "author": "Kendrick-Oppong",
+  "license": "MIT",
+  "homepage": "https://github.com/Kendrick-Oppong/vault",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kendrick-Oppong/vault.git"
+  },
   "scripts": {
     "dev:desktop": "pnpm --filter desktop dev",
     "dev:web": "pnpm --filter web dev",
