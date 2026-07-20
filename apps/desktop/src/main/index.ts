@@ -1,5 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from "electron";
 import { join } from "node:path";
+import fs from "node:fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -239,6 +240,11 @@ function registerIpcHandlers(): void {
   ipcMain.handle("queue:pause", (_e, jobId: string) => {
     logger.debug("IPC: queue:pause", jobId);
     return pool.pause(jobId);
+  });
+
+  ipcMain.handle("queue:pauseAll", () => {
+    logger.debug("IPC: queue:pauseAll");
+    return pool.pauseAll();
   });
 
   ipcMain.handle("queue:resume", (_e, jobId: string) => {
@@ -610,6 +616,32 @@ function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle("app:downloadUpdate", async () => {
+    logger.debug("IPC: app:downloadUpdate");
+    try {
+      const { autoUpdater } = await import("electron-updater");
+      logger.debug("Downloading update");
+      autoUpdater.downloadUpdate();
+    } catch {
+      logger.debug("electron-updater not available for download");
+    }
+  });
+
+  ipcMain.handle("system:checkDiskSpace", async (_e, path: string) => {
+    logger.debug("IPC: system:checkDiskSpace for", path);
+    try {
+      if (!path) return { available: 0, total: 0 };
+      const stats = await fs.promises.statfs(path);
+      return {
+        available: stats.bavail * stats.bsize,
+        total: stats.blocks * stats.bsize
+      };
+    } catch (err) {
+      logger.error("Failed to check disk space:", err);
+      return { available: 0, total: 0 };
+    }
+  });
+
   ipcMain.handle("app:quit", () => {
     logger.debug("IPC: app:quit");
     vaultApp.isQuitting = true;
@@ -681,14 +713,30 @@ app.whenReady().then(async () => {
   // Set up auto-updater event forwarding (best-effort)
   try {
     const { autoUpdater } = await import("electron-updater");
+    // Disable auto-download - user manually triggers download
+    autoUpdater.autoDownload = false;
+
     autoUpdater.on("update-available", (info: { version: string }) => {
+      logger.debug("Update available:", info.version);
       mainWindow?.webContents.send("update:available", info);
     });
     autoUpdater.on("update-downloaded", (info: { version: string }) => {
+      logger.debug("Update downloaded:", info.version);
       mainWindow?.webContents.send("update:downloaded", info);
     });
-    // Check silently on startup
-    autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+    autoUpdater.on(
+      "download-progress",
+      (info: { percent: number; transferred: number; total: number }) => {
+        logger.debug("Download progress:", info.percent);
+        mainWindow?.webContents.send("update:progress", info);
+      }
+    );
+    autoUpdater.on("error", (err: Error) => {
+      logger.debug("Update error:", err.message);
+      mainWindow?.webContents.send("update:error", { message: err.message });
+    });
+    // Check silently on startup (no native notification)
+    autoUpdater.checkForUpdates().catch(() => {});
   } catch {
     // electron-updater not configured — skip silently
   }

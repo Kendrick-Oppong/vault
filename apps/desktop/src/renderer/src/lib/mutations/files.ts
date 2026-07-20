@@ -13,3 +13,14 @@ export const useOpenFolderDialog = () => {
     }
   });
 };
+
+export const useOpenFile = () => {
+  return useMutation({
+    mutationFn: (filePath: string) => filesApi.openFile(filePath),
+    onError: (error: Error) => {
+      toast.error("Could not open file", {
+        description: formatError(error)
+      });
+    }
+  });
+};

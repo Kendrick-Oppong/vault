@@ -1,10 +1,18 @@
 import { create } from "zustand";
 
+export type UpdateStatus = "idle" | "available" | "downloading" | "downloaded" | "error";
+
 export interface SystemAlerts {
   offline: boolean;
+  networkRestored: boolean; // Track when network comes back online
   lowDisk: boolean;
   updateAvailable: boolean;
   diskSpaceFree: number; // in bytes
+  diskSizeTotal: number; // in bytes
+  updateVersion: string | null;
+  updateProgress: number | null; // 0-100
+  updateError: string | null;
+  updateStatus: UpdateStatus;
 }
 
 export interface SystemAlertsState {
@@ -13,19 +21,29 @@ export interface SystemAlertsState {
 
 export interface SystemAlertsActions {
   setOffline: (offline: boolean) => void;
+  setNetworkRestored: (restored: boolean) => void;
   setLowDisk: (lowDisk: boolean, freeSpace?: number) => void;
-  setUpdateAvailable: (available: boolean) => void;
-  setDiskSpace: (bytes: number) => void;
+  setUpdateAvailable: (available: boolean, version?: string) => void;
+  setDiskSpace: (freeBytes: number, totalBytes: number) => void;
   dismissUpdateAlert: () => void;
+  setUpdateProgress: (percent: number) => void;
+  setUpdateError: (error: string) => void;
+  setUpdateStatus: (status: UpdateStatus) => void;
 }
 
 export type SystemAlertsStore = SystemAlertsState & SystemAlertsActions;
 
 const initialState: SystemAlerts = {
   offline: false,
+  networkRestored: false,
   lowDisk: false,
   updateAvailable: false,
-  diskSpaceFree: 0
+  diskSpaceFree: 0,
+  diskSizeTotal: 0,
+  updateVersion: null,
+  updateProgress: null,
+  updateError: null,
+  updateStatus: "idle"
 };
 
 export const useSystemAlertsStore = create<SystemAlertsStore>((set) => ({
@@ -34,6 +52,11 @@ export const useSystemAlertsStore = create<SystemAlertsStore>((set) => ({
   setOffline: (offline: boolean) =>
     set((state) => ({
       alerts: { ...state.alerts, offline }
+    })),
+
+  setNetworkRestored: (restored: boolean) =>
+    set((state) => ({
+      alerts: { ...state.alerts, networkRestored: restored }
     })),
 
   setLowDisk: (lowDisk: boolean, freeSpace?: number) =>
@@ -45,22 +68,58 @@ export const useSystemAlertsStore = create<SystemAlertsStore>((set) => ({
       }
     })),
 
-  setUpdateAvailable: (available: boolean) =>
-    set((state) => ({
-      alerts: { ...state.alerts, updateAvailable: available }
-    })),
-
-  setDiskSpace: (bytes: number) =>
+  setUpdateAvailable: (available: boolean, version?: string) =>
     set((state) => ({
       alerts: {
         ...state.alerts,
-        diskSpaceFree: bytes,
-        lowDisk: bytes < 2 * 1024 * 1024 * 1024 // Less than 2GB
+        updateAvailable: available,
+        updateVersion: version ?? state.alerts.updateVersion,
+        updateStatus: available ? "available" : "idle"
+      }
+    })),
+
+  setDiskSpace: (freeBytes: number, totalBytes: number) =>
+    set((state) => ({
+      alerts: {
+        ...state.alerts,
+        diskSpaceFree: freeBytes,
+        diskSizeTotal: totalBytes,
+        lowDisk: freeBytes < 1 * 1024 * 1024 * 1024 // Less than 1GB
       }
     })),
 
   dismissUpdateAlert: () =>
     set((state) => ({
-      alerts: { ...state.alerts, updateAvailable: false }
+      alerts: {
+        ...state.alerts,
+        updateAvailable: false,
+        updateStatus: "idle",
+        updateProgress: null,
+        updateError: null
+      }
+    })),
+
+  setUpdateProgress: (percent: number) =>
+    set((state) => ({
+      alerts: {
+        ...state.alerts,
+        updateProgress: percent,
+        updateStatus: "downloading"
+      }
+    })),
+
+  setUpdateError: (error: string) =>
+    set((state) => ({
+      alerts: {
+        ...state.alerts,
+        updateError: error,
+        updateStatus: "error",
+        updateProgress: null
+      }
+    })),
+
+  setUpdateStatus: (status: UpdateStatus) =>
+    set((state) => ({
+      alerts: { ...state.alerts, updateStatus: status }
     }))
 }));

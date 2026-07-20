@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { FilterTabs } from "./filter-tabs";
 import { LibraryCard } from "./library-card";
-import type { LibraryItem, LibrarySort, SortOrder, LibraryStats } from "../types";
+import type { LibraryItem, LibrarySort, SortOrder } from "../types";
 import { EmptyState } from "@/features/ui/components/empty-state";
 import { Search, Loader2, ChevronDown } from "lucide-react";
 
@@ -80,11 +80,6 @@ export const LibraryView = () => {
     setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
   };
 
-  // Calculate stats based on loaded data
-  const stats: LibraryStats = {
-    total: history.length
-  };
-
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
@@ -98,7 +93,7 @@ export const LibraryView = () => {
     <div className="space-y-2">
       <div className="flex items-center justify-between py-2">
         <p className="text-[13px] font-semibold text-muted-foreground whitespace-nowrap">
-          {stats.total} items
+          {history.length} item{history.length > 1 && "s"}
         </p>
         <div className="flex-1 max-w-1/2">
           <FilterTabs

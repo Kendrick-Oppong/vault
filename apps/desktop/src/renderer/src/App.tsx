@@ -6,6 +6,7 @@ import { GlobalModals } from "@/features/ui/components/global-modals";
 import { useJobEvents } from "@/lib/event-listeners/use-job-events";
 import { useAppInfoInit } from "@/lib/event-listeners/use-app-info-init";
 import { useUpdateEvents } from "@/lib/event-listeners/use-update-events";
+import { useSystemEvents } from "@/lib/event-listeners/use-system-events";
 import { OnboardingScreen } from "@/features/onboarding/components/onboarding-screen";
 import { useOnboardingState } from "@/stores/onboarding/onboarding.selectors";
 import { CustomTitlebar } from "@/features/ui/components/custom-titlebar";
@@ -21,6 +22,7 @@ function App(): React.JSX.Element {
   useAppInfoInit();
   useJobEvents();
   useUpdateEvents();
+  useSystemEvents();
 
   if (!onboardingCompleted) {
     return <OnboardingScreen />;

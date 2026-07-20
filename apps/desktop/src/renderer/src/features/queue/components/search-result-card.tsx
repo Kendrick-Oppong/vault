@@ -112,7 +112,7 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
 
               if (newJobs.length === 0) return;
 
-              const titles = newJobs.map(j => j.meta?.title).filter(Boolean) as string[];
+              const titles = newJobs.map((j) => j.meta?.title).filter(Boolean) as string[];
               const foundTitles = await checkFilesExist({
                 downloadPath: options.destination || settings.downloadPath || "",
                 titles,
@@ -123,7 +123,7 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
                 setPendingJobs(newJobs);
                 setShowOverwriteDialog(true);
               } else {
-                newJobs.forEach(job => queueMutation.mutate(job));
+                newJobs.forEach((job) => queueMutation.mutate(job));
               }
             }
           });
@@ -136,7 +136,7 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
   };
 
   const handleOverwriteAll = () => {
-    pendingJobs.forEach(job => 
+    pendingJobs.forEach((job) =>
       queueMutation.mutate({
         ...job,
         extra: { ...job.extra, overwrite: true }
@@ -149,12 +149,14 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
 
   const handleSkipExisting = () => {
     const jobsToQueue = pendingJobs.filter(
-      job => !existingTitles.includes(job.meta?.title || "")
+      (job) => !existingTitles.includes(job.meta?.title || "")
     );
-    
+
     if (jobsToQueue.length > 0) {
-      jobsToQueue.forEach(job => queueMutation.mutate(job));
-      toast.info(`Queued ${jobsToQueue.length} files. Skipped ${existingTitles.length} existing files.`);
+      jobsToQueue.forEach((job) => queueMutation.mutate(job));
+      toast.info(
+        `Queued ${jobsToQueue.length} files. Skipped ${existingTitles.length} existing files.`
+      );
     } else {
       toast.info("All selected files already exist. Nothing queued.");
     }

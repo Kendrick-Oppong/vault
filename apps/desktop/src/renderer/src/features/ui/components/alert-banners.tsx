@@ -1,14 +1,23 @@
 import { useState } from "react";
 import { Button } from "@vault/ui/components/button";
-import { WifiOff, AlertTriangle, Sparkles, X } from "lucide-react";
+import { Progress } from "@vault/ui/components/progress";
+import { WifiOff, AlertTriangle, Sparkles, X, Download, CheckCircle2 } from "lucide-react";
 import { cn } from "@vault/ui/lib/utils";
-import { useSystemAlertsState, useSystemAlertsActions } from "@/stores/system-alerts/system-alerts.selectors";
+import {
+  useSystemAlertsState,
+  useSystemAlertsActions
+} from "@/stores/system-alerts/system-alerts.selectors";
+import { useDownloadUpdate, useInstallUpdate } from "@/lib/queries/app";
+import { formatBytes } from "@/lib/utils/platform";
 
 interface AlertBannerProps {
   type: "offline" | "disk" | "update";
   onDismiss?: () => void;
   onAction?: () => void;
   actionText?: string;
+  message?: string;
+  progress?: number | null;
+  icon?: React.ComponentType<{ className?: string }>;
 }
 
 const alertConfig = {
@@ -20,8 +29,8 @@ const alertConfig = {
     textColor: "text-destructive",
     iconColor: "text-destructive",
     defaultMessage:
-      "Connection lost. Active downloads are paused and will resume automatically when connection is restored.",
-    defaultActionText: "Retry"
+      "Connection lost. Active downloads have been paused. Resume them manually when reconnected.",
+    defaultActionText: "Check connection"
   },
   disk: {
     icon: AlertTriangle,
@@ -30,7 +39,7 @@ const alertConfig = {
     borderColor: "border-primary/20",
     textColor: "text-primary",
     iconColor: "text-primary",
-    defaultMessage: "Low disk space — 2.1 GB free. Downloads may pause until space is available.",
+    defaultMessage: "Low disk space. Downloads may fail.",
     defaultActionText: "Manage"
   },
   update: {
@@ -40,14 +49,23 @@ const alertConfig = {
     borderColor: "border-border",
     textColor: "text-foreground",
     iconColor: "text-primary",
-    defaultMessage: "Vault 0.2.0 is ready to install.",
+    defaultMessage: "Update available",
     defaultActionText: "Restart now"
   }
 };
 
-export const AlertBanner = ({ type, onDismiss, onAction, actionText }: AlertBannerProps) => {
+export const AlertBanner = ({
+  type,
+  onDismiss,
+  onAction,
+  actionText,
+  message,
+  progress,
+  icon
+}: AlertBannerProps) => {
   const config = alertConfig[type];
-  const Icon = config.icon;
+  const Icon = icon || config.icon;
+  const displayMessage = message || config.defaultMessage;
 
   return (
     <div
@@ -59,7 +77,13 @@ export const AlertBanner = ({ type, onDismiss, onAction, actionText }: AlertBann
       )}
     >
       <Icon className={cn("w-3.5 h-3.5 shrink-0", config.iconColor)} />
-      <span className="flex-1">{config.defaultMessage}</span>
+      <span className="flex-1">{displayMessage}</span>
+
+      {progress !== null && progress !== undefined && (
+        <div className="w-24">
+          <Progress value={progress} className="h-1.5" />
+        </div>
+      )}
 
       {onAction && (
         <Button
@@ -90,16 +114,23 @@ export const AlertBanner = ({ type, onDismiss, onAction, actionText }: AlertBann
 };
 
 export const AlertBanners = () => {
-  const { offline, lowDisk, updateAvailable } = useSystemAlertsState();
-  const { dismissUpdateAlert } = useSystemAlertsActions();
+  const {
+    offline,
+    networkRestored,
+    lowDisk,
+    diskSpaceFree,
+    updateAvailable,
+    updateVersion,
+    updateProgress,
+    updateError,
+    updateStatus
+  } = useSystemAlertsState();
+  const { dismissUpdateAlert, setUpdateStatus, setOffline } = useSystemAlertsActions();
+  const downloadUpdateMutation = useDownloadUpdate();
+  const installUpdateMutation = useInstallUpdate();
 
-  const [dismissedOffline, setDismissedOffline] = useState(false);
   const [dismissedDisk, setDismissedDisk] = useState(false);
   const [dismissedUpdate, setDismissedUpdate] = useState(false);
-
-  const handleOfflineDismiss = () => {
-    setDismissedOffline(true);
-  };
 
   const handleDiskDismiss = () => {
     setDismissedDisk(true);
@@ -110,34 +141,109 @@ export const AlertBanners = () => {
     dismissUpdateAlert();
   };
 
-  const handleOfflineAction = () => {
-    // Retry connection - would be called when network comes back online
+  const diskMessage =
+    diskSpaceFree > 0
+      ? `Low disk space — ${formatBytes(diskSpaceFree)} free. Downloads may fail.`
+      : "Low disk space. Downloads may fail.";
+
+  const handleDownloadUpdate = () => {
+    downloadUpdateMutation.mutate();
   };
 
-  const handleDiskAction = () => {
-    // Open the settings view where storage info is visible
+  const handleInstallUpdate = () => {
+    installUpdateMutation.mutate();
   };
 
-  const handleUpdateAction = () => {
-    globalThis.api?.installUpdate?.();
+  const handleRetryUpdate = () => {
+    setUpdateStatus("available");
+    handleDownloadUpdate();
+  };
+
+  const getUpdateMessage = () => {
+    if (updateError) {
+      return `Update failed: ${updateError}`;
+    }
+    if (updateStatus === "downloading") {
+      return `Downloading Vault ${updateVersion || "update"}...`;
+    }
+    if (updateStatus === "downloaded") {
+      return `Vault ${updateVersion || "update"} is ready to install.`;
+    }
+    return `Vault ${updateVersion || "update"} is available.`;
+  };
+
+  const getUpdateActionText = () => {
+    if (updateError) {
+      return "Retry";
+    }
+    if (updateStatus === "downloading") {
+      return undefined;
+    }
+    if (updateStatus === "downloaded") {
+      return "Restart now";
+    }
+    return "Download now";
+  };
+
+  const getUpdateAction = () => {
+    if (updateError) {
+      return handleRetryUpdate;
+    }
+    if (updateStatus === "downloading") {
+      return undefined;
+    }
+    if (updateStatus === "downloaded") {
+      return handleInstallUpdate;
+    }
+    return handleDownloadUpdate;
+  };
+
+  const getUpdateIcon = () => {
+    if (updateError) {
+      return AlertTriangle;
+    }
+    if (updateStatus === "downloading") {
+      return Download;
+    }
+    return Sparkles;
   };
 
   return (
     <div className="flex flex-col">
-      {offline && !dismissedOffline && (
-        <AlertBanner type="offline" onDismiss={handleOfflineDismiss} onAction={handleOfflineAction} />
+      {offline && (
+        <AlertBanner
+          type="offline"
+          message="Connection lost. Active downloads are paused and will resume automatically when connection is restored."
+          onAction={() => {
+            // if we're back online, update state
+            if (navigator.onLine) {
+              setOffline(false);
+            }
+          }}
+          actionText="Retry"
+        />
+      )}
+
+      {networkRestored && (
+        <div className="flex items-center gap-2 px-4 py-2 text-[12.5px] border-b bg-primary/10 border-primary/20 text-primary">
+          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-primary" />
+          <span className="flex-1">Connection restored. Network is now online.</span>
+        </div>
       )}
 
       {lowDisk && !dismissedDisk && (
-        <AlertBanner type="disk" onDismiss={handleDiskDismiss} onAction={handleDiskAction} />
+        <AlertBanner type="disk" message={diskMessage} onDismiss={handleDiskDismiss} />
       )}
 
       {updateAvailable && !dismissedUpdate && (
         <AlertBanner
           type="update"
           onDismiss={handleUpdateDismiss}
-          onAction={handleUpdateAction}
-          actionText="Restart now"
+          onAction={getUpdateAction()}
+          actionText={getUpdateActionText()}
+          message={getUpdateMessage()}
+          progress={updateProgress}
+          icon={getUpdateIcon()}
         />
       )}
     </div>

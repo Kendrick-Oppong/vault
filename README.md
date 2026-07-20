@@ -40,24 +40,27 @@ Download videos, playlists, and audio from YouTube and 1000+ sites, entirely on 
 ## ✨ Features
 
 ### Download & Formats
-- **Paste or search** — drop a YouTube link *or* search by keyword right from the URL bar
+
+- **Paste or search** — drop a YouTube link _or_ search by keyword right from the URL bar
 - **Videos, playlists & audio** — download single videos, whole playlists (with a configurable fetch limit), or extract audio
 - **Quick presets** — one click for **Best**, **1080p**, **720p**, **Audio MP3**, or **Audio FLAC**
 - **Manual control** — hand-pick a specific format, container (**MP4 / MKV**), audio codec, and bitrate
-- **In-app preview** — watch a video in a built-in player before committing to a download
 
 ### Queue & History
+
 - **Concurrent queue** — configurable parallel downloads with pause, resume, retry, and cancel (single or bulk)
 - **Real-time progress** — live speed, ETA, and status for every job
 - **History** — SQLite-backed history with search, filters, bulk actions, and missing-file detection
 - **Download archive** — skip already-downloaded items on re-runs, with an overwrite prompt when files exist
 
 ### Post-Processing & Access
+
 - **Embed** thumbnails, metadata, and chapters into output files
 - **Subtitles** and **SponsorBlock** segment removal
 - **Browser cookies** — import cookies from your installed browser for age-gated, private, or members-only content
 
 ### Experience
+
 - **Zero setup** — yt-dlp and FFmpeg are **auto-downloaded** on first run for your platform
 - **Polished UI** — frameless custom titlebar, light/dark themes, command palette, and first-run onboarding
 - **Self-updating** — built-in in-app auto-update

@@ -21,3 +21,22 @@ export const useClearFormatCache = () =>
       });
     }
   });
+
+export const useClearDownloadArchive = () =>
+  useMutation({
+    mutationFn: (downloadPath: string) => globalThis.api.clearDownloadArchive(downloadPath),
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success("Download archive reset");
+      } else {
+        toast.error("Failed to reset download archive", {
+          description: result.error
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to reset download archive", {
+        description: formatError(error)
+      });
+    }
+  });

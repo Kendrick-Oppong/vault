@@ -1,10 +1,15 @@
 {
-  "name": "desktop",
-  "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "name": "vault",
+  "version": "0.1.0",
+  "description": "A fast, modern desktop YouTube downloader — powered by yt-dlp & FFmpeg",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "Kendrick-Oppong",
+  "license": "MIT",
+  "homepage": "https://github.com/Kendrick-Oppong/vault",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kendrick-Oppong/vault.git"
+  },
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -16,9 +21,14 @@
     "build": "pnpm typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "pnpm build && electron-builder --dir",
-    "build:win": "pnpm build && electron-builder --win",
-    "build:mac": "electron-vite build && electron-builder --mac",
-    "build:linux": "electron-vite build && electron-builder --linux"
+    "build:win": "pnpm build && electron-builder --win --publish never",
+    "build:mac": "electron-vite build && electron-builder --mac --publish never",
+    "build:linux": "electron-vite build && electron-builder --linux --publish never",
+    "package": "electron-vite build && electron-builder --publish never",
+    "package:win": "electron-vite build && electron-builder --win --publish never",
+    "package:mac": "electron-vite build && electron-builder --mac --publish never",
+    "package:linux": "electron-vite build && electron-builder --linux --publish never",
+    "release": "electron-vite build && electron-builder --publish always"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.15",

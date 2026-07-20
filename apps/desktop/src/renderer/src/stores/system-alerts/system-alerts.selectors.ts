@@ -6,9 +6,15 @@ export const useSystemAlertsState = () =>
   useSystemAlertsStore(
     useShallow((state) => ({
       offline: state.alerts.offline,
+      networkRestored: state.alerts.networkRestored,
       lowDisk: state.alerts.lowDisk,
       updateAvailable: state.alerts.updateAvailable,
-      diskSpaceFree: state.alerts.diskSpaceFree
+      diskSpaceFree: state.alerts.diskSpaceFree,
+      diskSizeTotal: state.alerts.diskSizeTotal,
+      updateVersion: state.alerts.updateVersion,
+      updateProgress: state.alerts.updateProgress,
+      updateError: state.alerts.updateError,
+      updateStatus: state.alerts.updateStatus
     }))
   );
 
@@ -16,10 +22,14 @@ export const useSystemAlertsActions = () =>
   useSystemAlertsStore(
     useShallow((state) => ({
       setOffline: state.setOffline,
+      setNetworkRestored: state.setNetworkRestored,
       setLowDisk: state.setLowDisk,
       setUpdateAvailable: state.setUpdateAvailable,
       setDiskSpace: state.setDiskSpace,
-      dismissUpdateAlert: state.dismissUpdateAlert
+      dismissUpdateAlert: state.dismissUpdateAlert,
+      setUpdateProgress: state.setUpdateProgress,
+      setUpdateError: state.setUpdateError,
+      setUpdateStatus: state.setUpdateStatus
     }))
   );
 

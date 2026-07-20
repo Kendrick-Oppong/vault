@@ -277,7 +277,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
               />
             ) : (
               <>
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-background" />
+                <div className="absolute inset-0 bg-linear-to-br from-primary/20 to-background" />
                 <div className="absolute inset-0 flex items-center justify-center text-foreground/30">
                   {item.type === "video" ? (
                     <Video className="w-6 h-6" />
@@ -288,7 +288,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
               </>
             )}
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-80" />
             <span className="absolute bottom-1 right-1 z-10 opacity-90 drop-shadow-md">
               {item.type === "video" ? (
                 <Video className="w-3 h-3 text-white" />
