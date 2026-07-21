@@ -19,25 +19,28 @@ export function useJobEvents() {
       );
     };
 
-    const handleJobQueued = () => {
-      // Don't add optimistically - let polling handle it to avoid duplicates
-      // The polling will pick up the new job within 2 seconds
+    const upsertJob = (job: Job) => {
+      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) => {
+        const existing = old.some((j) => j.id === job.id);
+        return existing ? old.map((j) => (j.id === job.id ? job : j)) : [job, ...old];
+      });
+    };
+
+    const handleJobQueued = (job: Job) => {
+      upsertJob(job);
     };
 
     const handleJobStarted = (job: Job) => {
-      updateJobStatus(job.id, "active");
+      upsertJob({ ...job, status: "active" });
     };
 
     const handleJobProgress = (jobId: string, progress: YtDlpProgress) => {
-      const activeJobs = queryClient.getQueryData<Job[]>(QueryKeys.jobs.active()) || [];
-      const job = activeJobs.find((j) => j.id === jobId);
-      if (job && job.status === "active") {
-        queryClient.setQueryData(QueryKeys.jobs.progress(jobId), progress);
-      }
+      queryClient.setQueryData(QueryKeys.jobs.progress(jobId), progress);
     };
 
     const handleJobCompleted = (job: Job) => {
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
+      upsertJob({ ...job, status: "completed" });
       queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
       toast.success(`Download completed: ${job.meta?.title || job.url}`);
     };

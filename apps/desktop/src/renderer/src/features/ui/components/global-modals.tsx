@@ -1,34 +1,38 @@
 import { useModalStore } from "@/stores/ui/modal.store";
 import {
-  selectFormatModal,
   selectConfirmDialog,
+  selectFormatModal,
   useModalActions
 } from "@/stores/ui/modal.selectors";
 import { FormatModal } from "@/features/modals/format-modal/components/format-modal";
+import { NonYoutubeFormatModal } from "@/features/modals/format-modal/components/non-youtube-format-modal";
 import { ConfirmationDialog } from "@/features/ui/components/confirmation-dialog";
 
 export const GlobalModals = () => {
   const formatModal = useModalStore(selectFormatModal);
   const confirmDialog = useModalStore(selectConfirmDialog);
   const { closeFormatModal, closeConfirmDialog } = useModalActions();
+  const modalData = formatModal.data ?? {
+    id: "",
+    title: "Loading...",
+    channel: "",
+    type: "video" as const,
+    platform: "youtube" as const,
+    videoPresets: [],
+    audioPresets: []
+  };
+  const ModalComponent =
+    !formatModal.isLoading && modalData.platform && modalData.platform !== "youtube"
+      ? NonYoutubeFormatModal
+      : FormatModal;
 
   return (
     <>
-      {/* Format picker modal – triggered when probing a URL */}
       {formatModal.isOpen && (
-        <FormatModal
+        <ModalComponent
           open={formatModal.isOpen}
           onOpenChange={(open) => !open && closeFormatModal()}
-          data={
-            formatModal.data ?? {
-              id: "",
-              title: "Loading…",
-              channel: "",
-              type: "video" as const,
-              videoPresets: [],
-              audioPresets: []
-            }
-          }
+          data={modalData}
           isLoading={formatModal.isLoading}
           isError={formatModal.isError}
           error={formatModal.error}
@@ -40,7 +44,6 @@ export const GlobalModals = () => {
         />
       )}
 
-      {/* Generic confirmation dialog */}
       <ConfirmationDialog
         open={confirmDialog.isOpen}
         onOpenChange={(open) => !open && closeConfirmDialog()}

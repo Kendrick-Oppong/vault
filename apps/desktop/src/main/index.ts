@@ -11,7 +11,7 @@ import { probePlaylistPage } from "./ytdlp-manager";
 import { createWorkerPool, type WorkerPool } from "./worker-pool";
 import { initDb, type VaultDb } from "./db";
 import { JobInput } from "@vault/types";
-import { validateYouTubeUrl, validateOutputTemplate, validateFormatSelector } from "./validators";
+import { validateMediaUrl, validateOutputTemplate, validateFormatSelector } from "./validators";
 import { checkDependencies, getDependencyErrorMessage, downloadDependencies } from "./dependencies";
 import * as cookies from "./cookies";
 import { logger } from "./logger";
@@ -191,7 +191,7 @@ function registerIpcHandlers(): void {
     });
 
     // Validate URL
-    const urlValidation = validateYouTubeUrl(jobInput.url);
+    const urlValidation = validateMediaUrl(jobInput.url);
     if (!urlValidation.valid) {
       logger.error("Invalid URL:", urlValidation.error);
       throw new Error(`Invalid URL: ${urlValidation.error}`);

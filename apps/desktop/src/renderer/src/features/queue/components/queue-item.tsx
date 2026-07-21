@@ -69,11 +69,18 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const { mutate: resumeDownload } = useResumeDownload();
   const { mutate: retryDownload } = useRetryDownload();
 
-  // Map raw progress to queue item format if available
+  const progressTotalBytes = rawProgress?.total_bytes ?? rawProgress?.total_bytes_estimate;
+  const rawPercentComplete =
+    typeof rawProgress?.percentComplete === "number" ? rawProgress.percentComplete : undefined;
+
+  // Map raw progress to queue item format if available. Some platforms only
+  // provide an estimated total, so use the enriched percent first.
   const progress =
-    !isCompleted && rawProgress?.downloaded_bytes && rawProgress?.total_bytes
-      ? (rawProgress.downloaded_bytes / rawProgress.total_bytes) * 100
-      : item.progress;
+    !isCompleted && rawPercentComplete !== undefined
+      ? rawPercentComplete
+      : !isCompleted && rawProgress?.downloaded_bytes != null && progressTotalBytes
+        ? (rawProgress.downloaded_bytes / progressTotalBytes) * 100
+        : item.progress;
 
   // yt-dlp sets status to 'finished' when the download stream is done and it
   // hands off to ffmpeg for merging/remuxing/audio-extraction. During this
@@ -99,7 +106,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const size =
     !isCompleted && rawProgress?.total_bytes
       ? formatBytes(rawProgress.total_bytes)
-      : rawProgress?.total_bytes_estimate
+      : !isCompleted && rawProgress?.total_bytes_estimate
         ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
         : item.size;
 

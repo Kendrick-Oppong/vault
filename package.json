@@ -11,9 +11,9 @@
     "url": "https://github.com/Kendrick-Oppong/vault.git"
   },
   "scripts": {
-    "dev:desktop": "pnpm --filter desktop dev",
+    "dev:vault": "pnpm --filter vault dev",
     "dev:web": "pnpm --filter web dev",
-    "build:desktop": "pnpm --filter desktop build",
+    "build:vault": "pnpm --filter vault build",
     "build:web": "pnpm --filter web build",
     "format": "prettier --write .",
     "lint": "pnpm -r lint"

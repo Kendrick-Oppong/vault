@@ -2,8 +2,11 @@
 
 export * from "./presets";
 
+export type MediaPlatform = "youtube" | "twitter" | "tiktok" | "instagram" | "generic";
+
 export interface JobMeta {
   videoId?: string;
+  platform?: MediaPlatform;
   title?: string;
   channel?: string;
   thumbnailUrl?: string;
@@ -57,6 +60,7 @@ export interface YtDlpProgress {
   downloaded_bytes?: number;
   total_bytes?: number;
   total_bytes_estimate?: number;
+  percentComplete?: number;
   speed?: number;
   eta?: number;
   filename?: string;

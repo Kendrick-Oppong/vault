@@ -12,6 +12,7 @@ interface ModalFooterProps {
   onCancel: () => void;
   onConfirm: () => void;
   selectedPreset: Preset | null;
+  showSizeStatus?: boolean;
 }
 
 export const ModalFooter = ({
@@ -22,7 +23,8 @@ export const ModalFooter = ({
   getItemCount,
   onCancel,
   onConfirm,
-  selectedPreset
+  selectedPreset,
+  showSizeStatus = true
 }: ModalFooterProps) => {
   const getSizeStatusText = () => {
     if (isLoading) return "Fetching formats...";
@@ -33,10 +35,14 @@ export const ModalFooter = ({
 
   return (
     <DialogFooter className="flex items-center justify-between m-0 p-3 border-t border-border shrink-0 bg-card">
-      <p className="text-[12px] text-muted-foreground">
+      {showSizeStatus ? (
+        <p className="text-[12px] text-muted-foreground">
         {getSizeStatusText()}
         {!isLoading && isPlaylist && ` · ${getItemCount()} items`}
-      </p>
+        </p>
+      ) : (
+        <div />
+      )}
       <div className="flex items-center gap-2">
         <Button
           variant="outline"

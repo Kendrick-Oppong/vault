@@ -1,7 +1,7 @@
 /**
- * URL and input validation utilities for YouTube downloader
- * Ensures URLs are valid YouTube URLs before processing
+ * URL and input validation utilities for yt-dlp media downloads.
  */
+import type { MediaPlatform } from "@vault/types";
 
 export interface ValidationResult {
   valid: boolean;
@@ -9,6 +9,7 @@ export interface ValidationResult {
   videoId?: string;
   isPlaylist?: boolean;
   isAgeRestricted?: boolean;
+  platform?: MediaPlatform;
 }
 
 /**
@@ -119,9 +120,65 @@ export function validateYouTubeUrl(input: string): ValidationResult {
 
   return {
     valid: true,
+    platform: "youtube",
     videoId: videoId || undefined,
     isPlaylist,
     isAgeRestricted
+  };
+}
+
+export function detectMediaPlatform(input: string): MediaPlatform {
+  try {
+    const hostname = new URL(input.trim()).hostname.toLowerCase().replace(/^www\./, "");
+
+    if (isYouTubeDomain(input)) return "youtube";
+    if (hostname === "x.com" || hostname.endsWith(".x.com")) return "twitter";
+    if (hostname === "twitter.com" || hostname.endsWith(".twitter.com")) return "twitter";
+    if (hostname === "t.co" || hostname.endsWith(".t.co")) return "twitter";
+    if (hostname === "tiktok.com" || hostname.endsWith(".tiktok.com")) return "tiktok";
+    if (hostname === "vm.tiktok.com" || hostname === "vt.tiktok.com") return "tiktok";
+    if (hostname === "instagram.com" || hostname.endsWith(".instagram.com")) return "instagram";
+
+    return "generic";
+  } catch {
+    return "generic";
+  }
+}
+
+export function validateMediaUrl(input: string): ValidationResult {
+  if (!input || typeof input !== "string") {
+    return {
+      valid: false,
+      error: "URL is required"
+    };
+  }
+
+  const trimmed = input.trim();
+  let urlObj: URL;
+
+  try {
+    urlObj = new URL(trimmed);
+  } catch {
+    return {
+      valid: false,
+      error: "Invalid URL format"
+    };
+  }
+
+  if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") {
+    return {
+      valid: false,
+      error: "URL must start with http:// or https://"
+    };
+  }
+
+  const platform = detectMediaPlatform(trimmed);
+  if (platform === "youtube") return validateYouTubeUrl(trimmed);
+
+  return {
+    valid: true,
+    platform,
+    isPlaylist: false
   };
 }
 

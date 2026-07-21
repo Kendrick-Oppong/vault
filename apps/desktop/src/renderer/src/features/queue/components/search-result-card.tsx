@@ -86,6 +86,7 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
                       url: item.url,
                       meta: {
                         title: item.title,
+                        platform: "youtube",
                         channel: result.channel,
                         thumbnailUrl: item.thumbnail || undefined,
                         mediaType: options.mediaType === "audio" ? "music" : "video",
@@ -101,6 +102,7 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
                   url: result.url,
                   meta: {
                     title: result.title,
+                    platform: "youtube",
                     channel: result.channel,
                     thumbnailUrl: result.thumbnail || undefined,
                     mediaType: options.mediaType === "audio" ? "music" : "video",

@@ -39,6 +39,10 @@ const defaultData: FormatModalData = {
   audioPresets: []
 };
 
+function formatSizeLabel(filesize: number | null): string {
+  return filesize && filesize > 0 ? formatBytes(filesize) : "Size unknown";
+}
+
 export const FormatModal = ({
   open,
   onOpenChange,
@@ -78,6 +82,13 @@ export const FormatModal = ({
     // Handle "1080p" format
     const pMatch = /(\d{1,5})p/.exec(resolution);
     return pMatch ? Number.parseInt(pMatch[1], 10) : 0;
+  };
+
+  const parseDurationSeconds = (duration?: string): number | null => {
+    if (!duration) return null;
+    const parts = duration.split(":").map((part) => Number.parseFloat(part));
+    if (parts.some((part) => Number.isNaN(part))) return null;
+    return parts.reduce((total, part) => total * 60 + part, 0);
   };
 
   const [audioBitrate, setAudioBitrate] = useState<number>(320);
@@ -236,9 +247,35 @@ export const FormatModal = ({
     onOpenChange(false);
   };
 
+  const getSelectedVideoFormat = () => {
+    if (!data.videoFormats?.length) return null;
+    if (formatId) {
+      return data.videoFormats.find((format) => format.formatId === formatId) ?? null;
+    }
+    if (selectedPreset?.maxHeight) {
+      return (
+        data.videoFormats
+          .filter((format) => extractHeight(format.resolution) <= selectedPreset.maxHeight!)
+          .sort((a, b) => extractHeight(b.resolution) - extractHeight(a.resolution))[0] ?? null
+      );
+    }
+    return data.videoFormats[0] ?? null;
+  };
+
   const getTotalSize = () => {
-    // Presets don't have size info since they depend on the actual video
-    return null;
+    if (data.type === "playlist") return null;
+
+    if (mediaType === "video") {
+      const selectedFormat = getSelectedVideoFormat();
+      return selectedFormat?.filesize ? formatBytes(selectedFormat.filesize) : null;
+    }
+
+    if (audioFormat === "flac" || audioFormat === "wav") return null;
+
+    const durationSeconds = parseDurationSeconds(data.duration);
+    if (!durationSeconds || !audioBitrate) return null;
+
+    return formatBytes(Math.round((audioBitrate * 1000 * durationSeconds) / 8));
   };
 
   const isPlaylist = data.type === "playlist";
@@ -429,9 +466,9 @@ export const FormatModal = ({
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full min-w-0">
                     {formatId ? (
-                      <span className="text-sm">
+                      <span className="min-w-0 truncate text-sm">
                         {(() => {
                           const selectedFormat = data.videoFormats?.find(
                             (f) => f.formatId === formatId
@@ -448,17 +485,17 @@ export const FormatModal = ({
                       <SelectValue placeholder="Best quality (auto)" />
                     )}
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="w-(--anchor-width) max-w-[calc(100vw-2rem)]">
                     <SelectItem value="">Best quality (auto)</SelectItem>
                     {data.videoFormats?.map((f) => (
                       <SelectItem key={f.formatId} value={f.formatId}>
-                        <div className="flex gap-2">
-                          <p>
+                        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                          <p className="shrink-0">
                             {f.resolution}
                             {f.fps && `@${f.fps}`}
                           </p>
-                          <p className="text-muted-foreground text-xs">
-                            {f.ext} · {formatBytes(f.filesize || 0)} · + audio
+                          <p className="min-w-0 truncate text-xs text-muted-foreground">
+                            {f.ext} · {formatSizeLabel(f.filesize)} · + audio
                           </p>
                         </div>
                       </SelectItem>
@@ -733,3 +770,4 @@ export const FormatModal = ({
     </Dialog>
   );
 };
+

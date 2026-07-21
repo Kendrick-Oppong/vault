@@ -3,7 +3,6 @@ import { useNavigationStore } from "@/stores/navigation/navigation.store";
 import { selectCurrentView } from "@/stores/navigation/navigation.selectors";
 import { AlertBanners } from "@/features/ui/components/alert-banners";
 import { GlobalModals } from "@/features/ui/components/global-modals";
-import { useJobEvents } from "@/lib/event-listeners/use-job-events";
 import { useAppInfoInit } from "@/lib/event-listeners/use-app-info-init";
 import { useUpdateEvents } from "@/lib/event-listeners/use-update-events";
 import { useSystemEvents } from "@/lib/event-listeners/use-system-events";
@@ -20,7 +19,6 @@ function App(): React.JSX.Element {
   const currentView = useNavigationStore(selectCurrentView);
   const { completed: onboardingCompleted } = useOnboardingState();
   useAppInfoInit();
-  useJobEvents();
   useUpdateEvents();
   useSystemEvents();
 

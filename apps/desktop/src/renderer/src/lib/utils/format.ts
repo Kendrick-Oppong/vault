@@ -1,8 +1,9 @@
 /** Format seconds into M:SS */
 export function formatDuration(seconds: number | null | undefined): string {
   if (!seconds) return "";
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+  const wholeSeconds = Math.round(seconds);
+  const m = Math.floor(wholeSeconds / 60);
+  const s = wholeSeconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 

@@ -1,5 +1,5 @@
 import type { FormatModalData, VideoFormat } from "@/features/modals/format-modal/types";
-import { PRESETS } from "@vault/types";
+import { PRESETS, type MediaPlatform } from "@vault/types";
 import { formatDuration } from "@/lib/utils/format";
 
 function str(val: unknown, fallback: string): string {
@@ -12,7 +12,44 @@ function num(val: unknown): number | undefined {
 
 type RawFormat = Record<string, unknown>;
 
-function buildVideoFormats(rawFormats: RawFormat[]): VideoFormat[] {
+function detectPlatformFromUrl(url?: string): MediaPlatform {
+  if (!url) return "generic";
+  try {
+    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    if (hostname.includes("youtube.") || hostname === "youtu.be") return "youtube";
+    if (hostname === "x.com" || hostname.endsWith(".x.com")) return "twitter";
+    if (hostname === "twitter.com" || hostname.endsWith(".twitter.com")) return "twitter";
+    if (hostname === "tiktok.com" || hostname.endsWith(".tiktok.com")) return "tiktok";
+    if (hostname === "vm.tiktok.com" || hostname === "vt.tiktok.com") return "tiktok";
+    if (hostname === "instagram.com" || hostname.endsWith(".instagram.com")) return "instagram";
+    return "generic";
+  } catch {
+    return "generic";
+  }
+}
+
+function detectPlatform(raw: RawFormat[], url?: string): MediaPlatform {
+  const extractor = str(raw[0]?.["extractor_key"], "").toLowerCase();
+  if (extractor.includes("youtube")) return "youtube";
+  if (extractor.includes("twitter") || extractor.includes("x.com")) return "twitter";
+  if (extractor.includes("tiktok")) return "tiktok";
+  if (extractor.includes("instagram")) return "instagram";
+  return detectPlatformFromUrl(url);
+}
+
+function estimateFilesize(format: RawFormat, durationSecs?: number): number | null {
+  const explicitSize = num(format["filesize"]) ?? num(format["filesize_approx"]);
+  if (explicitSize && explicitSize > 0) return explicitSize;
+
+  const tbr = num(format["tbr"]);
+  if (tbr && tbr > 0 && durationSecs && durationSecs > 0) {
+    return Math.round((tbr * 1000 * durationSecs) / 8);
+  }
+
+  return null;
+}
+
+function buildVideoFormats(rawFormats: RawFormat[], durationSecs?: number): VideoFormat[] {
   const videoOnly = rawFormats.filter(
     (f) => f["vcodec"] && f["vcodec"] !== "none" && f["height"] && f["ext"] !== "mhtml"
   );
@@ -54,7 +91,7 @@ function buildVideoFormats(rawFormats: RawFormat[]): VideoFormat[] {
         resolution,
         fps: num(f["fps"]) ?? null,
         ext: str(f["ext"], "mp4"),
-        filesize: num(f["filesize"]) ?? num(f["filesize_approx"]) ?? 0,
+        filesize: estimateFilesize(f, durationSecs),
         tbr: num(f["tbr"]) ?? 0
       };
     });
@@ -62,19 +99,22 @@ function buildVideoFormats(rawFormats: RawFormat[]): VideoFormat[] {
 
 function mapProbeToFormatModalData(
   raw: RawFormat[],
-  linkType: FormatModalData["type"]
+  linkType: FormatModalData["type"],
+  platform: MediaPlatform
 ): FormatModalData {
   const entry = raw[0] ?? {};
 
   const title = str(entry["title"], "Unknown title");
   const channel = str(entry["channel"], str(entry["uploader"], "Unknown channel"));
+  const creatorLabel =
+    platform === "youtube" ? channel : str(entry["uploader"], str(entry["channel"], "Unknown creator"));
   const thumbnail =
     (entry["thumbnail"] as string | undefined) ??
     (entry["thumbnails"] as Array<{ url: string }> | undefined)?.[0]?.url;
   const durationSecs = num(entry["duration"]);
 
   const rawFormats = (entry["formats"] as RawFormat[] | undefined) ?? [];
-  const videoFormats = buildVideoFormats(rawFormats);
+  const videoFormats = buildVideoFormats(rawFormats, durationSecs);
 
   if (linkType === "playlist") {
     const items = raw
@@ -96,6 +136,8 @@ function mapProbeToFormatModalData(
       id: str(entry["id"], str(entry["webpage_url"], "")),
       title,
       channel,
+      creatorLabel,
+      platform,
       thumbnail,
       type: "playlist",
       videoCount: totalCount,
@@ -112,6 +154,8 @@ function mapProbeToFormatModalData(
     id: str(entry["id"], str(entry["webpage_url"], "")),
     title,
     channel,
+    creatorLabel,
+    platform,
     thumbnail,
     type: "video",
     duration: formatDuration(durationSecs),
@@ -123,11 +167,12 @@ function mapProbeToFormatModalData(
 
 export function formatProbeToModalData(raw: RawFormat[], url?: string): FormatModalData {
   const first = raw[0] ?? {};
+  const platform = detectPlatform(raw, url);
   const linkType: FormatModalData["type"] =
     first["_type"] === "playlist" || Array.isArray(first["entries"]) || raw.length > 1
       ? "playlist"
       : "video";
-  const modalData = mapProbeToFormatModalData(raw, linkType);
+  const modalData = mapProbeToFormatModalData(raw, linkType, platform);
   return {
     ...modalData,
     url

@@ -1,4 +1,4 @@
-import type { Preset, MediaType, VideoContainer, AudioFormat } from "@vault/types";
+import type { Preset, MediaType, VideoContainer, AudioFormat, MediaPlatform } from "@vault/types";
 
 export type { MediaType, Preset, VideoContainer, AudioFormat };
 export type LinkType = "video" | "playlist";
@@ -24,6 +24,8 @@ export interface FormatModalData {
   id: string; // Unique identifier for the video/playlist (used for playlist tracking)
   title: string;
   channel: string;
+  creatorLabel?: string;
+  platform?: MediaPlatform;
   thumbnail?: string;
   type: LinkType;
   duration?: string;

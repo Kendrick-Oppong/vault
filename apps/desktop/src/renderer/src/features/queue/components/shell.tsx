@@ -45,6 +45,7 @@ export const QueueView = () => {
         thumbnail: job.meta?.thumbnailUrl,
         type: job.meta?.mediaType ?? "video",
         format: job.meta?.quality || "Best",
+        filePath: job.meta?.expectedPath,
         errorMessage: job.error,
         duration: job.meta?.duration
       };

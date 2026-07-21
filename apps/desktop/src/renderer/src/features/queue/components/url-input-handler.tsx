@@ -109,6 +109,7 @@ export const UrlInputHandler = ({
                         url: item.url,
                         meta: {
                           title: item.title,
+                          platform: modalData.platform,
                           channel: modalData.channel,
                           thumbnailUrl: item.thumbnail || undefined,
                           mediaType: options.mediaType === "audio" ? "music" : "video",
@@ -124,6 +125,7 @@ export const UrlInputHandler = ({
                     url: value,
                     meta: {
                       title: modalData.title,
+                      platform: modalData.platform,
                       channel: modalData.channel,
                       thumbnailUrl: modalData.thumbnail,
                       mediaType: options.mediaType === "audio" ? "music" : "video",
@@ -218,7 +220,7 @@ export const UrlInputHandler = ({
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       )}
       <Input
-        placeholder="Paste a YouTube link or search videos…"
+        placeholder="Paste a video link or search YouTube..."
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}

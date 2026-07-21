@@ -1,7 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { isAbsolute } from "node:path";
 import { join } from "node:path";
 import type { YtDlpProgress, DownloadExtras } from "@vault/types";
-import { validateYouTubeUrl } from "./validators";
+import { validateMediaUrl, validateYouTubeUrl } from "./validators";
 import { logger } from "./logger";
 
 export interface YtDlpOptions {
@@ -48,7 +49,15 @@ function parseYtDlpError(stderr: string): string {
   if (stderr.includes("ERROR: Requested format is not available"))
     return "Requested format is not available for this video. Try a different format.";
   if (stderr.includes("ERROR: Sign in to confirm"))
-    return "Video requires sign-in. Please enable cookies or use YouTube auth.";
+    return "This media requires sign-in. Enable cookies in Settings, then try again.";
+  if (stderr.includes("login") || stderr.includes("Login") || stderr.includes("cookies"))
+    return "This media may require login cookies. Enable or refresh browser cookies in Settings, then try again.";
+  if (stderr.includes("Unsupported URL"))
+    return "This URL is not supported by the current yt-dlp extractor.";
+  if (stderr.includes("No video could be found"))
+    return "No downloadable media was found at this URL.";
+  if (stderr.includes("private") || stderr.includes("Private"))
+    return "This media appears to be private or unavailable without the right account cookies.";
   if (stderr.includes("ERROR: This live event will begin in"))
     return "This is a live event that hasn't started yet.";
   if (stderr.includes("ERROR: This video is age restricted"))
@@ -157,8 +166,8 @@ export async function probeFormats(
   url: string,
   extras?: ProbeOptions
 ): Promise<Record<string, unknown>[]> {
-  const validation = validateYouTubeUrl(url);
-  if (!validation.valid) throw new Error(`Invalid YouTube URL: ${validation.error}`);
+  const validation = validateMediaUrl(url);
+  if (!validation.valid) throw new Error(`Invalid media URL: ${validation.error}`);
 
   const retries = extras?.retries ?? DEFAULT_RETRIES;
   const timeout = extras?.timeout ?? DEFAULT_TIMEOUT;
@@ -425,24 +434,67 @@ function attachDownloadOutputHandlers(
 ): { getStderr: () => string; getStdoutInfo: () => string } {
   let stderr = "";
   let stdoutInfo = "";
+  let stdoutBuffer = "";
+  let stderrBuffer = "";
+
+  const parseProgressLine = (line: string): YtDlpProgress | null => {
+    const outputLine = line.trim();
+    if (!outputLine) return null;
+
+    try {
+      return JSON.parse(outputLine) as YtDlpProgress;
+    } catch {
+      const percentMatch = outputLine.match(/\[download\]\s+([\d.]+)%/);
+      if (percentMatch) {
+        return {
+          status: "downloading",
+          percentComplete: Number.parseFloat(percentMatch[1])
+        };
+      }
+
+      if (isAbsolute(outputLine)) {
+        return { filename: outputLine };
+      }
+
+      return null;
+    }
+  };
+
+  const processLines = (
+    chunk: Buffer,
+    previousBuffer: string,
+    onLine: (line: string) => void
+  ): string => {
+    const lines = (previousBuffer + chunk.toString()).split(/\r?\n/);
+    const nextBuffer = lines.pop() ?? "";
+    for (const line of lines) onLine(line);
+    return nextBuffer;
+  };
 
   proc.stdout?.on("data", (chunk) => {
-    for (const line of chunk.toString().split("\n")) {
-      if (!line.trim()) continue;
-      try {
-        const progress = JSON.parse(line) as YtDlpProgress;
+    stdoutBuffer = processLines(chunk, stdoutBuffer, (line) => {
+      const progress = parseProgressLine(line);
+      if (progress) {
         logger.debug("Download progress:", progress);
         onProgress?.(progress);
-      } catch {
-        stdoutInfo += line + "\n";
+      } else {
+        stdoutInfo += `${line}\n`;
       }
-    }
+    });
   });
 
   proc.stderr?.on("data", (chunk) => {
     const data = chunk.toString();
     stderr += data;
-    logger.debug("yt-dlp stderr:", data.trim());
+    stderrBuffer = processLines(chunk, stderrBuffer, (line) => {
+      const progress = parseProgressLine(line);
+      if (progress) {
+        logger.debug("Download progress:", progress);
+        onProgress?.(progress);
+      } else if (line.trim()) {
+        logger.debug("yt-dlp stderr:", line.trim());
+      }
+    });
   });
 
   return { getStderr: () => stderr, getStdoutInfo: () => stdoutInfo };
@@ -513,6 +565,8 @@ export function download(
     "--newline",
     "--progress-template",
     "%(progress)j",
+    "--print",
+    "after_move:filepath",
     "--js-runtimes",
     `node:${process.execPath}`,
     "--prefer-free-formats",
