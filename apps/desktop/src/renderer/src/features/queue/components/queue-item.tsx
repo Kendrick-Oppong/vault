@@ -82,6 +82,8 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
       : !isCompleted && rawProgress?.downloaded_bytes != null && progressTotalBytes
         ? (rawProgress.downloaded_bytes / progressTotalBytes) * 100
         : item.progress;
+  const hasProgressPercent = typeof progress === "number";
+  const clampedProgress = hasProgressPercent ? Math.max(0, Math.min(100, progress)) : undefined;
 
   // yt-dlp sets status to 'finished' when the download stream is done and it
   // hands off to ffmpeg for merging/remuxing/audio-extraction. During this
@@ -322,9 +324,9 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {progress !== undefined && !isQueued && !isError && !isPostProcessing && (
+                {clampedProgress !== undefined && !isQueued && !isError && !isPostProcessing && (
                   <span className="text-[20px] leading-none font-bold text-muted-foreground">
-                    {progress.toFixed(1)}
+                    {clampedProgress.toFixed(1)}
                     <span className="text-[12px]">%</span>
                   </span>
                 )}
@@ -378,23 +380,32 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
               </div>
             )}
 
-            {(isPaused || isDownloading) && progress !== undefined && (
+            {(isPaused || isDownloading) && (
               <div className="mt-2">
-                <div className="h-1 rounded-full bg-muted overflow-hidden">
+                <div className="relative h-1 rounded-full bg-muted overflow-hidden">
                   {isPostProcessing ? (
-                    // Indeterminate bar during ffmpeg post-processing: the bar
-                    // sits at 100% but the label makes clear we're not done yet.
                     <div className="h-full rounded-full bg-muted-foreground w-full opacity-40 animate-pulse" />
-                  ) : (
+                  ) : clampedProgress !== undefined ? (
                     <div
                       className="h-full rounded-full bg-muted-foreground transition-all"
-                      style={{ width: `${progress}%` }}
+                      style={{ width: `${clampedProgress}%` }}
+                    />
+                  ) : (
+                    <div
+                      className="absolute inset-y-0 w-1/3 rounded-full bg-muted-foreground/70 animate-[download-progress_1.2s_ease-in-out_infinite]"
+                      style={{ left: "-33%" }}
                     />
                   )}
                 </div>
                 <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
                   <span>
-                    {isPaused ? "Paused" : isPostProcessing ? postProcessLabel : "Downloading"}
+                    {isPaused
+                      ? "Paused"
+                      : isPostProcessing
+                        ? postProcessLabel
+                        : clampedProgress === undefined
+                          ? "Starting..."
+                          : "Downloading"}
                   </span>
                   {!isPostProcessing && downloaded && size && (
                     <div className="flex items-center gap-3">

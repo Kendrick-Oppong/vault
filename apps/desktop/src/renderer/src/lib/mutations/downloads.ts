@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { downloadsApi } from "@/lib/api/downloads";
 import { QueryKeys } from "@/lib/constants/query-keys";
 import { formatError } from "@/lib/utils/format-error";
-import type { JobInput } from "@vault/types";
+import type { Job, JobInput } from "@vault/types";
 
 export const useProbeFormatsMutation = () => {
   return useMutation({
@@ -33,7 +33,17 @@ export const useQueueDownload = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: JobInput) => downloadsApi.queueDownload(input),
-    onSuccess: (jobId) => {
+    onSuccess: (jobId, input) => {
+      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) => {
+        if (old.some((job) => job.id === jobId)) return old;
+        const optimisticJob: Job = {
+          ...input,
+          id: jobId,
+          status: "active",
+          createdAt: Date.now()
+        };
+        return [optimisticJob, ...old];
+      });
       queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
       queryClient.invalidateQueries({ queryKey: QueryKeys.jobs.active() });
       toast.success("Download queued successfully", {
