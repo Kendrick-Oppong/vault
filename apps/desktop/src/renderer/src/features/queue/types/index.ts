@@ -1,3 +1,5 @@
+import type { YtDlpProgress } from "@vault/types";
+
 export type QueueFilter = "all" | "downloading" | "paused" | "queued" | "completed" | "error";
 
 export interface QueueItem {
@@ -6,6 +8,7 @@ export interface QueueItem {
   channel: string;
   status: QueueFilter;
   progress?: number;
+  rawProgress?: YtDlpProgress;
   size?: string;
   downloaded?: string;
   addedAt: Date;

@@ -13,6 +13,7 @@ import type { DownloadExtras, JobInput } from "@vault/types";
 import { presetToFormatSelector } from "@vault/types";
 import { FileOverwriteDialog } from "./file-overwrite-dialog";
 import { useFileExistenceCheck } from "../hooks/use-file-existence-check";
+import { useSearchActions } from "@/stores/search/search.selectors";
 
 interface SearchResultCardProps {
   result: SearchResult;
@@ -24,6 +25,7 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
   const queueMutation = useQueueDownload();
   const settings = useSettingsStore(selectSettings);
   const { existingTitles, checkFilesExist, clearCheck } = useFileExistenceCheck();
+  const { clearSearch } = useSearchActions();
   const [showOverwriteDialog, setShowOverwriteDialog] = useState(false);
   const [pendingJobs, setPendingJobs] = useState<JobInput[]>([]);
 
@@ -126,6 +128,7 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
                 setShowOverwriteDialog(true);
               } else {
                 newJobs.forEach((job) => queueMutation.mutate(job));
+                clearSearch();
               }
             }
           });
@@ -144,6 +147,7 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
         extra: { ...job.extra, overwrite: true }
       })
     );
+    clearSearch();
     setPendingJobs([]);
     setShowOverwriteDialog(false);
     clearCheck();
@@ -156,6 +160,7 @@ export const SearchResultCard = ({ result }: SearchResultCardProps) => {
 
     if (jobsToQueue.length > 0) {
       jobsToQueue.forEach((job) => queueMutation.mutate(job));
+      clearSearch();
       toast.info(
         `Queued ${jobsToQueue.length} files. Skipped ${existingTitles.length} existing files.`
       );

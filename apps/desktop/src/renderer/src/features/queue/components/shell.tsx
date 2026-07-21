@@ -11,7 +11,6 @@ import {
   useRetryDownload,
   useCancelDownload
 } from "@/lib/mutations/downloads";
-import { useSearchState } from "@/stores/search/search.selectors";
 import { SkeletonLoader } from "@/features/ui/components/skeleton-loader";
 
 export const QueueView = () => {
@@ -23,8 +22,6 @@ export const QueueView = () => {
   const resumeMutation = useResumeDownload();
   const retryMutation = useRetryDownload();
   const cancelMutation = useCancelDownload();
-
-  const { results } = useSearchState();
 
   // Map Job to QueueItem
   const items: QueueItem[] = useMemo(() => {
@@ -45,6 +42,7 @@ export const QueueView = () => {
         thumbnail: job.meta?.thumbnailUrl,
         type: job.meta?.mediaType ?? "video",
         format: job.meta?.quality || "Best",
+        rawProgress: job.progress,
         filePath: job.meta?.expectedPath,
         errorMessage: job.error,
         duration: job.meta?.duration
@@ -104,8 +102,6 @@ export const QueueView = () => {
     error: items.filter((i) => i.status === "error").length
   };
 
-  const isSearching = results.length > 0;
-
   if (isLoading) {
     return <SkeletonLoader type="queue" />;
   }
@@ -114,25 +110,22 @@ export const QueueView = () => {
     <div className="space-y-4 py-4">
       <QueueInput />
 
-      {/* Queue (hidden while searching) */}
-      {!isSearching && (
-        <div className="space-y-2">
-          <FilterTabs
-            activeFilter={activeFilter}
-            onFilterChange={setActiveFilter}
-            stats={stats}
-            onPauseAll={handlePauseAll}
-          />
-          <BulkActions
-            selectedCount={selectedIds.length}
-            onSelectAll={handleSelectAll}
-            totalCount={filteredItems.length}
-            onSelectNone={handleSelectNone}
-            onBulkAction={handleBulkAction}
-          />
-          <QueueList items={filteredItems} selectedIds={selectedIds} onSelect={handleSelect} />
-        </div>
-      )}
+      <div className="space-y-2">
+        <FilterTabs
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          stats={stats}
+          onPauseAll={handlePauseAll}
+        />
+        <BulkActions
+          selectedCount={selectedIds.length}
+          onSelectAll={handleSelectAll}
+          totalCount={filteredItems.length}
+          onSelectNone={handleSelectNone}
+          onBulkAction={handleBulkAction}
+        />
+        <QueueList items={filteredItems} selectedIds={selectedIds} onSelect={handleSelect} />
+      </div>
     </div>
   );
 };

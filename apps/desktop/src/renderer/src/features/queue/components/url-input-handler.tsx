@@ -15,6 +15,7 @@ import type { DownloadExtras, JobInput } from "@vault/types";
 import { presetToFormatSelector } from "@vault/types";
 import { FileOverwriteDialog } from "./file-overwrite-dialog";
 import { useFileExistenceCheck } from "../hooks/use-file-existence-check";
+import { useSearchActions } from "@/stores/search/search.selectors";
 
 interface UrlInputHandlerProps {
   inputValue: string;
@@ -36,6 +37,7 @@ export const UrlInputHandler = ({
   const queueMutation = useQueueDownload();
   const settings = useSettingsStore(selectSettings);
   const { existingTitles, checkFilesExist, clearCheck } = useFileExistenceCheck();
+  const { clearSearch } = useSearchActions();
   const [showOverwriteDialog, setShowOverwriteDialog] = useState(false);
   const [pendingJobs, setPendingJobs] = useState<JobInput[]>([]);
 
@@ -149,7 +151,7 @@ export const UrlInputHandler = ({
                   setShowOverwriteDialog(true);
                 } else {
                   newJobs.forEach((job) => queueMutation.mutate(job));
-                  setInputValue("");
+                  clearSearch();
                 }
               }
             });
@@ -176,7 +178,7 @@ export const UrlInputHandler = ({
         extra: { ...job.extra, overwrite: true }
       })
     );
-    setInputValue("");
+    clearSearch();
     setPendingJobs([]);
     setShowOverwriteDialog(false);
     clearCheck();
@@ -189,6 +191,7 @@ export const UrlInputHandler = ({
 
     if (jobsToQueue.length > 0) {
       jobsToQueue.forEach((job) => queueMutation.mutate(job));
+      clearSearch();
       toast.info(
         `Queued ${jobsToQueue.length} files. Skipped ${existingTitles.length} existing files.`
       );
@@ -196,7 +199,6 @@ export const UrlInputHandler = ({
       toast.info("All selected files already exist. Nothing queued.");
     }
 
-    setInputValue("");
     setPendingJobs([]);
     setShowOverwriteDialog(false);
     clearCheck();

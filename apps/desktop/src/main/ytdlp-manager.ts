@@ -465,7 +465,7 @@ function attachDownloadOutputHandlers(
     previousBuffer: string,
     onLine: (line: string) => void
   ): string => {
-    const lines = (previousBuffer + chunk.toString()).split(/\r?\n/);
+    const lines = (previousBuffer + chunk.toString()).split(/\r\n|\r|\n/);
     const nextBuffer = lines.pop() ?? "";
     for (const line of lines) onLine(line);
     return nextBuffer;

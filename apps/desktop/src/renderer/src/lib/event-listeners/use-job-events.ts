@@ -36,6 +36,9 @@ export function useJobEvents() {
 
     const handleJobProgress = (jobId: string, progress: YtDlpProgress) => {
       queryClient.setQueryData(QueryKeys.jobs.progress(jobId), progress);
+      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
+        old.map((job) => (job.id === jobId ? { ...job, status: "active", progress } : job))
+      );
     };
 
     const handleJobCompleted = (job: Job) => {

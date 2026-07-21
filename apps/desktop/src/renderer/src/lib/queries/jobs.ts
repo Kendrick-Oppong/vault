@@ -15,5 +15,6 @@ export const useJobProgress = (jobId: string) =>
     queryKey: QueryKeys.jobs.progress(jobId),
     queryFn: () => undefined,
     initialData: undefined,
+    enabled: false,
     staleTime: Infinity
   });

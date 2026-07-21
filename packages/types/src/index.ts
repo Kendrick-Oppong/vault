@@ -31,6 +31,7 @@ export interface Job extends JobInput {
   createdAt: number;
   error?: string;
   resume?: boolean;
+  progress?: YtDlpProgress;
 }
 
 export type JobStatus = "pending" | "active" | "paused" | "completed" | "failed" | "cancelled";

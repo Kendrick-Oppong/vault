@@ -59,7 +59,8 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const [imgError, setImgError] = useState(false);
 
   const { openConfirmDialog } = useModalStore();
-  const { data: rawProgress } = useJobProgress(item.id);
+  const { data: queriedProgress } = useJobProgress(item.id);
+  const rawProgress = item.rawProgress ?? queriedProgress;
   const { mutate: cancelDownload } = useCancelDownload({
     successMessage: isCompleted || isError ? "Removed from queue" : "Download cancelled",
     errorMessage:
