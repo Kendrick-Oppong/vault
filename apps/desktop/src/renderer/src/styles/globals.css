@@ -3,8 +3,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@vault/ui/styles/globals.css";
-@import "./fonts.css";
-
 /* Scan for Tailwind classes in these directories */
 @source "../../src";
 @source "../../../../../../packages/ui/src";
