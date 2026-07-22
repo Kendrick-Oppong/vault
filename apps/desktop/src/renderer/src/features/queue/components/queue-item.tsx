@@ -82,7 +82,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
       : !isCompleted && rawProgress?.downloaded_bytes != null && progressTotalBytes
         ? (rawProgress.downloaded_bytes / progressTotalBytes) * 100
         : item.progress;
-  const hasProgressPercent = typeof progress === "number";
+  const hasProgressPercent = typeof progress === "number" && !Number.isNaN(progress);
   const clampedProgress = hasProgressPercent ? Math.max(0, Math.min(100, progress)) : undefined;
 
   // yt-dlp sets status to 'finished' when the download stream is done and it
