@@ -15,6 +15,8 @@ export const useJobProgress = (jobId: string) =>
     queryKey: QueryKeys.jobs.progress(jobId),
     queryFn: () => undefined,
     initialData: undefined,
-    enabled: false,
-    staleTime: Infinity
+    enabled: true,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false
   });

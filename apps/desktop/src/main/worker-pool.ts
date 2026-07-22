@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
 import { execSync, type ChildProcess } from "node:child_process";
+import { existsSync, unlinkSync } from "node:fs";
 import type { Job, JobInput, YtDlpProgress } from "@vault/types";
 import type { YtDlpManager } from "./ytdlp-manager";
 import { createProgressTracker } from "./progress-tracker";
@@ -32,6 +33,25 @@ function killProcessTree(proc: ChildProcess): void {
   } else {
     proc.kill("SIGTERM");
   }
+}
+
+function cleanupTempFiles(job: Job): void {
+  if (!job.meta?.expectedPath) return;
+
+  const basePath = job.meta.expectedPath;
+  const tempExtensions = [".part", ".ytdl", ".temp", ".download"];
+
+  tempExtensions.forEach((ext) => {
+    const tempPath = basePath + ext;
+    if (existsSync(tempPath)) {
+      try {
+        unlinkSync(tempPath);
+        logger.debug("Cleaned up temp file:", tempPath);
+      } catch (err) {
+        logger.warn("Failed to clean up temp file:", tempPath, err);
+      }
+    }
+  });
 }
 
 export function createWorkerPool(opts: WorkerPoolOptions) {
@@ -105,6 +125,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
         }
         logger.info("Job completed:", job.id);
         job.status = "completed";
+        cleanupTempFiles(job);
         active.delete(job.id);
         completed.set(job.id, job);
         logger.debug("Job moved to completed set:", job.id, "Completed count:", completed.size);
@@ -159,6 +180,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     if (queueIndex !== -1) {
       const [job] = queue.splice(queueIndex, 1);
       job.status = "cancelled";
+      cleanupTempFiles(job);
       logger.debug("Job cancelled from queue:", jobId);
       emitter.emit("job:cancelled", job);
       storedInputs.delete(jobId);
@@ -169,6 +191,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
       intentionallyKilled.add(jobId);
       killProcessTree(activeJob.process);
       activeJob.job.status = "cancelled";
+      cleanupTempFiles(activeJob.job);
       active.delete(jobId);
       storedInputs.delete(jobId);
       logger.debug("Job cancelled from active:", jobId);
@@ -180,6 +203,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     if (storedInputs.has(jobId)) {
       const stored = storedInputs.get(jobId)!;
       storedInputs.delete(jobId);
+      cleanupTempFiles(stored.job);
       logger.debug("Job cancelled from stored inputs:", jobId);
       // Emit cancelled event with the stored job data
       emitter.emit("job:cancelled", { ...stored.job, status: "cancelled" as const });
