@@ -428,6 +428,25 @@ function buildSubtitleAndArchiveArgs(
   }
 }
 
+function parseBytesUnit(valueStr: string, unitStr: string): number {
+  const num = Number.parseFloat(valueStr);
+  if (Number.isNaN(num)) return 0;
+  const unit = unitStr.toLowerCase();
+  if (unit.startsWith("k")) return num * 1024;
+  if (unit.startsWith("m")) return num * 1024 * 1024;
+  if (unit.startsWith("g")) return num * 1024 * 1024 * 1024;
+  return num;
+}
+
+function parseEta(etaStr: string): number | undefined {
+  const parts = etaStr.split(":").map((p) => Number.parseInt(p, 10));
+  if (parts.some((p) => Number.isNaN(p))) return undefined;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 1) return parts[0];
+  return undefined;
+}
+
 function attachDownloadOutputHandlers(
   proc: ChildProcess,
   onProgress?: (progress: YtDlpProgress) => void
@@ -441,23 +460,78 @@ function attachDownloadOutputHandlers(
     const outputLine = line.trim();
     if (!outputLine) return null;
 
+    // Try to parse JSON progress first (if progress template is used)
+    const jsonCandidate = outputLine.replace(/^[a-zA-Z0-9_-]+:/, "").trim();
     try {
-      return JSON.parse(outputLine) as YtDlpProgress;
+      const parsed = JSON.parse(jsonCandidate) as YtDlpProgress;
+      if (parsed && typeof parsed === "object") {
+        if (parsed.percentComplete === undefined) {
+          const total = parsed.total_bytes ?? parsed.total_bytes_estimate;
+          if (total && typeof parsed.downloaded_bytes === "number") {
+            parsed.percentComplete = Math.min(100, (parsed.downloaded_bytes / total) * 100);
+          }
+        }
+        return parsed;
+      }
     } catch {
-      const percentMatch = outputLine.match(/\[download\]\s+([\d.]+)%/);
-      if (percentMatch) {
-        return {
-          status: "downloading",
-          percentComplete: Number.parseFloat(percentMatch[1])
-        };
-      }
-
-      if (isAbsolute(outputLine)) {
-        return { filename: outputLine };
-      }
-
-      return null;
+      // JSON parsing failed, try text format
     }
+
+    // Parse standard yt-dlp text progress format:
+    // [download]  23.5% of  10.00MiB at  1.00MiB/s ETA 00:05
+    // [download]  10.0% of ~250.00MiB at  5.00MiB/s ETA 00:48
+    const textMatch = outputLine.match(
+      /\[download\]\s+([\d.]+)%\s+of\s+(~?)([\d.]+)\s*([a-zA-Z]+)(?:\s+at\s+~?([\d.]+)\s*([a-zA-Z]+)\/s)?(?:\s+ETA\s+([\d:]+))?/
+    );
+    if (textMatch) {
+      const percentComplete = Number.parseFloat(textMatch[1]);
+      const isEstimate = textMatch[2] === "~";
+      const totalSizeNum = textMatch[3];
+      const totalSizeUnit = textMatch[4];
+      const speedNum = textMatch[5];
+      const speedUnit = textMatch[6];
+      const etaStr = textMatch[7];
+
+      const totalBytes = parseBytesUnit(totalSizeNum, totalSizeUnit);
+      const downloadedBytes = totalBytes > 0 ? (totalBytes * percentComplete) / 100 : undefined;
+      const speedBytes = speedNum && speedUnit ? parseBytesUnit(speedNum, speedUnit) : undefined;
+      const etaSeconds = etaStr ? parseEta(etaStr) : undefined;
+
+      const result: YtDlpProgress = {
+        status: "downloading",
+        percentComplete
+      };
+      if (downloadedBytes !== undefined) result.downloaded_bytes = downloadedBytes;
+      if (totalBytes > 0) {
+        if (isEstimate) result.total_bytes_estimate = totalBytes;
+        else result.total_bytes = totalBytes;
+      }
+      if (speedBytes !== undefined) result.speed = speedBytes;
+      if (etaSeconds !== undefined) result.eta = etaSeconds;
+      return result;
+    }
+
+    const percentMatch = outputLine.match(/\[download\]\s+([\d.]+)%/);
+    if (percentMatch) {
+      const percentComplete = Number.parseFloat(percentMatch[1]);
+      return {
+        status: "downloading",
+        percentComplete
+      };
+    }
+
+    // Parse filename lines
+    if (isAbsolute(outputLine) || outputLine.startsWith("[download] Destination:")) {
+      const filename = outputLine.replace("[download] Destination:", "").trim();
+      return { filename };
+    }
+
+    // Detect post-processing phases
+    if (outputLine.includes("[ffmpeg]")) {
+      return { status: "processing" };
+    }
+
+    return null;
   };
 
   const processLines = (
@@ -563,14 +637,9 @@ export function download(
     "--format",
     formatSelector,
     "--newline",
+    "--no-warnings",
     "--progress-template",
-    "%(progress)j",
-    "--print",
-    "after_move:filepath",
-    "--js-runtimes",
-    `node:${process.execPath}`,
-    "--prefer-free-formats",
-    "--no-warnings"
+    "download:%(progress)j"
   ];
 
   // Add download path if specified (youtube-downloader approach)
