@@ -67,7 +67,11 @@ export function createProgressTracker(): ProgressTracker {
     const downloaded = progress.downloaded_bytes ?? 0;
 
     const percentComplete =
-      totalBytes > 0 ? Math.min(100, (downloaded / totalBytes) * 100) : undefined;
+      typeof progress.percentComplete === "number" && !Number.isNaN(progress.percentComplete)
+        ? progress.percentComplete
+        : totalBytes > 0
+          ? Math.min(100, (downloaded / totalBytes) * 100)
+          : undefined;
 
     const remainingBytes = totalBytes > 0 ? Math.max(0, totalBytes - downloaded) : undefined;
 
