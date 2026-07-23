@@ -9,7 +9,7 @@ import { useSystemEvents } from "@/lib/event-listeners/use-system-events";
 import { useJobEvents } from "@/lib/event-listeners/use-job-events";
 import { OnboardingScreen } from "@/features/onboarding/components/onboarding-screen";
 import { useOnboardingState } from "@/stores/onboarding/onboarding.selectors";
-import { CustomTitlebar } from "@/features/ui/components/custom-titlebar";
+import { Titlebar } from "@/features/ui/components/titlebar";
 
 import { HistoryView } from "@/features/history/components/shell";
 import { SettingsView } from "@/features/settings/components/shell";
@@ -45,7 +45,7 @@ function App(): React.JSX.Element {
 
   return (
     <div className="flex flex-col h-full">
-      <CustomTitlebar title="Vault - YouTube Downloader" />
+      <Titlebar />
       <main className="flex flex-1 overflow-hidden">
         <SideBar />
 
