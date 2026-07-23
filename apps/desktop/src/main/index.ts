@@ -57,7 +57,7 @@ function createWindow(): void {
     autoHideMenuBar: true,
     frame: false,
     titleBarStyle: "hidden",
-    ...(process.platform === "linux" ? { icon } : {}),
+    icon,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -630,7 +630,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle("system:checkDiskSpace", async (_e, path: string) => {
     logger.debug("IPC: system:checkDiskSpace for", path);
     try {
-      if (!path) return { available: 0, total: 0 };
+      if (!path || path === "__unset__") return { available: 0, total: 0 };
       const stats = await fs.promises.statfs(path);
       return {
         available: stats.bavail * stats.bsize,
