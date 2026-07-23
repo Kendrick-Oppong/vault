@@ -27,7 +27,7 @@ win:
     - target: nsis
       arch:
         - x64
-  icon: build/icon.png
+  icon: build/icon.ico
   artifactName: Vault-${version}-Windows-Setup.${ext}
 
 nsis:
@@ -41,7 +41,7 @@ nsis:
 
 mac:
   category: public.app-category.utilities
-  icon: build/icon.png
+  icon: build/icon.icns
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlementsInherit: build/entitlements.mac.plist
