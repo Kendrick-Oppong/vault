@@ -59,8 +59,12 @@ export const HistoryCard = ({ item, isSelected, onSelect }: HistoryCardProps) =>
               {/* Gradient background */}
               <div className="absolute inset-0 bg-linear-to-br from-primary/20 to-background" />
               {/* Icon pattern */}
-              <div className="absolute inset-0 flex items-center justify-center text-white/10">
-                {isVideo ? <Video className="w-16 h-16" /> : <Music className="w-16 h-16" />}
+              <div className="absolute inset-0 flex items-center justify-center text-background/10">
+                {isVideo ? (
+                  <Video className="w-16 h-16 bg-background!" />
+                ) : (
+                  <Music className="w-16 h-16 bg-background!" />
+                )}
               </div>
             </>
           )}
@@ -68,16 +72,16 @@ export const HistoryCard = ({ item, isSelected, onSelect }: HistoryCardProps) =>
           {/* Type icon */}
           <span className="absolute top-1.5 left-1.5 z-10 opacity-80">
             {isVideo ? (
-              <Video className="w-3 h-3 text-foreground" />
+              <Video className="w-3 h-3 text-background dark:text-foreground" />
             ) : (
-              <Music className="w-3 h-3 text-foreground" />
+              <Music className="w-3 h-3 text-background dark:text-foreground" />
             )}
           </span>
 
           {/* Play overlay */}
           <div className="absolute inset-0 flex items-center justify-center bg-background/0 group-hover:bg-background/30 transition-colors z-10">
-            <div className="w-9 h-9 rounded-full bg-white/0 group-hover:bg-white/90 flex items-center justify-center transition-all scale-90 group-hover:scale-100">
-              <Play className="w-4 h-4 text-transparent group-hover:text-background transition-colors" />
+            <div className="w-9 h-9 rounded-full bg-background/0 group-hover:bg-background/90 flex items-center justify-center transition-all scale-90 group-hover:scale-100">
+              <Play className="w-4 h-4 text-transparent group-hover:text-foreground transition-colors" />
             </div>
           </div>
         </div>
