@@ -1,17 +1,10 @@
 import { Button } from "@vault/ui/components/button";
+import { cn } from "@vault/ui/lib/utils";
 import { X, Minus, Square } from "lucide-react";
-import { useState, useEffect, type CSSProperties } from "react";
+import { useState, useEffect } from "react";
+import icon from "@/assets/icon.png";
 
-interface TitlebarProps {
-  title?: string;
-}
-
-const titlebarStyle: CSSProperties = {
-  userSelect: "none",
-  WebkitUserSelect: "none"
-};
-
-export const CustomTitlebar = ({ title = "Vault" }: TitlebarProps) => {
+export const Titlebar = () => {
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
@@ -19,30 +12,34 @@ export const CustomTitlebar = ({ title = "Vault" }: TitlebarProps) => {
     const handleMaximize = () => setIsMaximized(true);
     const handleUnmaximize = () => setIsMaximized(false);
 
-    window.api.onWindowMaximize?.(handleMaximize);
-    window.api.onWindowUnmaximize?.(handleUnmaximize);
+    globalThis.api.onWindowMaximize?.(handleMaximize);
+    globalThis.api.onWindowUnmaximize?.(handleUnmaximize);
 
     return () => {
       // Cleanup listeners
     };
   }, []);
 
-  const handleMinimize = () => window.api.minimizeWindow?.();
-  const handleMaximize = () => window.api.maximizeWindow?.();
-  const handleClose = () => window.api.closeWindow?.();
+  const handleMinimize = () => globalThis.api.minimizeWindow?.();
+  const handleMaximize = () => globalThis.api.maximizeWindow?.();
+  const handleClose = () => globalThis.api.closeWindow?.();
 
   return (
     <div
-      className="flex items-center justify-between h-10 px-4 bg-sidebar border-b border-sidebar-border drag"
-      style={titlebarStyle}
+      className={cn(
+        "flex items-center justify-between h-8 px-4 bg-sidebar border-b border-sidebar-border drag select-none"
+      )}
     >
-      <div className="text-sm font-medium text-foreground">{title}</div>
+      <div className="text-sm font-medium text-foreground flex items-center gap-2">
+        <img src={icon} alt="icon" width={20} height={20} />
+        <span>Video Downloader</span>
+      </div>
 
       <div className="flex items-center gap-2 ml-auto no-drag">
         <Button
           variant="ghost"
-          size="icon"
-          className="w-8 h-8 rounded-md hover:bg-sidebar-accent"
+          size="icon-sm"
+          className="rounded-md hover:bg-sidebar-accent"
           onClick={handleMinimize}
           title="Minimize"
         >
@@ -51,8 +48,8 @@ export const CustomTitlebar = ({ title = "Vault" }: TitlebarProps) => {
 
         <Button
           variant="ghost"
-          size="icon"
-          className="w-8 h-8 rounded-md hover:bg-sidebar-accent"
+          size="icon-sm"
+          className="rounded-md hover:bg-sidebar-accent"
           onClick={handleMaximize}
           title={isMaximized ? "Restore" : "Maximize"}
         >
@@ -61,8 +58,8 @@ export const CustomTitlebar = ({ title = "Vault" }: TitlebarProps) => {
 
         <Button
           variant="ghost"
-          size="icon"
-          className="w-8 h-8 rounded-md hover:bg-destructive/10 hover:text-destructive"
+          size="icon-sm"
+          className="rounded-md hover:bg-destructive/10 hover:text-destructive"
           onClick={handleClose}
           title="Close"
         >
