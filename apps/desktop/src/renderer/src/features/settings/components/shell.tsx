@@ -92,7 +92,11 @@ export const SettingsView = () => {
     <div className="py-5">
       <div className="space-y-6">
         {/* Downloads */}
-        <Section icon={<Download className="w-3.5 h-3.5" />} title="Downloads">
+        <Section
+          id="settings-downloads"
+          icon={<Download className="w-3.5 h-3.5" />}
+          title="Downloads"
+        >
           <Row label="Download folder" description="Where downloaded files are saved">
             <div className="flex items-center gap-2 min-w-0 flex-1 max-w-xs">
               <Input
@@ -180,7 +184,11 @@ export const SettingsView = () => {
         </Section>
 
         {/* Metadata */}
-        <Section icon={<FileText className="w-3.5 h-3.5" />} title="Metadata">
+        <Section
+          id="settings-metadata"
+          icon={<FileText className="w-3.5 h-3.5" />}
+          title="Metadata"
+        >
           <Row label="Embed thumbnail" description="Default setting for new downloads">
             <Switch
               checked={settings.embedThumbnail}
@@ -277,7 +285,11 @@ export const SettingsView = () => {
         </Section>
 
         {/* Appearance */}
-        <Section icon={<Palette className="w-3.5 h-3.5" />} title="Appearance">
+        <Section
+          id="settings-appearance"
+          icon={<Palette className="w-3.5 h-3.5" />}
+          title="Appearance"
+        >
           <Row label="Theme">
             <Select
               value={theme}
@@ -306,7 +318,7 @@ export const SettingsView = () => {
         </Section>
 
         {/* Network */}
-        <Section icon={<Globe className="w-3.5 h-3.5" />} title="Network">
+        <Section id="settings-network" icon={<Globe className="w-3.5 h-3.5" />} title="Network">
           <Row
             label="Bandwidth limit"
             description={
@@ -358,7 +370,11 @@ export const SettingsView = () => {
         </Section>
 
         {/* Authentication */}
-        <Section icon={<KeyRound className="w-3.5 h-3.5" />} title="Authentication">
+        <Section
+          id="settings-auth"
+          icon={<KeyRound className="w-3.5 h-3.5" />}
+          title="Authentication"
+        >
           <Row
             label="Cookies browser"
             description="Extract cookies from your browser to authenticate downloads"
@@ -448,7 +464,11 @@ export const SettingsView = () => {
         </Section>
 
         {/* About & Dependencies */}
-        <Section icon={<Info className="w-3.5 h-3.5" />} title="About & Dependencies">
+        <Section
+          id="settings-about"
+          icon={<Info className="w-3.5 h-3.5" />}
+          title="About & Dependencies"
+        >
           <Row label="Vault">
             <span className="text-muted-foreground text-[12px]">{settings.version}</span>
           </Row>
@@ -499,7 +519,12 @@ export const SettingsView = () => {
         </Section>
 
         {/* Danger Zone */}
-        <Section icon={<ShieldAlert className="w-3.5 h-3.5" />} title="Danger zone" danger>
+        <Section
+          id="settings-danger"
+          icon={<ShieldAlert className="w-3.5 h-3.5" />}
+          title="Danger zone"
+          danger
+        >
           <Row label="Reset download archive">
             <Button
               variant="ghost"
@@ -527,18 +552,20 @@ export const SettingsView = () => {
 };
 
 function Section({
+  id,
   icon,
   title,
   danger,
   children
 }: Readonly<{
+  id?: string;
   icon: React.ReactNode;
   title: string;
   danger?: boolean;
   children: React.ReactNode;
 }>) {
   return (
-    <div>
+    <div id={id}>
       <p
         className={cn(
           "text-[12px] font-medium uppercase tracking-wide mb-2 flex items-center gap-1.5",
