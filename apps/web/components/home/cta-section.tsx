@@ -3,7 +3,7 @@
 import { motion } from "motion/react";
 import { Reveal } from "../shared/reveal";
 import { Button } from "@vault/ui/components/button";
-import { Download, Github, ArrowRight, Sparkles } from "lucide-react";
+import { Download, Github, Sparkles } from "lucide-react";
 
 export function CtaSection() {
   return (
@@ -71,12 +71,11 @@ export function CtaSection() {
                 <a {...props} href="#download">
                   <Download className="mr-2 h-5 w-5" />
                   Download Vault
-                  <ArrowRight className="ml-2 h-5 w-5" />
                 </a>
               )}
               nativeButton={false}
               size="lg"
-              className="h-14 px-8 text-base font-semibold hover:scale-105 transition-transform"
+              className="h-13 px-8 text-base font-semibold hover:scale-105 transition-transform"
             />
             <Button
               render={(props) => (

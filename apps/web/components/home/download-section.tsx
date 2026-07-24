@@ -15,27 +15,28 @@ interface Platform {
   href?: string;
 }
 
-const VERSION = "v0.1.0";
+const VERSION = "0.1.0";
+const RELEASE_TAG = `v${VERSION}`;
 
 const PLATFORMS: Platform[] = [
   {
     name: "Windows",
     icon: Monitor,
-    version: VERSION,
+    version: RELEASE_TAG,
     status: "available",
-    href: `https://github.com/Kendrick-Oppong/vault/releases/download/${VERSION}/Vault-Setup-0.1.0.exe`
+    href: `https://github.com/Kendrick-Oppong/vault/releases/download/${RELEASE_TAG}/Vault-${VERSION}-Windows-Setup.exe`
   },
   {
     name: "Linux",
     icon: Terminal,
-    version: VERSION,
+    version: RELEASE_TAG,
     status: "available",
-    href: `https://github.com/Kendrick-Oppong/vault/releases/download/${VERSION}/Vault-0.1.0.AppImage`
+    href: `https://github.com/Kendrick-Oppong/vault/releases/download/${RELEASE_TAG}/Vault-${VERSION}-Linux-Installer.AppImage`
   },
   {
     name: "macOS",
     icon: Apple,
-    version: VERSION,
+    version: RELEASE_TAG,
     status: "soon"
   }
 ];
