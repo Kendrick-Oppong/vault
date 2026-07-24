@@ -172,14 +172,7 @@ const SETTINGS_ITEMS: SettingsItem[] = [
     sectionId: "settings-auth",
     icon: KeyRound
   },
-  // ── About ────────────────────────────────────────────────────────
-  {
-    label: "Check for updates",
-    description: "See if a newer version of Vault is available",
-    keywords: "updates version upgrade changelog release new",
-    sectionId: "settings-about",
-    icon: Info
-  },
+
   // ── Danger Zone ──────────────────────────────────────────────────
   {
     label: "Reset download archive",
@@ -304,10 +297,7 @@ export const CommandMenu = ({ open, onOpenChange }: CommandMenuProps) => {
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             <span>Toggle theme</span>
           </CommandItem>
-          <CommandItem onSelect={() => run(() => document.getElementById("url-input")?.focus())}>
-            <LinkIcon className="h-4 w-4" />
-            <span>Focus link input</span>
-          </CommandItem>
+
           <CommandItem
             onSelect={() =>
               run(() => {
