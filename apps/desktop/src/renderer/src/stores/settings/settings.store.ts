@@ -39,7 +39,7 @@ const baseDefaults: Settings = {
   outputTemplate: "%(title)s.%(ext)s",
   playlistFetchLimit: 200,
   concurrentDownloads: 3,
-  minimizeToTray: true,
+  minimizeToTray: false,
   bandwidthLimit: "",
   proxy: "",
   geoBypass: true,
