@@ -311,3 +311,29 @@
     transform: translateX(400%);
   }
 }
+
+/* Flashes a primary-brand ring on a settings section so the user knows
+ exactly where the command menu scrolled them to.
+ */
+@keyframes section-highlight {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+    border-radius: var(--radius-xl);
+  }
+  10% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 55%, transparent);
+    border-radius: var(--radius-xl);
+  }
+  60% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 45%, transparent);
+    border-radius: var(--radius-xl);
+  }
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 0%, transparent);
+    border-radius: var(--radius-xl);
+  }
+}
+
+.section-highlighted {
+  animation: section-highlight 1.8s ease forwards;
+}
