@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, shell, BrowserWindow, ipcMain, dialog, Tray, Menu } from "electron";
 import { join } from "node:path";
 import fs from "node:fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
@@ -30,6 +30,9 @@ let mainWindow: BrowserWindow;
 let pool: WorkerPool;
 let db: VaultDb;
 let ytdlp: YtDlpManager;
+
+let tray: Tray | null = null;
+let minimizeToTraySetting = false;
 
 function resolveBinaryPaths(): { binaryPath: string; ffmpegPath: string; pluginPath: string } {
   let base: string;
@@ -75,6 +78,13 @@ function createWindow(): void {
 
   mainWindow.on("unmaximize", () => {
     mainWindow.webContents.send("window:unmaximized");
+  });
+
+  mainWindow.on("close", (event) => {
+    if (!vaultApp.isQuitting && minimizeToTraySetting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -671,6 +681,12 @@ function registerIpcHandlers(): void {
     logger.debug("IPC: window:close");
     mainWindow?.close();
   });
+
+  ipcMain.on("settings:sync", (_e, settings) => {
+    if (typeof settings.minimizeToTray === "boolean") {
+      minimizeToTraySetting = settings.minimizeToTray;
+    }
+  });
 }
 
 // Initialize the app when ready
@@ -709,6 +725,38 @@ app.whenReady().then(async () => {
   registerIpcHandlers();
   createWindow();
   forwardPoolEventsToRenderer();
+
+  tray = new Tray(icon);
+  tray.setToolTip("Vault");
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "Show Vault",
+      click: () => {
+        mainWindow?.show();
+      }
+    },
+    {
+      label: "Quit",
+      click: () => {
+        vaultApp.isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+  tray.setContextMenu(contextMenu);
+  tray.on("click", () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        if (mainWindow.isFocused()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.focus();
+        }
+      } else {
+        mainWindow.show();
+      }
+    }
+  });
 
   // Set up auto-updater event forwarding (best-effort)
   try {
