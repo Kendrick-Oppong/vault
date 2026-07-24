@@ -38,6 +38,7 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: Vault
   differentialPackage: false
+  include: build/installer.nsh
 
 mac:
   category: public.app-category.utilities
@@ -60,9 +61,6 @@ dmg:
 
 linux:
   target:
-    - target: AppImage
-      arch:
-        - x64
     - target: deb
       arch:
         - x64
