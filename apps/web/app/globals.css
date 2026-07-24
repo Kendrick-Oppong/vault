@@ -185,19 +185,7 @@
   }
 }
 
-/* Utility classes for shelf-ui style sections */
+/* Utility classes */
 .container-shelf {
-  @apply mx-auto w-full max-w-6xl px-5;
-}
-
-.section-eyebrow {
-  @apply mb-12 flex items-center gap-4;
-}
-
-.eyebrow-line {
-  @apply h-px w-12 bg-border;
-}
-
-.eyebrow-text {
-  @apply text-[11.5px] font-semibold uppercase tracking-[0.15em] text-primary;
+  @apply mx-auto w-full max-w-7xl px-5;
 }

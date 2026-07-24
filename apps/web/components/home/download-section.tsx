@@ -1,83 +1,159 @@
 "use client";
 
-import { Download, Apple, Monitor, HardDrive } from "lucide-react";
+import { motion } from "motion/react";
 import { Reveal } from "../shared/reveal";
 import { Button } from "@vault/ui/components/button";
+import { Download, Monitor, Apple, Terminal, Bell } from "lucide-react";
 
-const PLATFORMS = [
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface Platform {
+  name: string;
+  icon: typeof Monitor;
+  version: string;
+  status: "available" | "soon";
+  href?: string;
+}
+
+const VERSION = "v0.1.0";
+
+const PLATFORMS: Platform[] = [
   {
     name: "Windows",
-    icon: HardDrive,
-    version: "v0.1.0",
-
-    url: "#"
+    icon: Monitor,
+    version: VERSION,
+    status: "available",
+    href: `https://github.com/Kendrick-Oppong/vault/releases/download/${VERSION}/Vault-Setup-0.1.0.exe`
+  },
+  {
+    name: "Linux",
+    icon: Terminal,
+    version: VERSION,
+    status: "available",
+    href: `https://github.com/Kendrick-Oppong/vault/releases/download/${VERSION}/Vault-0.1.0.AppImage`
   },
   {
     name: "macOS",
     icon: Apple,
-    version: "v0.1.0", //make this coming soon
-    url: "#"
-  },
-  {
-    name: "Linux",
-    icon: Monitor,
-    version: "v0.1.0",
-
-    url: "#"
+    version: VERSION,
+    status: "soon"
   }
 ];
 
+function PlatformCard({ platform, index }: Readonly<{ platform: Platform; index: number }>) {
+  const Icon = platform.icon;
+  const isSoon = platform.status === "soon";
+
+  return (
+    <motion.div
+      className={`group relative flex flex-col overflow-hidden rounded-2xl border p-8 backdrop-blur-sm transition-colors ${
+        isSoon
+          ? "border-dashed border-border/70 bg-card/30"
+          : "border-border bg-card/60 hover:border-primary/30"
+      }`}
+      initial={{ opacity: 0, y: 24 }}
+      transition={{ duration: 0.5, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
+      viewport={{ once: true, margin: "-80px" }}
+      whileHover={isSoon ? undefined : { y: -3 }}
+      whileInView={{ opacity: 1, y: 0 }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span
+          className={`flex size-14 shrink-0 items-center justify-center rounded-2xl border ${
+            isSoon ? "border-border bg-muted/10" : "border-primary/25 bg-primary/8"
+          }`}
+        >
+          <Icon
+            className={isSoon ? "size-7 text-muted-foreground" : "size-7 text-primary"}
+            strokeWidth={1.75}
+          />
+        </span>
+        <span
+          className={`pt-1 font-mono text-[10px] tracking-tight ${
+            isSoon ? "text-muted-foreground/70" : "text-primary/60"
+          }`}
+        >
+          {isSoon ? "// coming soon" : `// ${platform.version}`}
+        </span>
+      </div>
+
+      <h3 className="mt-6 font-bold text-2xl text-foreground">{platform.name}</h3>
+      <p className="mt-1.5 text-muted-foreground text-sm">
+        {isSoon ? "Universal build, in progress." : "Native build for this platform."}
+      </p>
+
+      <div className="mt-8">
+        {isSoon ? (
+          <Button
+            className="h-10 w-full cursor-not-allowed text-base font-semibold opacity-60"
+            disabled
+            nativeButton
+          >
+            <Bell className="mr-2 h-4 w-4" />
+            Soon
+          </Button>
+        ) : (
+          <Button
+            className="h-10 w-full text-base font-semibold transition-transform hover:scale-[1.02]"
+            nativeButton={false}
+            render={(props) => (
+              <a {...props} href={platform.href} rel="noopener noreferrer" target="_blank">
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </a>
+            )}
+          />
+        )}
+      </div>
+
+      <div
+        className={`mt-6 h-px w-full bg-gradient-to-r to-transparent ${
+          isSoon ? "from-border" : "from-primary/40 via-primary/10"
+        }`}
+      />
+    </motion.div>
+  );
+}
+
 export function DownloadSection() {
   return (
-    <Reveal className="py-28">
-      <section id="download" className="container-shelf">
-        <div className="section-eyebrow">
-          <div className="eyebrow-line" />
-          <span className="eyebrow-text">Download</span>
-        </div>
-
-        <div className="mb-16 text-center">
-          <h2 className="mb-4 font-bold text-[clamp(2.5rem,5vw,4rem)] leading-[1.05] tracking-[-0.04em]">
-            Get Vault for your platform
+    <Reveal className="py-32">
+      <section className="container-shelf" id="download">
+        <div className="mb-20 text-center">
+          <div className="section-eyebrow mx-auto mb-5 w-fit">
+            <div className="eyebrow-line" />
+            <span className="eyebrow-text">Download</span>
+          </div>
+          <h2 className="mb-6 font-bold text-4xl tracking-tight md:text-5xl lg:text-6xl">
+            Download for your
+            <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              {" "}
+              platform
+            </span>
           </h2>
-
-          <p className="font-light text-[15px] text-muted-foreground">
-            Native applications optimized for each operating system.
-            <br />
-            <span className="text-[13px]">Open source, MIT licensed.</span>
+          <p className="mx-auto max-w-2xl text-muted-foreground text-xl">
+            Native applications optimized for each operating system. No installation required.
           </p>
         </div>
 
-        <div className="mx-auto grid max-w-3xl gap-4 sm:grid-cols-3">
-          {PLATFORMS.map((platform) => {
-            const Icon = platform.icon;
-
-            return (
-              <div
-                key={platform.name}
-                className="flex flex-col items-center rounded-2xl border border-border bg-card p-6 transition-colors hover:bg-card-hover"
-              >
-                <div className="mb-4 flex size-16 items-center justify-center rounded-xl border border-primary/15 bg-primary/8">
-                  <Icon className="size-8 text-primary" />
-                </div>
-
-                <h3 className="mb-2 text-lg font-semibold text-foreground">{platform.name}</h3>
-
-
-                <Button
-                  nativeButton={false}
-                  className="h-auto flex-1 rounded-xl px-7 py-3 text-sm hover:-translate-y-0.5 hover:shadow-[0_8px_30px_color-mix(in_srgb,var(--color-primary)_25%,transparent)] hover:brightness-110"
-                  render={(props) => (
-                    <a {...props} href={platform.url} target="_blank" rel="noopener noreferrer">
-                      <Download className="mr-2 h-4 w-4" />
-                      Download
-                    </a>
-                  )}
-                />
-              </div>
-            );
-          })}
+        <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
+          {PLATFORMS.map((platform, i) => (
+            <PlatformCard index={i} key={platform.name} platform={platform} />
+          ))}
         </div>
+
+        <motion.div
+          className="mt-16 text-center"
+          initial={{ opacity: 0, y: 20 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          viewport={{ once: true }}
+          whileInView={{ opacity: 1, y: 0 }}
+        >
+          <div className="inline-flex items-center gap-2 rounded-full bg-muted/50 px-4 py-2 font-mono text-muted-foreground text-xs">
+            <span className="size-2 rounded-full bg-success" />
+            <span>64-bit processor</span>
+          </div>
+        </motion.div>
       </section>
     </Reveal>
   );

@@ -1,365 +1,241 @@
 "use client";
 
 import { motion } from "motion/react";
-import { cn } from "@vault/ui/lib/utils";
 import { Reveal } from "../shared/reveal";
+import { Link2, SlidersHorizontal, Cpu, FolderCheck, Download, ArrowRight } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type NodeStatus = "active" | "idle" | "success" | "error";
-type EdgeVariant = "default" | "success" | "error";
-
-interface Node {
-  id: string;
-  label: string;
-  status: NodeStatus;
-  sub: string;
-  width: number;
+interface Stage {
+  icon: typeof Link2;
+  index: string;
+  command: string;
+  title: string;
+  tag: string;
   x: number;
   y: number;
 }
 
-interface Edge {
-  from: string;
-  label?: string;
-  to: string;
-  variant?: EdgeVariant;
-}
+// ─── Layout ────────────────────────────────────────────────────────────────────
 
-// ─── Layout constants ─────────────────────────────────────────────────────────
+const CARD_W = 200;
+const CARD_H = 124;
+const CANVAS_W = 960;
+const CANVAS_H = 250;
 
-const NODE_H = 58;
-const CANVAS_W = 640;
-const CANVAS_H = 520;
-
-const NODES: Node[] = [
+const STAGES: Stage[] = [
   {
-    id: "url",
-    label: "URL Input",
-    sub: "paste link · drag & drop",
-    status: "active",
-    x: 220,
-    y: 30,
-    width: 200,
+    icon: Link2,
+    index: "01",
+    command: "vault fetch <url>",
+    title: "Paste URL",
+    tag: "source",
+    x: 15,
+    y: 70
   },
   {
-    id: "format",
-    label: "Format Selection",
-    sub: "quality · metadata",
-    status: "idle",
-    x: 220,
-    y: 150,
-    width: 200,
+    icon: SlidersHorizontal,
+    index: "02",
+    command: "vault --format mp4",
+    title: "Choose Format",
+    tag: "config",
+    x: 260,
+    y: 15
   },
   {
-    id: "queue",
-    label: "Queue",
-    sub: "managed downloads",
-    status: "success",
-    x: 40,
-    y: 280,
-    width: 190,
+    icon: Cpu,
+    index: "03",
+    command: "vault run",
+    title: "Process",
+    tag: "encode",
+    x: 505,
+    y: 70
   },
   {
-    id: "library",
-    label: "Library",
-    sub: "organized media",
-    status: "success",
-    x: 410,
-    y: 280,
-    width: 190,
-  },
-  {
-    id: "ytdlp",
-    label: "yt-dlp",
-    sub: "download engine",
-    status: "success",
-    x: 0,
-    y: 420,
-    width: 180,
-  },
-  {
-    id: "ffmpeg",
-    label: "FFmpeg",
-    sub: "processing · conversion",
-    status: "idle",
-    x: 230,
-    y: 420,
-    width: 180,
-  },
-  {
-    id: "save",
-    label: "Save",
-    sub: "local storage",
-    status: "idle",
-    x: 460,
-    y: 420,
-    width: 180,
-  },
+    icon: FolderCheck,
+    index: "04",
+    command: "vault save",
+    title: "Save",
+    tag: "output",
+    x: 750,
+    y: 15
+  }
 ];
 
-// Derive center-bottom and center-top from node layout
-function cx(n: Node) {
-  return n.x + n.width / 2;
+function rightCenter(s: Stage) {
+  return { x: s.x + CARD_W, y: s.y + CARD_H / 2 };
 }
-function bottom(n: Node) {
-  return n.y + NODE_H;
+function leftCenter(s: Stage) {
+  return { x: s.x, y: s.y + CARD_H / 2 };
 }
-function top(n: Node) {
-  return n.y;
-}
-
-const NODE_MAP = Object.fromEntries(NODES.map((n) => [n.id, n]));
-
-const EDGES: Edge[] = [
-  { from: "url", to: "format" },
-  { from: "format", to: "queue", label: "VALID", variant: "success" },
-  { from: "queue", to: "ytdlp" },
-  { from: "queue", to: "ffmpeg" },
-  { from: "queue", to: "library" },
-  { from: "ytdlp", to: "save" },
-  { from: "ffmpeg", to: "save" },
-];
-
-// ─── Status tokens ────────────────────────────────────────────────────────────
-
-const STATUS: Record<
-  NodeStatus,
-  {
-    border: string;
-    bg: string;
-    dot: string;
-    glow: string;
-    badge: string;
-    badgeBg: string;
-    badgeBorder: string;
-    badgeText: string;
-  }
-> = {
-  active: {
-    border: "border-primary/50",
-    bg: "bg-primary/5",
-    dot: "bg-primary",
-    glow: "shadow-[0_0_10px_2px_color-mix(in_srgb,var(--color-primary)_40%,transparent)]",
-    badge: "ACTIVE",
-    badgeBg: "bg-primary/8",
-    badgeBorder: "border-primary/30",
-    badgeText: "text-primary",
-  },
-  idle: {
-    border: "border-border",
-    bg: "bg-card",
-    dot: "bg-muted-foreground/40",
-    glow: "",
-    badge: "IDLE",
-    badgeBg: "bg-muted/30",
-    badgeBorder: "border-border",
-    badgeText: "text-muted-foreground",
-  },
-  success: {
-    border: "border-success/40",
-    bg: "bg-success/5",
-    dot: "bg-success",
-    glow: "shadow-[0_0_10px_2px_color-mix(in_srgb,var(--color-success)_35%,transparent)]",
-    badge: "LIVE",
-    badgeBg: "bg-success/8",
-    badgeBorder: "border-success/30",
-    badgeText: "text-success",
-  },
-  error: {
-    border: "border-destructive/40",
-    bg: "bg-destructive/5",
-    dot: "bg-destructive",
-    glow: "shadow-[0_0_10px_2px_color-mix(in_srgb,var(--color-destructive)_35%,transparent)]",
-    badge: "ERR",
-    badgeBg: "bg-destructive/8",
-    badgeBorder: "border-destructive/30",
-    badgeText: "text-destructive",
-  },
-};
-
-const EDGE_STYLE: Record<
-  EdgeVariant,
-  {
-    stroke: string;
-    dot: string;
-    labelBorder: string;
-    labelText: string;
-    labelBg: string;
-  }
-> = {
-  default: {
-    stroke: "stroke-border",
-    dot: "fill-primary",
-    labelBorder: "",
-    labelText: "",
-    labelBg: "",
-  },
-  success: {
-    stroke: "stroke-success/50",
-    dot: "fill-success",
-    labelBorder: "border-success/30",
-    labelText: "text-success",
-    labelBg: "bg-success/8",
-  },
-  error: {
-    stroke: "stroke-destructive/50",
-    dot: "fill-destructive",
-    labelBorder: "border-destructive/30",
-    labelText: "text-destructive",
-    labelBg: "bg-destructive/8",
-  },
-};
-
-const EDGE_DELAYS = [0, 0.25, 0.55, 0.1, 0.4, 0.7, 0.85];
-
-// ─── Edge path builder ────────────────────────────────────────────────────────
-
-function buildCurve(from: Node, to: Node): string {
-  const x1 = cx(from);
-  const y1 = bottom(from);
-  const x2 = cx(to);
-  const y2 = top(to);
-  const mid = (y1 + y2) / 2;
-  return `M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}`;
+function buildArrow(from: { x: number; y: number }, to: { x: number; y: number }) {
+  const dx = (to.x - from.x) / 2;
+  return `M ${from.x} ${from.y} C ${from.x + dx} ${from.y}, ${to.x - dx} ${to.y}, ${to.x} ${to.y}`;
 }
 
-// ─── SVG edge ─────────────────────────────────────────────────────────────────
+const EDGES = STAGES.slice(0, -1).map((s, i) =>
+  buildArrow(rightCenter(s), leftCenter(STAGES[i + 1] as Stage))
+);
 
-function SvgEdge({ edge, index }: Readonly<{ edge: Edge; index: number }>) {
-  const from = NODE_MAP[edge.from];
-  const to = NODE_MAP[edge.to];
-  const variant = edge.variant ?? "default";
-  const style = EDGE_STYLE[variant];
-  const d = buildCurve(from, to);
-  const midX = (cx(from) + cx(to)) / 2;
-  const midY = (bottom(from) + top(to)) / 2;
+// ─── Stage card ───────────────────────────────────────────────────────────────
 
-  return (
-    <g>
-      <path
-        className={style.stroke}
-        d={d}
-        fill="none"
-        strokeDasharray="4 3"
-        strokeWidth="1"
-      />
-      <motion.circle
-        animate={{ offsetDistance: ["0%", "100%"] }}
-        className={style.dot}
-        r="2.5"
-        style={{ offsetPath: `path("${d}")` }}
-        transition={{
-          duration: 2,
-          ease: "linear",
-          repeat: Number.POSITIVE_INFINITY,
-          delay: EDGE_DELAYS[index] ?? 0,
-        }}
-      />
-      {edge.label && (
-        <foreignObject height={20} width={52} x={midX - 26} y={midY - 12}>
-          <div
-            className={cn(
-              "flex h-full w-full items-center justify-center rounded-full border font-semibold text-[8px] uppercase tracking-widest",
-              style.labelBg,
-              style.labelBorder,
-              style.labelText
-            )}
-          >
-            {edge.label}
-          </div>
-        </foreignObject>
-      )}
-    </g>
-  );
-}
-
-// ─── Flow node ────────────────────────────────────────────────────────────────
-
-function FlowNode({ node, index }: Readonly<{ node: Node; index: number }>) {
-  const statusStyle = STATUS[node.status];
+function StageCard({ stage, index }: Readonly<{ stage: Stage; index: number }>) {
+  const Icon = stage.icon;
 
   return (
     <motion.div
-      animate={{ opacity: 1, y: 0 }}
-      className={cn(
-        "absolute flex items-center gap-3 rounded-2xl border px-4 backdrop-blur-sm",
-        statusStyle.border,
-        statusStyle.bg
-      )}
-      initial={{ opacity: 0, y: 8 }}
-      key={node.id}
-      style={{ left: node.x, top: node.y, width: node.width, height: NODE_H }}
-      transition={{
-        delay: index * 0.06,
-        duration: 0.55,
-        ease: [0.16, 1, 0.3, 1],
-      }}
+      className="absolute flex flex-col overflow-hidden rounded-2xl border border-border bg-card/70 px-4 pt-3.5 pb-3 backdrop-blur-sm transition-colors hover:border-primary/30"
+      initial={{ opacity: 0, y: 12 }}
+      style={{ left: stage.x, top: stage.y, width: CARD_W, height: CARD_H }}
+      transition={{ delay: index * 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      viewport={{ once: true, margin: "-60px" }}
+      whileInView={{ opacity: 1, y: 0 }}
     >
-      {/* Status dot */}
-      <span
-        className={cn(
-          "size-2 shrink-0 rounded-full",
-          statusStyle.dot,
-          statusStyle.glow
-        )}
-      />
-
-      {/* Text */}
-      <div className="flex flex-col">
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-          {statusStyle.badge}
+      <div className="flex items-start justify-between">
+        <span className="flex size-9 items-center justify-center rounded-xl border border-primary/25 bg-primary/8">
+          <Icon className="size-4 text-primary" strokeWidth={1.75} />
         </span>
-        <span className="font-semibold text-[13px] text-foreground tracking-[-0.02em]">
-          {node.label}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span className="font-mono text-[9px] text-muted-foreground/60 tracking-widest">
+            {stage.index}
+          </span>
+          <span className="font-mono text-[9px] text-primary/60">{stage.tag}</span>
+        </div>
       </div>
+
+      <h3 className="mt-2.5 font-semibold text-[13.5px] text-foreground leading-tight">
+        {stage.title}
+      </h3>
+      <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">
+        <span className="text-muted-foreground/50">$ </span>
+        {stage.command}
+      </p>
+
+      <div className="mt-auto h-px w-full bg-gradient-to-r from-primary/40 via-primary/10 to-transparent" />
     </motion.div>
   );
 }
 
-// ─── Main component ─────────────────────────────────────────────────────────
+// ─── Canvas ───────────────────────────────────────────────────────────────────
+
+function FlowCanvas() {
+  return (
+    <div className="w-full overflow-x-auto">
+      <div className="flex justify-center px-4 py-8">
+        <div
+          className="relative shrink-0 rounded-xl"
+          style={{
+            width: CANVAS_W,
+            height: CANVAS_H,
+            backgroundImage:
+              "radial-gradient(color-mix(in srgb, var(--color-border) 55%, transparent) 1px, transparent 1px)",
+            backgroundSize: "18px 18px"
+          }}
+        >
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+            focusable="false"
+            viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}
+          >
+            <defs>
+              <marker
+                id="flowArrow"
+                markerHeight="7"
+                markerWidth="7"
+                orient="auto-start-reverse"
+                refX="7"
+                refY="4"
+                viewBox="0 0 8 8"
+              >
+                <path className="fill-primary/70" d="M0,0 L8,4 L0,8 Z" />
+              </marker>
+            </defs>
+
+            {EDGES.map((d, i) => (
+              <g key={`edge-${i}`}>
+                <path
+                  className="stroke-border"
+                  d={d}
+                  fill="none"
+                  strokeDasharray="4 4"
+                  strokeWidth="1.25"
+                />
+                <path
+                  className="stroke-primary/60"
+                  d={d}
+                  fill="none"
+                  markerEnd="url(#flowArrow)"
+                  strokeWidth="1.25"
+                />
+                <motion.circle
+                  animate={{ offsetDistance: ["0%", "100%"] }}
+                  className="fill-primary"
+                  r="3"
+                  style={{ offsetPath: `path("${d}")` }}
+                  transition={{
+                    duration: 2.2,
+                    ease: "linear",
+                    repeat: Number.POSITIVE_INFINITY,
+                    delay: i * 0.5
+                  }}
+                />
+              </g>
+            ))}
+          </svg>
+
+          {STAGES.map((stage, i) => (
+            <StageCard index={i} key={stage.index} stage={stage} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
 
 export function FlowDiagram() {
   return (
     <Reveal className="py-28">
-      <div className="container-shelf">
-        <div className="section-eyebrow">
-          <div className="eyebrow-line" />
-          <span className="eyebrow-text">How it works</span>
-        </div>
-
-        <div className="mb-16 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <h2 className="font-bold text-[clamp(1.9rem,8vw,3.2rem)] leading-[1.08] tracking-[-0.035em]">
-            From URL to library.
-            <br />
-            <span className="text-muted-foreground/60">
-              Powered by yt-dlp & FFmpeg.
+      <section className="container-shelf" id="how-it-works">
+        <div className="mb-14 text-center">
+          <div className="section-eyebrow mx-auto mb-5 w-fit">
+            <div className="eyebrow-line" />
+            <span className="eyebrow-text">How it works</span>
+          </div>
+          <h2 className="mb-4 font-bold text-4xl tracking-tight md:text-5xl lg:text-6xl">
+            One link in,
+            <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              {" "}
+              one file out
             </span>
           </h2>
-
-          <p className="max-w-sm font-light text-[13.5px] text-muted-foreground leading-[1.8]">
-            Vault handles the entire download pipeline — from format selection to
-            metadata embedding, all in one modern desktop application.
+          <p className="mx-auto max-w-2xl text-muted-foreground text-xl">
+            No config screens, no command line to learn. Vault runs the pipeline for you.
           </p>
         </div>
 
-        {/* Flow diagram */}
-        <div className="relative mx-auto h-[520px] w-full max-w-[640px]">
-          <svg
-            className="absolute inset-0 h-full w-full"
-            style={{ height: CANVAS_H, width: CANVAS_W }}
-          >
-            {EDGES.map((edge, index) => (
-              <SvgEdge edge={edge} index={index} key={`${edge.from}-${edge.to}`} />
-            ))}
-          </svg>
-
-          {NODES.map((node, index) => (
-            <FlowNode index={index} key={node.id} node={node} />
-          ))}
+        <div className="overflow-hidden rounded-2xl border border-border bg-card/60 shadow-lg backdrop-blur-sm">
+          <FlowCanvas />
         </div>
-      </div>
+
+        <motion.div
+          className="mt-14 text-center"
+          initial={{ opacity: 0, y: 20 }}
+          transition={{ delay: 0.5, duration: 0.6 }}
+          viewport={{ once: true }}
+          whileInView={{ opacity: 1, y: 0 }}
+        >
+          <a
+            href="#download"
+            className="inline-flex items-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-6 py-3 transition-all hover:border-primary/40 hover:bg-primary/15"
+          >
+            <Download className="size-5 text-primary" />
+            <span className="font-medium text-primary">Ready to start? Download Vault now</span>
+          </a>
+        </motion.div>
+      </section>
     </Reveal>
   );
 }

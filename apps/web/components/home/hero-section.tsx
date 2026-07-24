@@ -2,106 +2,161 @@
 
 import { motion } from "motion/react";
 import Link from "next/link";
-import { Badge } from "@vault/ui/components/badge";
 import { Button } from "@vault/ui/components/button";
 import { Download, Github } from "lucide-react";
 
-const fadeUp = (delay: number) => ({
-  initial: false,
-  animate: { opacity: 1, y: 0 },
-  transition: {
-    duration: 0.8,
-    delay,
-    ease: [0.16, 1, 0.3, 1] as [number, number, number, number]
-  }
-});
-
-function BadgePulse() {
-  return (
-    <motion.span
-      animate={{
-        boxShadow: [
-          "0 0 0 0 color-mix(in srgb, var(--color-primary) 50%, transparent)",
-          "0 0 0 6px transparent",
-          "0 0 0 0 color-mix(in srgb, var(--color-primary) 50%, transparent)"
-        ]
-      }}
-      className="inline-block size-1.5 shrink-0 rounded-full bg-primary"
-      transition={{
-        duration: 2,
-        repeat: Number.POSITIVE_INFINITY,
-        ease: "easeInOut"
-      }}
-    />
-  );
-}
+const STATS = [
+  { value: "1000+", label: "Sites supported" },
+  { value: "Zero", label: "Telemetry" }
+];
 
 export function HeroSection() {
   return (
-    <section className="relative flex flex-col items-center justify-center overflow-hidden px-5 pt-28 pb-20 text-center">
-      {/* Radial glow */}
+    <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-5">
+      {/* Background */}
+      <div className="absolute inset-0 bg-background">
+        <motion.div
+          animate={{ scale: [1, 1.15, 1], opacity: [0.25, 0.4, 0.25] }}
+          className="-translate-x-1/2 absolute top-1/3 left-1/2 size-[420px] rounded-full bg-primary/20 blur-3xl"
+          transition={{ duration: 9, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+        />
+        <motion.div
+          animate={{ scale: [1.1, 1, 1.1], opacity: [0.12, 0.25, 0.12] }}
+          className="-translate-x-1/2 absolute bottom-1/4 left-1/2 size-96 rounded-full bg-primary/15 blur-3xl"
+          transition={{ duration: 12, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+        />
+      </div>
+
+      {/* Canvas dot-grid texture */}
       <div
-        aria-hidden
-        className="pointer-events-none absolute top-1/3 left-1/2 h-[600px] w-[1000px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse,color-mix(in_srgb,var(--color-primary)_7%,transparent)_0%,transparent_60%)]"
-      />
-      {/* Grid */}
-      <div
-        aria-hidden
-        className="mask-[radial-gradient(ellipse_70%_50%_at_50%_0%,black_0%,transparent_100%)] pointer-events-none absolute inset-0 bg-[linear-gradient(color-mix(in_srgb,var(--color-foreground)_3%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_srgb,var(--color-foreground)_2%,transparent)_1px,transparent_1px)]"
+        className="absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"
         style={{
-          backgroundSize: "72px 72px"
+          backgroundImage:
+            "radial-gradient(color-mix(in srgb, var(--color-border) 60%, transparent) 1px, transparent 1px)",
+          backgroundSize: "26px 26px"
         }}
       />
 
-      <div className="relative z-10 flex flex-col items-center">
-        <motion.h1
-          {...fadeUp(0.08)}
-          className="mt-8 mb-6 max-w-[860px] font-bold text-[clamp(3.2rem,7.5vw,6.2rem)] leading-none tracking-[-0.045em]"
-        >
-          Fast, modern
-          <br />
-          <span className="text-transparent [&]:[-webkit-text-stroke:1.5px_var(--hero-stroke)]">
-            {"YouTube downloader"}
-          </span>
-          <br />
-        </motion.h1>
+      {/* Content */}
+      <div className="container-shelf relative z-10">
+        <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-2"
+            initial={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            <motion.div
+              animate={{ opacity: [1, 0.5, 1] }}
+              className="size-2 rounded-full bg-primary"
+              transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
+            />
+            <span className="font-mono font-medium text-primary text-sm tracking-wide">
+              v0.1.0 · now available
+            </span>
+          </motion.div>
 
-        <motion.p
-          {...fadeUp(0.16)}
-          className="mb-10 max-w-[480px] text-balance font-medium text-[1.05rem] text-muted-foreground leading-[1.85]"
-        >
-          Download videos, audio, and playlists with ease. Built with Electron, yt-dlp & FFmpeg.
-        </motion.p>
+          <motion.h1
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-8 font-bold text-5xl leading-tight tracking-tight md:text-6xl lg:text-7xl"
+            initial={{ opacity: 0, y: 30 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            <span className="text-foreground">Download</span>{" "}
+            <motion.span
+              animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
+              className="bg-gradient-to-r from-primary via-primary/50 to-primary bg-clip-text text-transparent"
+              style={{ backgroundSize: "200% 100%" }}
+              transition={{ duration: 5, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+            >
+              anything.
+            </motion.span>
+            <br />
+            <span className="text-4xl text-muted-foreground md:text-5xl lg:text-6xl">
+              Anywhere.
+            </span>
+          </motion.h1>
 
-        <motion.div {...fadeUp(0.22)} className="flex flex-wrap items-center justify-center gap-3">
-          <Button
-            nativeButton={false}
-            render={(props) => (
-              <Link {...props} href="#download">
-                <Download className="mr-2 h-4 w-4" />
-                Download Vault
-              </Link>
-            )}
-            className="h-auto flex-1 rounded-xl px-7 py-3 text-sm hover:-translate-y-0.5 hover:shadow-[0_8px_30px_color-mix(in_srgb,var(--color-primary)_25%,transparent)] hover:brightness-110"
-          />
-          <Button
-            nativeButton={false}
-            render={(props) => (
-              <Link
-                {...props}
-                href="https://github.com/Kendrick-Oppong/vault"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <Github className="mr-2 h-4 w-4" />
-                View on GitHub
-              </Link>
-            )}
-            className="h-auto flex-1 rounded-xl border border-foreground/20! px-7 py-3 text-sm hover:-translate-y-0.5"
-            variant="outline"
-          />
-        </motion.div>
+          <motion.p
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 max-w-lg text-lg text-muted-foreground leading-relaxed md:text-xl"
+            initial={{ opacity: 0, y: 30 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+          >
+            Download videos and audio from supported sites with a clean desktop interface powered by
+            yt-dlp and FFmpeg.
+          </motion.p>
+
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-10 flex flex-col gap-4 sm:flex-row"
+            initial={{ opacity: 0, y: 30 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+          >
+            <Button
+              className="h-13 px-8 text-base font-semibold shadow-primary/20 shadow-lg transition-transform hover:scale-105"
+              nativeButton={false}
+              render={(props) => (
+                <Link {...props} href="#download">
+                  <Download className="mr-2 h-5 w-5" />
+                  Download Vault
+                </Link>
+              )}
+              size="lg"
+            />
+            <Button
+              className="h-14 px-8 text-base font-semibold transition-transform hover:scale-105"
+              nativeButton={false}
+              render={(props) => (
+                <Link
+                  {...props}
+                  href="https://github.com/Kendrick-Oppong/vault"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <Github className="mr-2 h-5 w-5" />
+                  View on GitHub
+                </Link>
+              )}
+              size="lg"
+              variant="outline"
+            />
+          </motion.div>
+
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-14 flex items-center gap-8 border-border/50 border-t pt-8"
+            initial={{ opacity: 0, y: 30 }}
+            transition={{ duration: 0.8, delay: 0.5 }}
+          >
+            {STATS.map((stat, i) => (
+              <div className="flex items-center gap-8" key={stat.label}>
+                {i > 0 && <span className="h-8 w-px bg-border" />}
+                <div className="text-center">
+                  <div className="font-bold font-mono text-foreground text-2xl">{stat.value}</div>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">{stat.label}</div>
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        </div>
       </div>
+
+      {/* Scroll indicator */}
+      <motion.div
+        animate={{ opacity: 1 }}
+        className="-translate-x-1/2 absolute bottom-8 left-1/2"
+        initial={{ opacity: 0 }}
+        transition={{ delay: 1.2, duration: 1 }}
+      >
+        <motion.div
+          animate={{ y: [0, 10, 0] }}
+          className="flex h-10 w-6 justify-center rounded-full border-2 border-border/50 pt-2"
+          transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
+        >
+          <div className="h-2 w-1 rounded-full bg-primary/50" />
+        </motion.div>
+      </motion.div>
     </section>
   );
 }
