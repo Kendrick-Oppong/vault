@@ -75,7 +75,7 @@ export function CtaSection() {
               )}
               nativeButton={false}
               size="lg"
-              className="h-13 px-8 text-base font-semibold hover:scale-105 transition-transform"
+              className="h-13 rounded-full px-8 text-base font-semibold hover:scale-105 transition-transform"
             />
             <Button
               render={(props) => (
@@ -92,7 +92,7 @@ export function CtaSection() {
               nativeButton={false}
               size="lg"
               variant="outline"
-              className="h-14 px-8 text-base font-semibold hover:scale-105 transition-transform"
+              className="h-14 px-8 rounded-full text-base font-semibold hover:scale-105 transition-transform"
             />
           </motion.div>
 

@@ -29,14 +29,13 @@ const PLATFORMS: Platform[] = [
   {
     name: "Linux",
     icon: Terminal,
-    version: RELEASE_TAG,
-    status: "available",
-    href: `https://github.com/Kendrick-Oppong/vault/releases/download/${RELEASE_TAG}/Vault-${VERSION}-Linux-Installer.AppImage`
+    version: "Coming Soon",
+    status: "soon"
   },
   {
     name: "macOS",
     icon: Apple,
-    version: RELEASE_TAG,
+    version: "Coming Soon",
     status: "soon"
   }
 ];
@@ -86,7 +85,7 @@ function PlatformCard({ platform, index }: Readonly<{ platform: Platform; index:
       <div className="mt-8">
         {isSoon ? (
           <Button
-            className="h-10 w-full cursor-not-allowed text-base font-semibold opacity-60"
+            className="h-10 rounded-full w-full cursor-not-allowed text-base font-semibold opacity-60"
             disabled
             nativeButton
           >
@@ -95,7 +94,7 @@ function PlatformCard({ platform, index }: Readonly<{ platform: Platform; index:
           </Button>
         ) : (
           <Button
-            className="h-10 w-full text-base font-semibold transition-transform hover:scale-[1.02]"
+            className="h-10 rounded-full w-full text-base font-semibold transition-transform hover:scale-[1.02]"
             nativeButton={false}
             render={(props) => (
               <a {...props} href={platform.href} rel="noopener noreferrer" target="_blank">

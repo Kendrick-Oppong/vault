@@ -94,7 +94,7 @@ export function HeroSection() {
             transition={{ duration: 0.8, delay: 0.4 }}
           >
             <Button
-              className="h-13 px-8 text-base font-semibold shadow-primary/20 shadow-lg transition-transform hover:scale-105"
+              className="h-13 rounded-full px-8 text-base font-semibold shadow-primary/20 shadow-lg transition-transform hover:scale-105"
               nativeButton={false}
               render={(props) => (
                 <Link {...props} href="#download">
@@ -105,7 +105,7 @@ export function HeroSection() {
               size="lg"
             />
             <Button
-              className="h-14 px-8 text-base font-semibold transition-transform hover:scale-105"
+              className="h-14 px-8 rounded-full text-base font-semibold transition-transform hover:scale-105"
               nativeButton={false}
               render={(props) => (
                 <Link
