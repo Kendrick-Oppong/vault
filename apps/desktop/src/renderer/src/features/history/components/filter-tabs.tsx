@@ -42,7 +42,7 @@ export const FilterTabs = ({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
         <Input
           type="text"
-          placeholder="Search your History..."
+          placeholder="Search your history..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-9 h-11 flex-1 w-full text-sm rounded-lg shadow-card border-border-strong bg-secondary/60 focus-visible:bg-card transition-colors"
