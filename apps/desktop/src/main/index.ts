@@ -689,6 +689,22 @@ function registerIpcHandlers(): void {
   });
 }
 
+// Enforce single instance lock
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+  process.exit(0);
+}
+
+app.on("second-instance", () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    if (!mainWindow.isVisible()) mainWindow.show();
+    mainWindow.focus();
+  }
+});
+
 // Initialize the app when ready
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId("com.vault.app");
