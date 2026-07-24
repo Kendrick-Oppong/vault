@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useSystemAlertsActions } from "@/stores/system-alerts/system-alerts.selectors";
 import { usePauseAllDownloads } from "@/lib/mutations/downloads";
 import { useDiskSpace } from "@/lib/queries/system";
+import { useSettingsStore } from "@/stores/settings/settings.store";
 
 // Low disk threshold: 1 GB
 const LOW_DISK_THRESHOLD_BYTES = 1 * 1024 * 1024 * 1024;
@@ -54,6 +55,14 @@ export function useSystemEvents() {
       setDiskSpace(diskSpaceQuery.data.available, diskSpaceQuery.data.total);
     }
   }, [diskSpaceQuery.data, setDiskSpace]);
+
+  // --- Sync settings to main process ---
+  const settings = useSettingsStore((s) => s.settings);
+  useEffect(() => {
+    globalThis.electron.ipcRenderer.send("settings:sync", {
+      minimizeToTray: settings.minimizeToTray
+    });
+  }, [settings.minimizeToTray]);
 
   // Expose the low disk threshold so alert-banners can check
   // against it independently if needed
