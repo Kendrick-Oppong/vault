@@ -1,5 +1,6 @@
 {
   "buildCommand": "pnpm --filter web build",
-  "outputDirectory": "apps/web/.next",
-  "installCommand": "pnpm install --filter web --filter=@vault/ui --filter=@vault/types --filter=@vault/config --no-frozen-lockfile"
+  "outputDirectory": ".next",
+  "installCommand": "pnpm install --filter web --filter=@vault/ui --filter=@vault/types --filter=@vault/config --no-frozen-lockfile",
+  "rootDirectory": "apps/web"
 }
