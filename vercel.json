@@ -1,5 +1,5 @@
 {
   "framework": "nextjs",
-  "buildCommand": "pnpm --filter web exec pnpm build",
-  "installCommand": "pnpm install --filter web --filter=@vault/ui --filter=@vault/types --filter=@vault/config --no-frozen-lockfile"
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "buildCommand": "pnpm --filter web build"
 }
