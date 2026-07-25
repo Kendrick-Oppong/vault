@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { Reveal } from "../shared/reveal";
-import { Link2, SlidersHorizontal, Cpu, FolderCheck, Download, ArrowRight } from "lucide-react";
+import { Link2, SlidersHorizontal, Cpu, FolderCheck, Download } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
