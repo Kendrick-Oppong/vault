@@ -27,4 +27,11 @@ export function useAppInfoInit() {
       globalThis.api.settingsSetAutoUpdateApp(settings.autoUpdateApp);
     }
   }, [settings.autoUpdateApp]);
+
+  // Sync notifications setting to main process
+  useEffect(() => {
+    if (settings.notifications !== undefined && globalThis.api?.settingsSetNotifications) {
+      globalThis.api.settingsSetNotifications(settings.notifications);
+    }
+  }, [settings.notifications]);
 }
