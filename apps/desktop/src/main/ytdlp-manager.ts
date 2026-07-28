@@ -79,15 +79,10 @@ function probeInternal(
   playlistLimit?: number
 ): Promise<Record<string, unknown>[]> {
   logger.debug("Probing formats for:", url, playlistLimit ? `with limit ${playlistLimit}` : "");
+  logger.debug("Binary path:", opts.binaryPath);
+  logger.debug("FFmpeg path:", opts.ffmpegPath);
   return new Promise((resolve, reject) => {
-    const args = [
-      "--dump-json",
-      "--flat-playlist",
-      "--js-runtimes",
-      `node:${process.execPath}`,
-      "--quiet",
-      "--no-warnings"
-    ];
+    const args = ["--dump-json", "--flat-playlist", "--quiet", "--no-warnings"];
 
     if (opts.pluginPath) args.push("--plugin-dirs", opts.pluginPath);
     if (extras?.cookiesFile) args.push("--cookies", extras.cookiesFile);
@@ -100,6 +95,8 @@ function probeInternal(
     }
 
     args.push(url);
+
+    logger.debug("Spawning yt-dlp with args:", args);
 
     const proc = spawn(opts.binaryPath, args, {
       shell: false,
@@ -130,7 +127,9 @@ function probeInternal(
         return reject(new Error(`yt-dlp probe timed out after ${timeout}ms`));
       }
       if (code !== 0) {
-        logger.error(`yt-dlp probe failed for:`, url, parseYtDlpError(stderr) || stderr);
+        logger.error(`yt-dlp probe failed for:`, url, "Exit code:", code);
+        logger.error("Full stderr:", stderr);
+        logger.error("Full stdout:", stdout);
         return reject(new Error(`yt-dlp probe failed: ${parseYtDlpError(stderr) || stderr}`));
       }
       try {
