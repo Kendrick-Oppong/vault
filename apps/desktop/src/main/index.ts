@@ -37,7 +37,9 @@ let minimizeToTraySetting = false;
 function resolveBinaryPaths(): { binaryPath: string; ffmpegPath: string; pluginPath: string } {
   let base: string;
   if (app.isPackaged) {
-    base = join(process.resourcesPath, "bin");
+    // process.resourcesPath is read-only in packaged builds — binaries must live
+    // in a writable directory so the onboarding downloader can write them there.
+    base = join(app.getPath("userData"), "bin");
   } else {
     // In dev, we expect binaries at project root/bin/<platform>
     // __dirname is <project>/out/main, so we go up two levels to project root
@@ -186,7 +188,13 @@ function registerIpcHandlers(): void {
     const cookieFile = cookies.getCookiesPath();
     const probeExtras = cookieFile ? { cookiesFile: cookieFile } : {};
 
-    const binaryPaths = { ...resolveBinaryPaths(), userDataPath: app.getPath("userData") };
+    // Use the live ytdlp instance paths so this always reflects the downloaded binaries
+    const binaryPaths = {
+      binaryPath: ytdlp.binaryPath,
+      ffmpegPath: ytdlp.ffmpegPath,
+      pluginPath: ytdlp.pluginPath,
+      userDataPath: ytdlp.userDataPath
+    };
     return await probePlaylistPage(binaryPaths, url, start, end, probeExtras);
   });
 
@@ -445,6 +453,21 @@ function registerIpcHandlers(): void {
     });
 
     const status = await checkDependencies(binaryPath, ffmpegPath);
+
+    // Re-initialize ytdlp manager and worker pool with updated binary paths after download
+    if (status.allReady) {
+      const { binaryPath: newPath, ffmpegPath: newFfmpegPath, pluginPath } = resolveBinaryPaths();
+      ytdlp = createYtDlpManager({
+        binaryPath: newPath,
+        ffmpegPath: newFfmpegPath,
+        pluginPath,
+        userDataPath: app.getPath("userData")
+      });
+      pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
+      forwardPoolEventsToRenderer();
+      logger.info("Re-initialized ytdlp manager and worker pool with updated binary paths");
+    }
+
     return {
       ready: status.allReady,
       ytDlp: status.ytDlp,
@@ -457,7 +480,7 @@ function registerIpcHandlers(): void {
   // YouTube search via yt-dlp ytsearch
   ipcMain.handle("search:youtube", async (_e, query: string, page: number = 0) => {
     logger.debug("IPC: search:youtube", { query, page });
-    const { binaryPath } = resolveBinaryPaths();
+    const binaryPath = ytdlp.binaryPath;
     const count = 20;
     const safePage = Math.max(0, page);
     const requestedCount = count * (safePage + 1);
@@ -516,7 +539,7 @@ function registerIpcHandlers(): void {
   // List available subtitle tracks for a video
   ipcMain.handle("subtitles:list", async (_e, url: string) => {
     logger.debug("IPC: subtitles:list", url);
-    const { binaryPath } = resolveBinaryPaths();
+    const binaryPath = ytdlp.binaryPath;
     const cookieFile = cookies.getCookiesPath();
     logger.debug("Using cookies for subtitles:", !!cookieFile);
 
