@@ -60,9 +60,13 @@ function downloadFile(
   return new Promise((resolve, reject) => {
     if (depth > MAX_REDIRECTS) return reject(new Error(`Too many redirects: ${url}`));
 
-    const req = get(url, { headers: { "User-Agent": "Vault-Desktop" } }, (res: IncomingMessage) => {
-      handleResponse(res, url, dest, onProgress, depth, resolve, reject);
-    });
+    const req = get(
+      url,
+      { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } },
+      (res: IncomingMessage) => {
+        handleResponse(res, url, dest, onProgress, depth, resolve, reject);
+      }
+    );
     req.setTimeout(REQUEST_TIMEOUT, () => req.destroy(new Error(`Timeout: ${url}`)));
     req.on("error", reject);
   });
@@ -216,6 +220,10 @@ const YTDLP_URLS: Record<string, string> = {
 type FfmpegSource = { url: string; archive: "zip" | "tar" };
 const FFMPEG_SOURCES: Record<string, FfmpegSource[]> = {
   win32: [
+    {
+      url: "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip",
+      archive: "zip"
+    },
     {
       url: "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
       archive: "zip"

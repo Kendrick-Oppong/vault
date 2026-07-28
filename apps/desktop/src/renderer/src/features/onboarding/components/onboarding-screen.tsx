@@ -161,7 +161,7 @@ function BinaryRow({
       case "checking":
         return "Checking…";
       case "downloading":
-        return progress.percent == null ? `Downloading ${progress.percent}%` : "Downloading…";
+        return progress.percent != null ? `Downloading ${progress.percent}%` : "Downloading…";
       case "extracting":
         return "Extracting…";
       case "verifying":
