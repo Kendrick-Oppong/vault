@@ -143,6 +143,10 @@ const vaultApi = {
     errorMessage: string | null;
   }> => ipcRenderer.invoke("dependencies:update", binary),
 
+  settingsGetAutoUpdateApp: (): Promise<boolean> => ipcRenderer.invoke("settings:getAutoUpdateApp"),
+  settingsSetAutoUpdateApp: (value: boolean): Promise<boolean> =>
+    ipcRenderer.invoke("settings:setAutoUpdateApp", value),
+
   onDependencyDownloadProgress: (
     cb: (progress: {
       binary: "ytdlp" | "ffmpeg";

@@ -39,6 +39,7 @@ let ytdlp: YtDlpManager;
 
 let tray: Tray | null = null;
 let minimizeToTraySetting = false;
+let autoUpdateAppSetting = true; // Default to true
 
 function resolveBinaryPaths(): { binaryPath: string; ffmpegPath: string; pluginPath: string } {
   let base: string;
@@ -540,6 +541,23 @@ function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle("settings:getAutoUpdateApp", async () => {
+    return autoUpdateAppSetting;
+  });
+
+  ipcMain.handle("settings:setAutoUpdateApp", async (_e, value: boolean) => {
+    autoUpdateAppSetting = value;
+    // Update autoUpdater if it's already initialized
+    try {
+      const { autoUpdater } = await import("electron-updater");
+      autoUpdater.autoDownload = value;
+      logger.info("Auto-update app setting updated:", value);
+    } catch {
+      // electron-updater not available, setting will be used on init
+    }
+    return autoUpdateAppSetting;
+  });
+
   // YouTube search via yt-dlp ytsearch
   ipcMain.handle("search:youtube", async (_e, query: string, page: number = 0) => {
     logger.debug("IPC: search:youtube", { query, page });
@@ -671,7 +689,7 @@ function registerIpcHandlers(): void {
         const timeout = setTimeout(() => {
           logger.debug("Update check timeout");
           resolve({ updateAvailable: false });
-        }, 10000);
+        }, 15000); // 15 second timeout
 
         autoUpdater.once("update-available", (info: { version: string }) => {
           clearTimeout(timeout);
@@ -863,15 +881,30 @@ app.whenReady().then(async () => {
   // Set up auto-updater event forwarding (best-effort)
   try {
     const { autoUpdater } = await import("electron-updater");
-    // Disable auto-download - user manually triggers download
-    autoUpdater.autoDownload = false;
+    // Respect user preference for auto-download
+    autoUpdater.autoDownload = autoUpdateAppSetting;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.allowDowngrade = false;
 
+    // Avoid hanging on checkForUpdates in an unpackaged dev build
+    if (!app.isPackaged) {
+      autoUpdater.forceDevUpdateConfig = true;
+    }
+
+    autoUpdater.on("checking-for-update", () => {
+      logger.info("Checking for app updates…");
+      mainWindow?.webContents.send("update:checking");
+    });
     autoUpdater.on("update-available", (info: { version: string }) => {
-      logger.debug("Update available:", info.version);
+      logger.info("App update available:", info.version);
       mainWindow?.webContents.send("update:available", info);
     });
+    autoUpdater.on("update-not-available", (info: { version: string }) => {
+      logger.info("App is up to date:", info.version);
+      mainWindow?.webContents.send("update:not-available", info);
+    });
     autoUpdater.on("update-downloaded", (info: { version: string }) => {
-      logger.debug("Update downloaded:", info.version);
+      logger.info("App update downloaded:", info.version);
       mainWindow?.webContents.send("update:downloaded", info);
     });
     autoUpdater.on(
@@ -882,11 +915,15 @@ app.whenReady().then(async () => {
       }
     );
     autoUpdater.on("error", (err: Error) => {
-      logger.debug("Update error:", err.message);
+      logger.warn("App update error:", err.message);
       mainWindow?.webContents.send("update:error", { message: err.message });
     });
-    // Check silently on startup (no native notification)
-    autoUpdater.checkForUpdates().catch(() => {});
+    // Check silently on startup after window is ready (no native notification)
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        logger.warn("Launch update check failed:", err?.message ?? err);
+      });
+    }, 4000);
   } catch {
     // electron-updater not configured — skip silently
   }

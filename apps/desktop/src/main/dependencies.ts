@@ -61,32 +61,54 @@ function downloadFile(
     if (depth > MAX_REDIRECTS) return reject(new Error(`Too many redirects: ${url}`));
 
     const req = get(url, { headers: { "User-Agent": "Vault-Desktop" } }, (res: IncomingMessage) => {
-      const status = res.statusCode ?? 0;
-      if (status >= 300 && status < 400 && res.headers.location) {
-        res.resume();
-        const next = new URL(res.headers.location, url).toString();
-        downloadFile(next, dest, onProgress, depth + 1).then(resolve, reject);
-        return;
-      }
-      if (status !== 200) {
-        res.resume();
-        return reject(new Error(`HTTP ${status} for ${url}`));
-      }
-      const total = Number(res.headers["content-length"]) || null;
-      let downloaded = 0;
-      const file = createWriteStream(dest);
-      res.on("data", (chunk: Buffer) => {
-        downloaded += chunk.length;
-        onProgress?.(downloaded, total);
-      });
-      res.pipe(file);
-      file.on("finish", () => file.close(() => resolve()));
-      file.on("error", reject);
-      res.on("error", reject);
+      handleResponse(res, url, dest, onProgress, depth, resolve, reject);
     });
     req.setTimeout(REQUEST_TIMEOUT, () => req.destroy(new Error(`Timeout: ${url}`)));
     req.on("error", reject);
   });
+}
+
+function handleResponse(
+  res: IncomingMessage,
+  url: string,
+  dest: string,
+  onProgress: ((downloaded: number, total: number | null) => void) | undefined,
+  depth: number,
+  resolve: () => void,
+  reject: (reason?: unknown) => void
+): void {
+  const status = res.statusCode ?? 0;
+  if (status >= 300 && status < 400 && res.headers.location) {
+    res.resume();
+    const next = new URL(res.headers.location, url).toString();
+    downloadFile(next, dest, onProgress, depth + 1).then(resolve, reject);
+    return;
+  }
+  if (status !== 200) {
+    res.resume();
+    return reject(new Error(`HTTP ${status} for ${url}`));
+  }
+  handleSuccessfulDownload(res, dest, onProgress, resolve, reject);
+}
+
+function handleSuccessfulDownload(
+  res: IncomingMessage,
+  dest: string,
+  onProgress: ((downloaded: number, total: number | null) => void) | undefined,
+  resolve: () => void,
+  reject: (reason?: unknown) => void
+): void {
+  const total = Number(res.headers["content-length"]) || null;
+  let downloaded = 0;
+  const file = createWriteStream(dest);
+  res.on("data", (chunk: Buffer) => {
+    downloaded += chunk.length;
+    onProgress?.(downloaded, total);
+  });
+  res.pipe(file);
+  file.on("finish", () => file.close(() => resolve()));
+  file.on("error", reject);
+  res.on("error", reject);
 }
 
 // ─── Archive extraction ───────────────────────────────────────────────────────
@@ -372,7 +394,6 @@ export async function updateFfmpeg(
   destDir: string,
   onProgress: (progress: DownloadProgress) => void
 ): Promise<void> {
-  const p = platform();
   const destPath = join(destDir, exe("ffmpeg"));
 
   onProgress({ binary: "ffmpeg", stage: "checking", percent: null });

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useAppInfo } from "@/lib/queries/app";
 import { useSettingsStore } from "@/stores/settings/settings.store";
+import { selectSettings } from "@/stores/settings/settings.selectors";
 
 /**
  * Fetches system information from the main process (app version, yt-dlp version,
@@ -12,10 +13,18 @@ import { useSettingsStore } from "@/stores/settings/settings.store";
 export function useAppInfoInit() {
   const { data } = useAppInfo();
   const initializeFromSystem = useSettingsStore((s) => s.initializeFromSystem);
+  const settings = useSettingsStore(selectSettings);
 
   useEffect(() => {
     if (data) {
       initializeFromSystem(data);
     }
   }, [data, initializeFromSystem]);
+
+  // Sync autoUpdateApp setting to main process
+  useEffect(() => {
+    if (settings.autoUpdateApp !== undefined && globalThis.api?.settingsSetAutoUpdateApp) {
+      globalThis.api.settingsSetAutoUpdateApp(settings.autoUpdateApp);
+    }
+  }, [settings.autoUpdateApp]);
 }
