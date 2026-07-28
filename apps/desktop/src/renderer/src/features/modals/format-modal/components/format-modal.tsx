@@ -62,9 +62,9 @@ export const FormatModal = ({
   const [selectedPreset, setSelectedPreset] = useState<Preset | null>(() => {
     const presets = mediaType === "video" ? data.videoPresets : data.audioPresets;
     if (presets.length === 0) return null;
-    // Default to 1080p for video, or first audio preset
+    // Default to best for video, or first audio preset
     if (mediaType === "video") {
-      return presets.find((p) => p.id === "1080p") || presets[0];
+      return presets.find((p) => p.id === "best") || presets[0];
     }
     return presets[0];
   });
@@ -198,7 +198,7 @@ export const FormatModal = ({
         const isValidPreset = selectedPreset && presets.some((p) => p.id === selectedPreset.id);
         if (presets.length > 0 && !isValidPreset) {
           if (mediaType === "video") {
-            setSelectedPreset(presets.find((p) => p.id === "1080p") || presets[0]);
+            setSelectedPreset(presets.find((p) => p.id === "best") || presets[0]);
           } else {
             setSelectedPreset(presets[0]);
           }
