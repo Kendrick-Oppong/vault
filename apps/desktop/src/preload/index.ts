@@ -146,6 +146,9 @@ const vaultApi = {
   settingsGetAutoUpdateApp: (): Promise<boolean> => ipcRenderer.invoke("settings:getAutoUpdateApp"),
   settingsSetAutoUpdateApp: (value: boolean): Promise<boolean> =>
     ipcRenderer.invoke("settings:setAutoUpdateApp", value),
+  settingsGetNotifications: (): Promise<boolean> => ipcRenderer.invoke("settings:getNotifications"),
+  settingsSetNotifications: (value: boolean): Promise<boolean> =>
+    ipcRenderer.invoke("settings:setNotifications", value),
 
   onDependencyDownloadProgress: (
     cb: (progress: {
