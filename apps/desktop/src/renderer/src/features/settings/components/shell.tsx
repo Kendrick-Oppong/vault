@@ -183,6 +183,15 @@ export const SettingsView = () => {
               </Button>
             </div>
           </Row>
+          <Row
+            label="Desktop notifications"
+            description="Show notification when download completes"
+          >
+            <Switch
+              checked={settings.notifications}
+              onCheckedChange={(checked) => updateSetting("notifications", checked)}
+            />
+          </Row>
         </Section>
 
         {/* Metadata */}
