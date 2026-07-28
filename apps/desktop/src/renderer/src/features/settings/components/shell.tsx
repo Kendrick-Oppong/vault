@@ -128,18 +128,6 @@ export const SettingsView = () => {
           </Row>
 
           <Row
-            label="Output template"
-            description="yt-dlp filename template, e.g. %(title)s.%(ext)s"
-          >
-            <Input
-              value={settings.outputTemplate}
-              onChange={(e) => updateSetting("outputTemplate", e.target.value)}
-              placeholder="%(title)s.%(ext)s"
-              className="max-w-xs"
-            />
-          </Row>
-
-          <Row
             label="Playlist fetch limit"
             description="Max items fetched from a playlist. 0 = no limit."
           >
