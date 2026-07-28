@@ -1,7 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { isAbsolute } from "node:path";
 import { join } from "node:path";
-import { existsSync } from "node:fs";
 import type { YtDlpProgress, DownloadExtras } from "@vault/types";
 import { validateMediaUrl, validateYouTubeUrl } from "./validators";
 import { logger } from "./logger";
@@ -9,7 +8,6 @@ import { logger } from "./logger";
 export interface YtDlpOptions {
   binaryPath: string;
   ffmpegPath: string;
-  pluginPath?: string;
   userDataPath: string;
 }
 
@@ -85,9 +83,6 @@ function probeInternal(
   return new Promise((resolve, reject) => {
     const args = ["--dump-json", "--flat-playlist", "--quiet", "--no-warnings"];
 
-    if (opts.pluginPath && existsSync(opts.pluginPath)) {
-      args.push("--plugin-dirs", opts.pluginPath);
-    }
     if (extras?.cookiesFile) args.push("--cookies", extras.cookiesFile);
     else if (extras?.cookiesFromBrowser)
       args.push("--cookies-from-browser", extras.cookiesFromBrowser);
@@ -222,7 +217,6 @@ export async function probePlaylistPage(
       `${start}:${end}`
     ];
 
-    if (opts.pluginPath && existsSync(opts.pluginPath)) args.push("--plugin-dirs", opts.pluginPath);
     if (extras?.cookiesFile) args.push("--cookies", extras.cookiesFile);
     else if (extras?.cookiesFromBrowser)
       args.push("--cookies-from-browser", extras.cookiesFromBrowser);
@@ -659,10 +653,6 @@ export function download(
     args.push("--continue");
     logger.debug("Resume mode enabled");
   }
-  if (opts.pluginPath && existsSync(opts.pluginPath)) {
-    args.push("--plugin-dirs", opts.pluginPath);
-    logger.debug("Plugin path:", opts.pluginPath);
-  }
 
   buildAuthAndNetworkArgs(args, extras);
 
@@ -711,7 +701,6 @@ export function createYtDlpManager(opts: YtDlpOptions) {
       download(opts, url, outputTemplate, formatSelector, extras, downloadPath, onProgress, resume),
     binaryPath: opts.binaryPath,
     ffmpegPath: opts.ffmpegPath,
-    pluginPath: opts.pluginPath,
     userDataPath: opts.userDataPath
   };
 }

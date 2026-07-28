@@ -1,7 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, Tray, Menu } from "electron";
 import { join } from "node:path";
 import fs from "node:fs";
-import { mkdir } from "node:fs/promises";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -44,7 +43,7 @@ let minimizeToTraySetting = false;
 let autoUpdateAppSetting = true; // Default to true
 let notificationsEnabled = true; // Default to true
 
-function resolveBinaryPaths(): { binaryPath: string; ffmpegPath: string; pluginPath: string } {
+function resolveBinaryPaths(): { binaryPath: string; ffmpegPath: string } {
   let base: string;
   if (app.isPackaged) {
     // process.resourcesPath is read-only in packaged builds — binaries must live
@@ -59,8 +58,7 @@ function resolveBinaryPaths(): { binaryPath: string; ffmpegPath: string; pluginP
   const ext = process.platform === "win32" ? ".exe" : "";
   return {
     binaryPath: join(base, `yt-dlp${ext}`),
-    ffmpegPath: join(base, `ffmpeg${ext}`),
-    pluginPath: join(base, "yt-dlp-plugins")
+    ffmpegPath: join(base, `ffmpeg${ext}`)
   };
 }
 
@@ -204,7 +202,6 @@ function registerIpcHandlers(): void {
     const binaryPaths = {
       binaryPath: ytdlp.binaryPath,
       ffmpegPath: ytdlp.ffmpegPath,
-      pluginPath: ytdlp.pluginPath,
       userDataPath: ytdlp.userDataPath
     };
     return await probePlaylistPage(binaryPaths, url, start, end, probeExtras);
@@ -470,16 +467,14 @@ function registerIpcHandlers(): void {
 
     // Re-initialize ytdlp manager and worker pool with updated binary paths after download
     if (status.allReady) {
-      const { binaryPath: newPath, ffmpegPath: newFfmpegPath, pluginPath } = resolveBinaryPaths();
+      const { binaryPath: newPath, ffmpegPath: newFfmpegPath } = resolveBinaryPaths();
       logger.info("Re-initializing ytdlp manager with paths:", {
         newPath,
-        newFfmpegPath,
-        pluginPath
+        newFfmpegPath
       });
       ytdlp = createYtDlpManager({
         binaryPath: newPath,
         ffmpegPath: newFfmpegPath,
-        pluginPath,
         userDataPath: app.getPath("userData")
       });
       pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
@@ -521,11 +516,10 @@ function registerIpcHandlers(): void {
 
       // Re-initialize ytdlp manager and worker pool after update
       if (status.allReady) {
-        const { binaryPath: newPath, ffmpegPath: newFfmpegPath, pluginPath } = resolveBinaryPaths();
+        const { binaryPath: newPath, ffmpegPath: newFfmpegPath } = resolveBinaryPaths();
         ytdlp = createYtDlpManager({
           binaryPath: newPath,
           ffmpegPath: newFfmpegPath,
-          pluginPath,
           userDataPath: app.getPath("userData")
         });
         pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
@@ -832,12 +826,7 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  const { binaryPath, ffmpegPath, pluginPath } = resolveBinaryPaths();
-
-  // Ensure plugin directory exists
-  await mkdir(pluginPath, { recursive: true }).catch((err) => {
-    logger.warn("Failed to create plugin directory:", err);
-  });
+  const { binaryPath, ffmpegPath } = resolveBinaryPaths();
 
   logger.info("Vault started, version", app.getVersion());
 
@@ -854,7 +843,6 @@ app.whenReady().then(async () => {
   ytdlp = createYtDlpManager({
     binaryPath,
     ffmpegPath,
-    pluginPath,
     userDataPath: app.getPath("userData")
   });
 
