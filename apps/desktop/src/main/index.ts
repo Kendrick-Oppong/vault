@@ -1,6 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, Tray, Menu } from "electron";
 import { join } from "node:path";
 import fs from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -832,6 +833,11 @@ app.whenReady().then(async () => {
   });
 
   const { binaryPath, ffmpegPath, pluginPath } = resolveBinaryPaths();
+
+  // Ensure plugin directory exists
+  await mkdir(pluginPath, { recursive: true }).catch((err) => {
+    logger.warn("Failed to create plugin directory:", err);
+  });
 
   logger.info("Vault started, version", app.getVersion());
 
