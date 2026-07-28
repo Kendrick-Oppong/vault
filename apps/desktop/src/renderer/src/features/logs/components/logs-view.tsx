@@ -60,7 +60,7 @@ export const LogsView = () => {
 
   return (
     <div className="flex h-full flex-col gap-3 py-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 sticky top-0 bg-background z-10 pb-2">
         <h1 className="text-base font-semibold">Logs</h1>
         <div className="flex items-center gap-1.5">
           {LEVELS.map((level) => (
@@ -105,6 +105,7 @@ export const LogsView = () => {
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto rounded-xl border border-border bg-secondary/60 p-3 font-mono text-xs leading-relaxed"
+        style={{ maxHeight: "calc(100vh - 200px)" }}
       >
         {isLoading ? (
           <p className="text-muted-foreground">Loading logs...</p>

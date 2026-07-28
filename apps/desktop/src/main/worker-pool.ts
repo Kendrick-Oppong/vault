@@ -1,7 +1,8 @@
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
 import { execSync, type ChildProcess } from "node:child_process";
-import { existsSync, unlinkSync } from "node:fs";
+import { existsSync, unlinkSync, readdirSync } from "node:fs";
+import { dirname, basename, join } from "node:path";
 import type { Job, JobInput, YtDlpProgress } from "@vault/types";
 import type { YtDlpManager } from "./ytdlp-manager";
 import { createProgressTracker } from "./progress-tracker";
@@ -148,6 +149,28 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
         }
         logger.info("Job completed:", job.id);
         job.status = "completed";
+
+        // Update expectedPath to match actual file on disk
+        if (job.meta?.expectedPath) {
+          const dir = dirname(job.meta.expectedPath);
+          // Extract base filename without any extension
+          const base = basename(job.meta.expectedPath).replace(/\.[^.]+$/, "");
+
+          try {
+            const files = readdirSync(dir);
+            const matchingFile = files.find(
+              (f) => f.startsWith(base) && !f.endsWith(".part") && !f.endsWith(".ytdl")
+            );
+            if (matchingFile) {
+              const actualPath = join(dir, matchingFile);
+              logger.debug(`Updating expectedPath from ${job.meta.expectedPath} to ${actualPath}`);
+              job.meta.expectedPath = actualPath;
+            }
+          } catch (err) {
+            logger.warn("Could not verify actual file path:", err);
+          }
+        }
+
         cleanupTempFiles(job);
         active.delete(job.id);
         completed.set(job.id, job);
