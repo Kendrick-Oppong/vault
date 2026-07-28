@@ -16,6 +16,7 @@ export interface ProgressTracker {
 }
 
 function formatSpeed(bytesPerSec: number): string {
+  if (bytesPerSec == null || Number.isNaN(bytesPerSec)) return "calculating...";
   if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(1)} B/s`;
   if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
   if (bytesPerSec < 1024 * 1024 * 1024) return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
@@ -33,6 +34,7 @@ function formatEta(seconds: number): string {
 }
 
 export function formatBytes(bytes: number): string {
+  if (bytes == null || Number.isNaN(bytes)) return "unknown";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -84,7 +86,7 @@ export function createProgressTracker(): ProgressTracker {
       etaSeconds = Math.max(0, Math.round(remainingBytes / ((speedMbps * 1_000_000) / 8)));
     }
 
-    const formattedSpeed = progress.speed === undefined ? undefined : formatSpeed(progress.speed);
+    const formattedSpeed = progress.speed == null ? undefined : formatSpeed(progress.speed);
 
     const formattedEta = etaSeconds === undefined ? undefined : formatEta(etaSeconds);
 
