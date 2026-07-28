@@ -23,6 +23,7 @@ export interface Settings {
   ytDlpVersion: string;
   autoUpdateApp: boolean;
   autoUpdateBinaries: boolean;
+  notifications: boolean;
 }
 
 export interface DetectedBrowser {
