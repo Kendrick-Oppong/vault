@@ -21,6 +21,7 @@ import {
 } from "./dependencies";
 import * as cookies from "./cookies";
 import { logger } from "./logger";
+import { notifyDownloadComplete } from "./notifications";
 
 // Must be set before app.whenReady() — hides Electron automation signals from Google
 app.commandLine.appendSwitch("disable-blink-features", "AutomationControlled");
@@ -40,6 +41,7 @@ let ytdlp: YtDlpManager;
 let tray: Tray | null = null;
 let minimizeToTraySetting = false;
 let autoUpdateAppSetting = true; // Default to true
+let notificationsEnabled = true; // Default to true
 
 function resolveBinaryPaths(): { binaryPath: string; ffmpegPath: string; pluginPath: string } {
   let base: string;
@@ -117,6 +119,8 @@ function forwardPoolEventsToRenderer(): void {
   );
   pool.on("job:completed", (job) => {
     mainWindow?.webContents.send("job:completed", job);
+    // Show desktop notification if enabled
+    notifyDownloadComplete(job, notificationsEnabled);
     try {
       let file_size: number | null = null;
       if (job.meta?.expectedPath) {
@@ -556,6 +560,16 @@ function registerIpcHandlers(): void {
       // electron-updater not available, setting will be used on init
     }
     return autoUpdateAppSetting;
+  });
+
+  ipcMain.handle("settings:getNotifications", async () => {
+    return notificationsEnabled;
+  });
+
+  ipcMain.handle("settings:setNotifications", async (_e, value: boolean) => {
+    notificationsEnabled = value;
+    logger.info("Notifications setting updated:", value);
+    return notificationsEnabled;
   });
 
   // YouTube search via yt-dlp ytsearch
