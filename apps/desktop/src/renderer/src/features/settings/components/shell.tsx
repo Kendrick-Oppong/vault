@@ -319,25 +319,6 @@ export const SettingsView = () => {
           </Row>
         </Section>
 
-        {/* Updates */}
-        <Section id="settings-updates" icon={<RefreshCw className="w-3.5 h-3.5" />} title="Updates">
-          <Row label="Auto-update app" description="Automatically download and install app updates">
-            <Switch
-              checked={settings.autoUpdateApp}
-              onCheckedChange={(checked) => updateSetting("autoUpdateApp", checked)}
-            />
-          </Row>
-          <Row
-            label="Auto-update binaries"
-            description="Automatically update yt-dlp and ffmpeg to latest versions"
-          >
-            <Switch
-              checked={settings.autoUpdateBinaries}
-              onCheckedChange={(checked) => updateSetting("autoUpdateBinaries", checked)}
-            />
-          </Row>
-        </Section>
-
         {/* Network */}
         <Section id="settings-network" icon={<Globe className="w-3.5 h-3.5" />} title="Network">
           <Row
@@ -484,16 +465,19 @@ export const SettingsView = () => {
           )}
         </Section>
 
-        {/* About & Dependencies */}
-        <Section
-          id="settings-about"
-          icon={<Info className="w-3.5 h-3.5" />}
-          title="About & Dependencies"
-        >
+        {/* About */}
+        <Section id="settings-about" icon={<Info className="w-3.5 h-3.5" />} title="About">
           <Row label="Vault">
             <span className="text-muted-foreground text-[12px]">{settings.version}</span>
           </Row>
+        </Section>
 
+        {/* Dependencies */}
+        <Section
+          id="settings-dependencies"
+          icon={<Download className="w-3.5 h-3.5" />}
+          title="Dependencies"
+        >
           <Row label="yt-dlp">
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-[12px]">
@@ -549,7 +533,29 @@ export const SettingsView = () => {
               </Button>
             </div>
           </Row>
+        </Section>
 
+        {/* Updates */}
+        <Section
+          id="settings-updates-app"
+          icon={<RefreshCw className="w-3.5 h-3.5" />}
+          title="Updates"
+        >
+          <Row label="Auto-update app" description="Automatically download and install app updates">
+            <Switch
+              checked={settings.autoUpdateApp}
+              onCheckedChange={(checked) => updateSetting("autoUpdateApp", checked)}
+            />
+          </Row>
+          <Row
+            label="Auto-update binaries"
+            description="Automatically update yt-dlp and ffmpeg to latest versions"
+          >
+            <Switch
+              checked={settings.autoUpdateBinaries}
+              onCheckedChange={(checked) => updateSetting("autoUpdateBinaries", checked)}
+            />
+          </Row>
           <div className="py-1.5">
             <Button
               variant="link"
@@ -562,7 +568,7 @@ export const SettingsView = () => {
               ) : (
                 <RefreshCw className="w-3.5 h-3.5" />
               )}
-              Check for updates
+              Check for app updates
             </Button>
           </div>
         </Section>
