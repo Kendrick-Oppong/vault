@@ -9,6 +9,7 @@ import { chmod, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { get } from "node:https";
 import type { IncomingMessage } from "node:http";
+import { logger } from "./logger";
 
 const execFileAsync = promisify(execFile);
 
@@ -316,5 +317,72 @@ export async function downloadDependencies(
 ): Promise<void> {
   await mkdir(destDir, { recursive: true });
   await ensureYtDlp(destDir, onProgress);
+  await ensureFfmpeg(destDir, onProgress);
+}
+
+/**
+ * Update yt-dlp using its built-in self-updater (-U flag).
+ * Falls back to re-download if self-update fails.
+ */
+export async function updateYtDlp(
+  destDir: string,
+  onProgress: (progress: DownloadProgress) => void
+): Promise<void> {
+  const p = platform();
+  const destPath = join(destDir, exe("yt-dlp"));
+
+  onProgress({ binary: "ytdlp", stage: "checking", percent: null });
+  if (!(await fileExists(destPath))) {
+    await ensureYtDlp(destDir, onProgress);
+    return;
+  }
+
+  onProgress({ binary: "ytdlp", stage: "downloading", percent: null, message: "Updating" });
+  try {
+    // Use yt-dlp's built-in self-update
+    await execFileAsync(destPath, ["-U"], { timeout: 120_000 });
+    logger.info("yt-dlp self-update completed");
+  } catch (err) {
+    logger.warn("yt-dlp self-update failed, re-downloading:", err);
+    // Fallback to full re-download
+    const url = YTDLP_URLS[p];
+    await downloadFile(url, destPath, (dl, total) => {
+      onProgress({
+        binary: "ytdlp",
+        stage: "downloading",
+        percent: total ? Math.round((dl / total) * 100) : null
+      });
+    });
+    if (p !== "win32") await chmod(destPath, 0o755);
+  }
+
+  onProgress({ binary: "ytdlp", stage: "verifying", percent: null });
+  const { stdout } = await execFileAsync(destPath, ["--version"], { timeout: 15_000 });
+  if (!stdout.trim()) throw new Error("yt-dlp update failed verification");
+
+  onProgress({ binary: "ytdlp", stage: "done", percent: 100 });
+  logger.info("yt-dlp updated, version:", stdout.trim());
+}
+
+/**
+ * Update ffmpeg by deleting and re-downloading.
+ * FFmpeg doesn't have a built-in updater, so we fetch the latest build.
+ */
+export async function updateFfmpeg(
+  destDir: string,
+  onProgress: (progress: DownloadProgress) => void
+): Promise<void> {
+  const p = platform();
+  const destPath = join(destDir, exe("ffmpeg"));
+
+  onProgress({ binary: "ffmpeg", stage: "checking", percent: null });
+  if (!(await fileExists(destPath))) {
+    await ensureFfmpeg(destDir, onProgress);
+    return;
+  }
+
+  onProgress({ binary: "ffmpeg", stage: "downloading", percent: null, message: "Updating" });
+  // Delete existing and re-download
+  await rm(destPath, { force: true });
   await ensureFfmpeg(destDir, onProgress);
 }
