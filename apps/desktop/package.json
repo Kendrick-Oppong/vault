@@ -1,6 +1,6 @@
 {
   "name": "vault",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A fast, modern desktop YouTube downloader — powered by yt-dlp & FFmpeg",
   "main": "./out/main/index.js",
   "author": "Kendrick-Oppong",
