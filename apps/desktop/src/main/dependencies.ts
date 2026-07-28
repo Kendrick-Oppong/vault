@@ -217,7 +217,7 @@ type FfmpegSource = { url: string; archive: "zip" | "tar" };
 const FFMPEG_SOURCES: Record<string, FfmpegSource[]> = {
   win32: [
     {
-      url: "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip",
+      url: "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
       archive: "zip"
     }
   ],
