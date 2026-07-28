@@ -88,7 +88,20 @@ export const FormatModal = ({
     if (!duration) return null;
     const parts = duration.split(":").map((part) => Number.parseFloat(part));
     if (parts.some((part) => Number.isNaN(part))) return null;
-    return parts.reduce((total, part) => total * 60 + part, 0);
+
+    // Handle H:MM:SS format (3 parts)
+    if (parts.length === 3) {
+      const [h, m, s] = parts;
+      return h * 3600 + m * 60 + s;
+    }
+
+    // Handle M:SS format (2 parts)
+    if (parts.length === 2) {
+      const [m, s] = parts;
+      return m * 60 + s;
+    }
+
+    return null;
   };
 
   const [audioBitrate, setAudioBitrate] = useState<number>(320);
@@ -770,4 +783,3 @@ export const FormatModal = ({
     </Dialog>
   );
 };
-
