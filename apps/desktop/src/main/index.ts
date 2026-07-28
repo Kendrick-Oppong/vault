@@ -12,7 +12,13 @@ import { createWorkerPool, type WorkerPool } from "./worker-pool";
 import { initDb, type VaultDb } from "./db";
 import { JobInput } from "@vault/types";
 import { validateMediaUrl, validateOutputTemplate, validateFormatSelector } from "./validators";
-import { checkDependencies, getDependencyErrorMessage, downloadDependencies } from "./dependencies";
+import {
+  checkDependencies,
+  getDependencyErrorMessage,
+  downloadDependencies,
+  updateYtDlp,
+  updateFfmpeg
+} from "./dependencies";
 import * as cookies from "./cookies";
 import { logger } from "./logger";
 
@@ -446,6 +452,7 @@ function registerIpcHandlers(): void {
     const { binaryPath, ffmpegPath } = resolveBinaryPaths();
     const destDir = join(binaryPath, "..");
     logger.debug("Downloading dependencies to:", destDir);
+    logger.debug("Resolved binary paths:", { binaryPath, ffmpegPath });
 
     await downloadDependencies(destDir, (progress) => {
       logger.debug("Dependency download progress:", progress);
@@ -453,10 +460,16 @@ function registerIpcHandlers(): void {
     });
 
     const status = await checkDependencies(binaryPath, ffmpegPath);
+    logger.debug("Dependency check after download:", status);
 
     // Re-initialize ytdlp manager and worker pool with updated binary paths after download
     if (status.allReady) {
       const { binaryPath: newPath, ffmpegPath: newFfmpegPath, pluginPath } = resolveBinaryPaths();
+      logger.info("Re-initializing ytdlp manager with paths:", {
+        newPath,
+        newFfmpegPath,
+        pluginPath
+      });
       ytdlp = createYtDlpManager({
         binaryPath: newPath,
         ffmpegPath: newFfmpegPath,
@@ -466,6 +479,8 @@ function registerIpcHandlers(): void {
       pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
       forwardPoolEventsToRenderer();
       logger.info("Re-initialized ytdlp manager and worker pool with updated binary paths");
+    } else {
+      logger.error("Dependencies not ready after download:", status);
     }
 
     return {
@@ -475,6 +490,54 @@ function registerIpcHandlers(): void {
       errors: status.errors,
       errorMessage: status.allReady ? null : getDependencyErrorMessage(status)
     };
+  });
+
+  ipcMain.handle("dependencies:update", async (_e, binary: "ytdlp" | "ffmpeg" | "all") => {
+    logger.debug("IPC: dependencies:update", binary);
+    const { binaryPath, ffmpegPath } = resolveBinaryPaths();
+    const destDir = join(binaryPath, "..");
+
+    try {
+      if (binary === "ytdlp" || binary === "all") {
+        await updateYtDlp(destDir, (progress) => {
+          logger.debug("yt-dlp update progress:", progress);
+          mainWindow?.webContents.send("dependency:download:progress", progress);
+        });
+      }
+      if (binary === "ffmpeg" || binary === "all") {
+        await updateFfmpeg(destDir, (progress) => {
+          logger.debug("ffmpeg update progress:", progress);
+          mainWindow?.webContents.send("dependency:download:progress", progress);
+        });
+      }
+
+      const status = await checkDependencies(binaryPath, ffmpegPath);
+
+      // Re-initialize ytdlp manager and worker pool after update
+      if (status.allReady) {
+        const { binaryPath: newPath, ffmpegPath: newFfmpegPath, pluginPath } = resolveBinaryPaths();
+        ytdlp = createYtDlpManager({
+          binaryPath: newPath,
+          ffmpegPath: newFfmpegPath,
+          pluginPath,
+          userDataPath: app.getPath("userData")
+        });
+        pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
+        forwardPoolEventsToRenderer();
+        logger.info("Re-initialized ytdlp manager after binary update");
+      }
+
+      return {
+        ready: status.allReady,
+        ytDlp: status.ytDlp,
+        ffmpeg: status.ffmpeg,
+        errors: status.errors,
+        errorMessage: status.allReady ? null : getDependencyErrorMessage(status)
+      };
+    } catch (err) {
+      logger.error("Binary update failed:", err);
+      throw err;
+    }
   });
 
   // YouTube search via yt-dlp ytsearch

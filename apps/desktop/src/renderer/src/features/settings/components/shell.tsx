@@ -36,6 +36,7 @@ import { useClearDownloadArchive } from "@/lib/mutations/cache";
 import { useCheckForUpdates } from "@/lib/queries/app";
 import { useOpenFolderDialog } from "@/lib/mutations/files";
 import { useDependenciesCheck } from "@/lib/queries/dependencies";
+import { useUpdateBinaries } from "@/lib/mutations/dependencies";
 import { cn } from "@vault/ui/lib/utils";
 import { useModalActions } from "@/stores/ui/modal.selectors";
 
@@ -60,6 +61,7 @@ export const SettingsView = () => {
   const checkUpdatesMutation = useCheckForUpdates();
   const openFolderMutation = useOpenFolderDialog();
   const clearDownloadArchiveMutation = useClearDownloadArchive();
+  const updateBinariesMutation = useUpdateBinaries();
   const { data: deps, isLoading: depsLoading } = useDependenciesCheck();
 
   const handleConcurrentChange = (delta: number) => {
@@ -317,6 +319,25 @@ export const SettingsView = () => {
           </Row>
         </Section>
 
+        {/* Updates */}
+        <Section id="settings-updates" icon={<RefreshCw className="w-3.5 h-3.5" />} title="Updates">
+          <Row label="Auto-update app" description="Automatically download and install app updates">
+            <Switch
+              checked={settings.autoUpdateApp}
+              onCheckedChange={(checked) => updateSetting("autoUpdateApp", checked)}
+            />
+          </Row>
+          <Row
+            label="Auto-update binaries"
+            description="Automatically update yt-dlp and ffmpeg to latest versions"
+          >
+            <Switch
+              checked={settings.autoUpdateBinaries}
+              onCheckedChange={(checked) => updateSetting("autoUpdateBinaries", checked)}
+            />
+          </Row>
+        </Section>
+
         {/* Network */}
         <Section id="settings-network" icon={<Globe className="w-3.5 h-3.5" />} title="Network">
           <Row
@@ -484,6 +505,20 @@ export const SettingsView = () => {
                 ) : (
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                 ))}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => updateBinariesMutation.mutate("ytdlp")}
+                disabled={updateBinariesMutation.isPending}
+                title="Update yt-dlp"
+              >
+                {updateBinariesMutation.isPending ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3 h-3" />
+                )}
+              </Button>
             </div>
           </Row>
 
@@ -498,6 +533,20 @@ export const SettingsView = () => {
                 ) : (
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                 ))}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => updateBinariesMutation.mutate("ffmpeg")}
+                disabled={updateBinariesMutation.isPending}
+                title="Update ffmpeg"
+              >
+                {updateBinariesMutation.isPending ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3 h-3" />
+                )}
+              </Button>
             </div>
           </Row>
 

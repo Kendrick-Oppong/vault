@@ -21,6 +21,8 @@ export interface Settings {
   useDownloadArchive: boolean;
   version: string;
   ytDlpVersion: string;
+  autoUpdateApp: boolean;
+  autoUpdateBinaries: boolean;
 }
 
 export interface DetectedBrowser {

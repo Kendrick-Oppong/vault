@@ -54,7 +54,9 @@ const baseDefaults: Settings = {
   videoContainer: "mp4",
   useDownloadArchive: false,
   version: UNSET,
-  ytDlpVersion: UNSET
+  ytDlpVersion: UNSET,
+  autoUpdateApp: true,
+  autoUpdateBinaries: false
 };
 
 export const useSettingsStore = create<SettingsStore>()(

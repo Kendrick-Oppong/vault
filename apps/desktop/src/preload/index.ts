@@ -133,6 +133,16 @@ const vaultApi = {
     errorMessage: string | null;
   }> => ipcRenderer.invoke("dependencies:download"),
 
+  dependenciesUpdate: (
+    binary: "ytdlp" | "ffmpeg" | "all"
+  ): Promise<{
+    ready: boolean;
+    ytDlp: { installed: boolean; version?: string; path?: string; error?: string };
+    ffmpeg: { installed: boolean; version?: string; path?: string; error?: string };
+    errors: string[];
+    errorMessage: string | null;
+  }> => ipcRenderer.invoke("dependencies:update", binary),
+
   onDependencyDownloadProgress: (
     cb: (progress: {
       binary: "ytdlp" | "ffmpeg";
