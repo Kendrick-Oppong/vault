@@ -326,22 +326,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle("fs:fileExists", async (_e, filePath: string) => {
     logger.debug("IPC: fs:fileExists", filePath);
     const fs = await import("node:fs");
-    const exists = fs.existsSync(filePath);
-    if (!exists) {
-      logger.warn("File not found at path:", filePath);
-      // Try to see if the file exists with a different extension
-      const path = await import("node:path");
-      const dir = path.dirname(filePath);
-      const base = path.basename(filePath, path.extname(filePath));
-      try {
-        const files = fs.readdirSync(dir);
-        const matchingFiles = files.filter((f) => f.startsWith(base));
-        logger.debug("Looking for files starting with:", base, "Found:", matchingFiles);
-      } catch (err) {
-        logger.warn("Could not read directory:", dir, err);
-      }
-    }
-    return exists;
+    return fs.existsSync(filePath);
   });
 
   ipcMain.handle("fs:scanDir", async (_e, dirPath: string) => {
