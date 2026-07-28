@@ -299,22 +299,31 @@ async function ensureFfmpeg(
         `ffmpeg-dl-${i}.${source.archive === "zip" ? "zip" : "tar.xz"}`
       );
 
-      onProgress({ binary: "ffmpeg", stage: "downloading", percent: 0 });
-      await downloadFile(source.url, archivePath, (dl, total) => {
-        onProgress({
-          binary: "ffmpeg",
-          stage: "downloading",
-          percent: total ? Math.round((dl / total) * 100) : null
+      try {
+        onProgress({ binary: "ffmpeg", stage: "downloading", percent: 0 });
+        await downloadFile(source.url, archivePath, (dl, total) => {
+          onProgress({
+            binary: "ffmpeg",
+            stage: "downloading",
+            percent: total ? Math.round((dl / total) * 100) : null
+          });
         });
-      });
 
-      onProgress({ binary: "ffmpeg", stage: "extracting", percent: null });
-      if (source.archive === "zip" && p === "win32") {
-        await extractZipWindows(archivePath, extractDir);
-      } else {
-        await extractTar(archivePath, extractDir);
+        onProgress({ binary: "ffmpeg", stage: "extracting", percent: null });
+        if (source.archive === "zip" && p === "win32") {
+          await extractZipWindows(archivePath, extractDir);
+        } else {
+          await extractTar(archivePath, extractDir);
+        }
+        await rm(archivePath, { force: true });
+
+        // If we got here, download and extraction succeeded, break out of the loop
+        break;
+      } catch (err) {
+        logger.warn(`ffmpeg source ${i} failed, trying next:`, err);
+        await rm(archivePath, { force: true }).catch(() => {});
+        // Continue to next source
       }
-      await rm(archivePath, { force: true });
     }
 
     for (const name of [exe("ffmpeg"), exe("ffprobe")]) {
