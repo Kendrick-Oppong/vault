@@ -91,6 +91,7 @@ export const HistoryCard = ({ item, isSelected, onSelect }: HistoryCardProps) =>
           <p className="text-[11px] text-muted-foreground mt-0.5">{item.channel}</p>
           <div className="flex items-center justify-between mt-1.5 text-[10.5px] text-muted-foreground">
             <span>{getTimeAgo(item.addedAt)}</span>
+            {item.format && <span className="uppercase font-medium">{item.format}</span>}
           </div>
           {item.isRecovered && (
             <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
