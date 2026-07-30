@@ -33,10 +33,28 @@ export function getTimeAgo(date: Date): string {
   if (diffDays === 1) return `yesterday`;
   if (diffDays >= 3) {
     const day = date.getDate();
-    const suffix = ["th", "st", "nd", "rd"][(day % 10 > 3 ? 0 : (day % 100) - (day % 10) !== 10 ? day % 10 : 0)];
+    const suffix = ["th", "st", "nd", "rd"][
+      day % 10 > 3 ? 0 : (day % 100) - (day % 10) !== 10 ? day % 10 : 0
+    ];
     const month = date.toLocaleString("default", { month: "long" });
     const year = date.getFullYear();
     return `${day}${suffix} ${month} ${year}`;
   }
   return `${diffDays} days ago`;
+}
+
+/**
+ * Extracts the file extension from a file path.
+ * Returns the extension without the dot (e.g., "mp4", "mp3") or empty string if no extension.
+ */
+export function getFileExtension(filePath: string | undefined): string {
+  if (!filePath) return "";
+  const lastDotIndex = filePath.lastIndexOf(".");
+  if (lastDotIndex === -1) return "";
+  const lastSlashIndex = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
+
+  // Ensure the dot is after the last path separator (it's a file extension, not a directory name)
+  if (lastDotIndex <= lastSlashIndex) return "";
+
+  return filePath.slice(lastDotIndex + 1).toLowerCase();
 }
