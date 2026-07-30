@@ -6,7 +6,7 @@ import { EmptyState } from "@/features/ui/components/empty-state";
 import { Search, Loader2, ChevronDown } from "lucide-react";
 
 import { useHistoryInfinite } from "@/lib/queries/history";
-import { formatBytes } from "@/lib/utils/platform";
+import { formatBytes, getFileExtension } from "@/lib/utils/platform";
 
 export const LibraryView = () => {
   const [sortBy, setSortBy] = useState<LibrarySort>("date");
@@ -35,7 +35,8 @@ export const LibraryView = () => {
       addedAt: new Date(entry.completed_at || entry.created_at),
       thumbnail: entry.thumbnail_url || undefined,
       url: entry.url,
-      filePath: entry.file_path || undefined
+      filePath: entry.file_path || undefined,
+      format: getFileExtension(entry.file_path || undefined)
     }));
   }, [history]);
 
