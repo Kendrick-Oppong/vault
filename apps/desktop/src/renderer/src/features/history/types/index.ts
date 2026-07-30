@@ -18,6 +18,7 @@ export interface HistoryItem {
   filePath?: string;
   status: string;
   isRecovered?: boolean;
+  format?: string;
 }
 
 export interface HistoryStats {
