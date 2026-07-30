@@ -17,6 +17,7 @@ export interface LibraryItem {
   url?: string;
   filePath?: string;
   isRecovered?: boolean;
+  format?: string;
 }
 
 export interface LibraryStats {
