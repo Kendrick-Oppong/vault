@@ -89,6 +89,12 @@ export const FormatModal = ({
     const parts = duration.split(":").map((part) => Number.parseFloat(part));
     if (parts.some((part) => Number.isNaN(part))) return null;
 
+    // Handle D:HH:MM:SS format (4 parts)
+    if (parts.length === 4) {
+      const [d, h, m, s] = parts;
+      return d * 86400 + h * 3600 + m * 60 + s;
+    }
+
     // Handle H:MM:SS format (3 parts)
     if (parts.length === 3) {
       const [h, m, s] = parts;
