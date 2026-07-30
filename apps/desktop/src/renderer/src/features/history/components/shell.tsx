@@ -8,7 +8,7 @@ import { Search, Loader2, ChevronDown, History } from "lucide-react";
 
 import { useHistoryInfinite } from "@/lib/queries/history";
 import { useBulkDeleteHistory } from "@/lib/mutations/history";
-import { formatBytes } from "@/lib/utils/platform";
+import { formatBytes, getFileExtension } from "@/lib/utils/platform";
 
 export const HistoryView = () => {
   const [sortBy, setSortBy] = useState<HistorySort>("date");
@@ -41,7 +41,8 @@ export const HistoryView = () => {
       thumbnail: entry.thumbnail_url || undefined,
       url: entry.url,
       filePath: entry.file_path || undefined,
-      status: entry.status
+      status: entry.status,
+      format: getFileExtension(entry.file_path || undefined)
     }));
   }, [history]);
 
