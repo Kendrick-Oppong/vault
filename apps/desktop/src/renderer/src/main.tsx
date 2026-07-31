@@ -12,7 +12,7 @@ import { useUIStore } from "@/stores/ui/ui.store";
 useUIStore.getState().initializeTheme();
 
 // Keep the system-theme listener alive for the lifetime of the app.
-const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+const mediaQuery = globalThis.matchMedia("(prefers-color-scheme: dark)");
 mediaQuery.addEventListener("change", () => {
   if (useUIStore.getState().theme === "system") {
     useUIStore.getState().initializeTheme();
