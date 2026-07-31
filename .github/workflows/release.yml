@@ -73,10 +73,10 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      - name: Upload artifacts to draft release
+      - name: Upload artifacts to release
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          draft: false
           files: |
             apps/desktop/dist/*.exe
             apps/desktop/dist/*.dmg
