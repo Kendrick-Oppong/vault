@@ -13,7 +13,8 @@ import {
   Clock,
   CircleAlert,
   ChevronDown,
-  AudioLines
+  AudioLines,
+  CheckCircle2
 } from "lucide-react";
 import { QueueContextMenu } from "./queue-context-menu";
 import type { QueueItem as QueueItemType } from "../types";
@@ -45,7 +46,7 @@ const statusIconMap = {
   paused: Play,
   queued: Clock,
   error: CircleAlert,
-  completed: CircleAlert
+  completed: CheckCircle2
 } as const;
 
 export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {

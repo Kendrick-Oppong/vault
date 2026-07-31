@@ -62,7 +62,6 @@ export const FormatModal = ({
   const [selectedPreset, setSelectedPreset] = useState<Preset | null>(() => {
     const presets = mediaType === "video" ? data.videoPresets : data.audioPresets;
     if (presets.length === 0) return null;
-    // Default to best for video, or first audio preset
     if (mediaType === "video") {
       return presets.find((p) => p.id === "best") || presets[0];
     }
@@ -74,12 +73,9 @@ export const FormatModal = ({
   );
   const [audioFormat, setAudioFormat] = useState<AudioFormat>("mp3");
 
-  // Helper to extract height from resolution string
   const extractHeight = (resolution: string): number => {
-    // Handle "1920x1080" format
     const xMatch = /(\d{1,5})x(\d{1,5})/.exec(resolution);
     if (xMatch) return Number.parseInt(xMatch[2], 10);
-    // Handle "1080p" format
     const pMatch = /(\d{1,5})p/.exec(resolution);
     return pMatch ? Number.parseInt(pMatch[1], 10) : 0;
   };
@@ -89,24 +85,18 @@ export const FormatModal = ({
     const parts = duration.split(":").map((part) => Number.parseFloat(part));
     if (parts.some((part) => Number.isNaN(part))) return null;
 
-    // Handle D:HH:MM:SS format (4 parts)
     if (parts.length === 4) {
       const [d, h, m, s] = parts;
       return d * 86400 + h * 3600 + m * 60 + s;
     }
-
-    // Handle H:MM:SS format (3 parts)
     if (parts.length === 3) {
       const [h, m, s] = parts;
       return h * 3600 + m * 60 + s;
     }
-
-    // Handle M:SS format (2 parts)
     if (parts.length === 2) {
       const [m, s] = parts;
       return m * 60 + s;
     }
-
     return null;
   };
 
@@ -125,7 +115,6 @@ export const FormatModal = ({
   );
   const [destination, setDestination] = useState(settings.downloadPath);
 
-  // Auto-select all playlist items when a new playlist loads
   useEffect(() => {
     if (data.type !== "playlist") {
       lastPlaylistId.current = null;
@@ -149,7 +138,6 @@ export const FormatModal = ({
     }
   }, [data.id, data.type, data.playlistItems, data.totalCount]);
 
-  // Handle successful playlist page load
   const handlePlaylistPageSuccess = (newFormats: Record<string, unknown>[], limit: number) => {
     const newModalData = formatProbeToModalData(newFormats, data.url);
     const newItems = newModalData.playlistItems || [];
@@ -173,7 +161,6 @@ export const FormatModal = ({
     setIsLoadingMore(false);
   };
 
-  // Function to load more playlist items
   const loadMorePlaylistItems = async () => {
     if (isLoadingMore || !data.url || !data.playlistItems) return;
 
@@ -194,13 +181,10 @@ export const FormatModal = ({
     );
   };
 
-  // Sync state when data changes (e.g. after loading finishes)
   useEffect(() => {
     if (!isLoading) {
-      // Use timeout to prevent synchronous state updates during render phase
       setTimeout(() => {
         const presets = mediaType === "video" ? data.videoPresets : data.audioPresets;
-        // Validate or set preset
         const isValidPreset = selectedPreset && presets.some((p) => p.id === selectedPreset.id);
         if (presets.length > 0 && !isValidPreset) {
           if (mediaType === "video") {
@@ -209,7 +193,6 @@ export const FormatModal = ({
             setSelectedPreset(presets[0]);
           }
         }
-        // Reset format ID when switching media type
         if (mediaType === "audio") {
           setFormatId("");
         }
@@ -218,7 +201,7 @@ export const FormatModal = ({
   }, [isLoading, data, selectedPreset, mediaType]);
 
   const handleOpenChange = (openState: boolean) => {
-    if (isLoading) return; // Prevent dismissing while loading
+    if (isLoading) return;
     onOpenChange(openState);
   };
 
@@ -306,7 +289,6 @@ export const FormatModal = ({
     return 1;
   };
 
-  // Error State Render
   if (isError) {
     return (
       <ErrorState open={open} onOpenChange={handleOpenChange} error={error} onRetry={onRetry} />
@@ -317,40 +299,38 @@ export const FormatModal = ({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-2xl! max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-2xl border-border"
+        className="max-w-180! max-h-[88vh] flex flex-col p-0 overflow-hidden rounded-2xl border-border gap-0"
       >
-        {/* Full Width Cinematic Header */}
-        <div className="relative w-full h-45 shrink-0 bg-background overflow-hidden">
+        {/* Cinematic hero — the centerpiece of the modal */}
+        <div className="relative w-full h-68 shrink-0 bg-background overflow-hidden">
           {isLoading ? (
             <div className="absolute inset-0 w-full h-full bg-secondary animate-pulse" />
           ) : (
             <>
               {data.thumbnail ? (
-                <img
-                  src={data.thumbnail}
-                  alt={data.title}
-                  className="absolute inset-0 w-full h-full object-cover opacity-50"
-                  style={{
-                    maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)",
-                    WebkitMaskImage:
-                      "linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)"
-                  }}
-                />
+                <>
+                  <img
+                    src={data.thumbnail}
+                    alt={data.title}
+                    className="absolute inset-0 w-full h-full object-cover scale-105 transition-transform duration-700"
+                  />
+                  {/* Layered scrim: darkens edges, keeps center readable, blends into panel */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-background/10" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-background/40 via-transparent to-background/40" />
+                  <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-background/60 to-transparent" />
+                </>
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center opacity-20">
+                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-secondary to-secondary/40">
                   {mediaType === "audio" ? (
-                    <AudioLines className="w-6 h-6 text-foreground/40" />
+                    <AudioLines className="w-10 h-10 text-foreground/30" />
                   ) : (
-                    <Video className="w-6 h-6 text-foreground/40" />
+                    <Video className="w-10 h-10 text-foreground/30" />
                   )}
                 </div>
               )}
-              {/* Gradient overlay for smooth blending with background */}
-              <div className="absolute inset-0 bg-linear-to-t from-background via-background/40 to-transparent" />
             </>
           )}
 
-          {/* Title & Info overlaid at the bottom of the banner */}
           <ModalHeader data={data} isLoading={isLoading} />
         </div>
 
@@ -358,8 +338,7 @@ export const FormatModal = ({
         {isLoading ? (
           <SkeletonLoader type="format-modal" />
         ) : (
-          <div className="flex-1 overflow-y-auto p-5 space-y-6">
-            {/* Playlist Items */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {isPlaylist && data.playlistItems && (
               <PlaylistItems
                 items={data.playlistItems}
@@ -373,7 +352,6 @@ export const FormatModal = ({
               />
             )}
 
-            {/* Media Type Toggle */}
             <div className="flex items-center gap-1 bg-secondary/60 border p-1 rounded-lg w-fit">
               <Button
                 variant={mediaType === "video" ? "default" : "ghost"}
@@ -395,7 +373,6 @@ export const FormatModal = ({
               </Button>
             </div>
 
-            {/* Preset Badges */}
             <div className="flex flex-wrap gap-1.5">
               {data.videoPresets.map((preset) => (
                 <Button
@@ -405,10 +382,8 @@ export const FormatModal = ({
                   onClick={() => {
                     setSelectedPreset(preset);
                     setMediaType("video");
-                    // Auto-select format based on preset height
                     if (preset.maxHeight != null && data.videoFormats) {
                       const maxHeight = preset.maxHeight;
-                      // Find the closest format to the desired height (prefer exact match or closest higher)
                       const match = data.videoFormats
                         .filter((f) => extractHeight(f.resolution) <= maxHeight)
                         .sort(
@@ -438,7 +413,6 @@ export const FormatModal = ({
                     setSelectedPreset(preset);
                     setMediaType("audio");
                     setFormatId("");
-                    // Auto-select audio format based on preset
                     if (preset.audioFormat) {
                       setAudioFormat(preset.audioFormat);
                     }
@@ -455,7 +429,6 @@ export const FormatModal = ({
               ))}
             </div>
 
-            {/* Format Selection */}
             {mediaType === "video" && (
               <div className="space-y-2">
                 <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -465,12 +438,10 @@ export const FormatModal = ({
                   value={formatId}
                   onValueChange={(v) => {
                     setFormatId(v || "");
-                    // Auto-select preset based on selected format
                     if (v && data.videoFormats) {
                       const selectedFormat = data.videoFormats.find((f) => f.formatId === v);
                       if (selectedFormat) {
                         const height = extractHeight(selectedFormat.resolution);
-                        // Find the best matching preset (prefer exact match or closest higher)
                         const matchingPreset = data.videoPresets
                           .filter((p) => p.maxHeight && height <= p.maxHeight)
                           .sort((a, b) => (a.maxHeight || 0) - (b.maxHeight || 0))[0];
@@ -479,7 +450,6 @@ export const FormatModal = ({
                         }
                       }
                     } else if (!v) {
-                      // Reset to "Best" preset when auto is selected
                       const bestPreset = data.videoPresets.find((p) => p.id === "best");
                       if (bestPreset) setSelectedPreset(bestPreset);
                     }
@@ -528,7 +498,6 @@ export const FormatModal = ({
               </div>
             )}
 
-            {/* Container Selection (Video) */}
             {mediaType === "video" && (
               <div className="space-y-2">
                 <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -555,7 +524,6 @@ export const FormatModal = ({
               </div>
             )}
 
-            {/* Audio Format Selection */}
             {mediaType === "audio" && (
               <div className="space-y-2">
                 <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -569,7 +537,6 @@ export const FormatModal = ({
                       size="xs"
                       onClick={() => {
                         setAudioFormat(format);
-                        // Auto-select preset based on audio format
                         const matchingPreset = data.audioPresets.find(
                           (p) => p.audioFormat === format
                         );
@@ -617,7 +584,6 @@ export const FormatModal = ({
               </div>
             )}
 
-            {/* Post-processing */}
             <div className="space-y-3 pt-2">
               <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
                 Post-processing
@@ -647,7 +613,6 @@ export const FormatModal = ({
                   />
                   Embed chapters
                 </label>
-                {/* SponsorBlock is video-only */}
                 {mediaType === "video" && (
                   <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                     <Checkbox
@@ -660,7 +625,6 @@ export const FormatModal = ({
                 )}
               </div>
 
-              {/* Subtitles - video only */}
               {mediaType === "video" && (
                 <>
                   <div className="flex items-center gap-3 pt-2">
@@ -681,7 +645,6 @@ export const FormatModal = ({
                     </Select>
                   </div>
 
-                  {/* Subtitle language picker — shown when subtitles are enabled */}
                   {subtitles !== "none" && (
                     <div className="flex items-center gap-3">
                       <Label className="text-[13px] text-muted-foreground w-24 shrink-0">
@@ -711,7 +674,6 @@ export const FormatModal = ({
                 </>
               )}
 
-              {/* Container option - only for video */}
               {mediaType === "video" && (
                 <div className="flex items-center gap-3">
                   <Label className="text-[13px] text-muted-foreground w-24 shrink-0">
@@ -762,7 +724,6 @@ export const FormatModal = ({
               </div>
             </div>
 
-            {/* Duplicate Warning */}
             {!isLoading && data.duplicate && (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20 text-[12.5px] text-primary">
                 <Info className="w-4 h-4 mt-0.5 shrink-0" />
@@ -772,7 +733,6 @@ export const FormatModal = ({
           </div>
         )}
 
-        {/* Footer */}
         {!isLoading && (
           <ModalFooter
             isLoading={isLoading}
