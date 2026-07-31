@@ -29,8 +29,8 @@ const alertConfig = {
     textColor: "text-destructive",
     iconColor: "text-destructive",
     defaultMessage:
-      "Connection lost. Active downloads have been paused. Resume them manually when reconnected.",
-    defaultActionText: "Check connection"
+      "Connection lost. Active downloads are paused and will resume automatically when connection is restored.",
+    defaultActionText: "Retry"
   },
   disk: {
     icon: AlertTriangle,
@@ -120,21 +120,22 @@ export const AlertBanners = () => {
     lowDisk,
     diskSpaceFree,
     updateAvailable,
+    updateDownloaded,
     updateVersion,
     updateProgress,
     updateError,
     updateStatus
   } = useSystemAlertsState();
-  const { dismissUpdateAlert, setUpdateStatus, setOffline } = useSystemAlertsActions();
+
+  const { dismissUpdateAlert, setUpdateStatus, setOffline, setUpdateError } =
+    useSystemAlertsActions();
   const downloadUpdateMutation = useDownloadUpdate();
   const installUpdateMutation = useInstallUpdate();
 
   const [dismissedDisk, setDismissedDisk] = useState(false);
   const [dismissedUpdate, setDismissedUpdate] = useState(false);
 
-  const handleDiskDismiss = () => {
-    setDismissedDisk(true);
-  };
+  const handleDiskDismiss = () => setDismissedDisk(true);
 
   const handleUpdateDismiss = () => {
     setDismissedUpdate(true);
@@ -147,6 +148,7 @@ export const AlertBanners = () => {
       : "Low disk space. Downloads may fail.";
 
   const handleDownloadUpdate = () => {
+    setUpdateStatus("downloading");
     downloadUpdateMutation.mutate();
   };
 
@@ -155,56 +157,35 @@ export const AlertBanners = () => {
   };
 
   const handleRetryUpdate = () => {
+    setUpdateError("");
     setUpdateStatus("available");
     handleDownloadUpdate();
   };
 
   const getUpdateMessage = () => {
-    if (updateError) {
-      return `Update failed: ${updateError}`;
-    }
-    if (updateStatus === "downloading") {
-      return `Downloading Vault ${updateVersion || "update"}...`;
-    }
-    if (updateStatus === "downloaded") {
-      return `Vault ${updateVersion || "update"} is ready to install.`;
-    }
+    if (updateError) return `Update failed: ${updateError}`;
+    if (updateStatus === "downloading") return `Downloading Vault ${updateVersion || "update"}…`;
+    if (updateDownloaded) return `Vault ${updateVersion || "update"} is ready to install.`;
     return `Vault ${updateVersion || "update"} is available.`;
   };
 
   const getUpdateActionText = () => {
-    if (updateError) {
-      return "Retry";
-    }
-    if (updateStatus === "downloading") {
-      return undefined;
-    }
-    if (updateStatus === "downloaded") {
-      return "Restart now";
-    }
+    if (updateError) return "Retry";
+    if (updateStatus === "downloading") return undefined;
+    if (updateDownloaded) return "Restart now";
     return "Download now";
   };
 
   const getUpdateAction = () => {
-    if (updateError) {
-      return handleRetryUpdate;
-    }
-    if (updateStatus === "downloading") {
-      return undefined;
-    }
-    if (updateStatus === "downloaded") {
-      return handleInstallUpdate;
-    }
+    if (updateError) return handleRetryUpdate;
+    if (updateStatus === "downloading") return undefined;
+    if (updateDownloaded) return handleInstallUpdate;
     return handleDownloadUpdate;
   };
 
   const getUpdateIcon = () => {
-    if (updateError) {
-      return AlertTriangle;
-    }
-    if (updateStatus === "downloading") {
-      return Download;
-    }
+    if (updateError) return AlertTriangle;
+    if (updateStatus === "downloading") return Download;
     return Sparkles;
   };
 
@@ -213,12 +194,8 @@ export const AlertBanners = () => {
       {offline && (
         <AlertBanner
           type="offline"
-          message="Connection lost. Active downloads are paused and will resume automatically when connection is restored."
           onAction={() => {
-            // if we're back online, update state
-            if (navigator.onLine) {
-              setOffline(false);
-            }
+            if (navigator.onLine) setOffline(false);
           }}
           actionText="Retry"
         />
@@ -242,7 +219,7 @@ export const AlertBanners = () => {
           onAction={getUpdateAction()}
           actionText={getUpdateActionText()}
           message={getUpdateMessage()}
-          progress={updateProgress}
+          progress={updateStatus === "downloading" ? updateProgress : null}
           icon={getUpdateIcon()}
         />
       )}

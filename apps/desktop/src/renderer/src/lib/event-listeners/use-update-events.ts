@@ -2,8 +2,14 @@ import { useEffect } from "react";
 import { useSystemAlertsActions } from "@/stores/system-alerts/system-alerts.selectors";
 
 export function useUpdateEvents() {
-  const { setUpdateAvailable, setUpdateProgress, setUpdateError, setUpdateStatus } =
-    useSystemAlertsActions();
+  const {
+    setUpdateAvailable,
+    setUpdateNotAvailable,
+    setUpdateDownloaded,
+    setUpdateProgress,
+    setUpdateError,
+    setUpdateStatus
+  } = useSystemAlertsActions();
 
   useEffect(() => {
     if (!globalThis.api) return;
@@ -12,24 +18,42 @@ export function useUpdateEvents() {
       setUpdateAvailable(true, info.version);
     });
 
+    const unsubNotAvailable = globalThis.api.onUpdateNotAvailable(() => {
+      setUpdateNotAvailable();
+    });
+
     const unsubDownloaded = globalThis.api.onUpdateDownloaded((info) => {
-      setUpdateAvailable(true, info.version);
-      setUpdateStatus("downloaded");
+      setUpdateDownloaded(info.version);
     });
 
     const unsubProgress = globalThis.api.onUpdateProgress((info) => {
       setUpdateProgress(info.percent);
+      setUpdateStatus("downloading");
     });
 
     const unsubError = globalThis.api.onUpdateError((error) => {
       setUpdateError(error.message);
+      setUpdateStatus("error");
+    });
+
+    const unsubChecking = globalThis.api.onUpdateChecking(() => {
+      // Optional: set a "checking" status if you want to show a spinner
     });
 
     return () => {
       unsubAvailable();
+      unsubNotAvailable();
       unsubDownloaded();
       unsubProgress();
       unsubError();
+      unsubChecking();
     };
-  }, [setUpdateAvailable, setUpdateProgress, setUpdateError, setUpdateStatus]);
+  }, [
+    setUpdateAvailable,
+    setUpdateNotAvailable,
+    setUpdateDownloaded,
+    setUpdateProgress,
+    setUpdateError,
+    setUpdateStatus
+  ]);
 }

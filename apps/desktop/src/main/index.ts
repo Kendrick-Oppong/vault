@@ -4,7 +4,7 @@ import fs from "node:fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { statSync } from "node:fs";
+import { statSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import icon from "../../resources/icon.png?asset";
 import { createYtDlpManager, type YtDlpManager } from "./ytdlp-manager";
 import { probePlaylistPage } from "./ytdlp-manager";
@@ -23,12 +23,9 @@ import * as cookies from "./cookies";
 import { logger } from "./logger";
 import { notifyDownloadComplete } from "./notifications";
 
-// Must be set before app.whenReady() — hides Electron automation signals from Google
 app.commandLine.appendSwitch("disable-blink-features", "AutomationControlled");
 
 const vaultApp = app as typeof app & { isQuitting: boolean };
-
-// Global flag so tray can allow a real quit
 vaultApp.isQuitting = false;
 
 const execFileAsync = promisify(execFile);
@@ -37,29 +34,58 @@ let mainWindow: BrowserWindow;
 let pool: WorkerPool;
 let db: VaultDb;
 let ytdlp: YtDlpManager;
-
 let tray: Tray | null = null;
 let minimizeToTraySetting = false;
-let autoUpdateAppSetting = true; // Default to true
-let notificationsEnabled = true; // Default to true
+
+/* ── Persisted main-process settings ── */
+const mainSettingsPath = join(app.getPath("userData"), "main-settings.json");
+
+function loadMainSettings(): { autoUpdateApp: boolean; notifications: boolean } {
+  try {
+    if (existsSync(mainSettingsPath)) {
+      const data = JSON.parse(readFileSync(mainSettingsPath, "utf-8"));
+      return {
+        autoUpdateApp: typeof data.autoUpdateApp === "boolean" ? data.autoUpdateApp : true,
+        notifications: typeof data.notifications === "boolean" ? data.notifications : true
+      };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { autoUpdateApp: true, notifications: true };
+}
+
+function saveMainSettings(settings: { autoUpdateApp: boolean; notifications: boolean }): void {
+  try {
+    writeFileSync(mainSettingsPath, JSON.stringify(settings));
+  } catch {
+    /* ignore */
+  }
+}
+
+const mainSettings = loadMainSettings();
+let autoUpdaterInstance: import("electron-updater").AppUpdater | null = null;
+let updateCheckInterval: NodeJS.Timeout | null = null;
+const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 function resolveBinaryPaths(): { binaryPath: string; ffmpegPath: string } {
   let base: string;
   if (app.isPackaged) {
-    // process.resourcesPath is read-only in packaged builds — binaries must live
-    // in a writable directory so the onboarding downloader can write them there.
     base = join(app.getPath("userData"), "bin");
   } else {
-    // In dev, we expect binaries at project root/bin/<platform>
-    // __dirname is <project>/out/main, so we go up two levels to project root
     base = join(__dirname, "..", "..", "bin", process.platform);
   }
-
   const ext = process.platform === "win32" ? ".exe" : "";
   return {
     binaryPath: join(base, `yt-dlp${ext}`),
     ffmpegPath: join(base, `ffmpeg${ext}`)
   };
+}
+
+function sendToRenderer(channel: string, ...args: unknown[]): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, ...args);
+  }
 }
 
 function createWindow(): void {
@@ -79,17 +105,9 @@ function createWindow(): void {
     }
   });
 
-  mainWindow.on("ready-to-show", () => {
-    mainWindow.show();
-  });
-
-  mainWindow.on("maximize", () => {
-    mainWindow.webContents.send("window:maximized");
-  });
-
-  mainWindow.on("unmaximize", () => {
-    mainWindow.webContents.send("window:unmaximized");
-  });
+  mainWindow.on("ready-to-show", () => mainWindow.show());
+  mainWindow.on("maximize", () => sendToRenderer("window:maximized"));
+  mainWindow.on("unmaximize", () => sendToRenderer("window:unmaximized"));
 
   mainWindow.on("close", (event) => {
     if (!vaultApp.isQuitting && minimizeToTraySetting) {
@@ -103,7 +121,6 @@ function createWindow(): void {
     return { action: "deny" };
   });
 
-  // HMR for renderer base on electron-vite cli.
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
@@ -112,22 +129,20 @@ function createWindow(): void {
 }
 
 function forwardPoolEventsToRenderer(): void {
-  pool.on("job:queued", (job) => mainWindow?.webContents.send("job:queued", job));
-  pool.on("job:started", (job) => mainWindow?.webContents.send("job:started", job));
-  pool.on("job:progress", (jobId, progress) =>
-    mainWindow?.webContents.send("job:progress", jobId, progress)
-  );
+  pool.on("job:queued", (job) => sendToRenderer("job:queued", job));
+  pool.on("job:started", (job) => sendToRenderer("job:started", job));
+  pool.on("job:progress", (jobId, progress) => sendToRenderer("job:progress", jobId, progress));
+
   pool.on("job:completed", (job) => {
-    mainWindow?.webContents.send("job:completed", job);
-    // Show desktop notification if enabled
-    notifyDownloadComplete(job, notificationsEnabled);
+    sendToRenderer("job:completed", job);
+    notifyDownloadComplete(job, mainSettings.notifications);
     try {
       let file_size: number | null = null;
       if (job.meta?.expectedPath) {
         try {
           file_size = statSync(job.meta.expectedPath).size;
         } catch {
-          // File might not exist
+          /* ignore */
         }
       }
       db.addHistoryEntry({
@@ -151,7 +166,7 @@ function forwardPoolEventsToRenderer(): void {
   });
 
   pool.on("job:failed", (job, err) => {
-    mainWindow?.webContents.send("job:failed", job, err);
+    sendToRenderer("job:failed", job, err);
     try {
       db.addHistoryEntry({
         job_id: job.id,
@@ -172,34 +187,25 @@ function forwardPoolEventsToRenderer(): void {
       logger.error("Failed to save failed job to history:", e);
     }
   });
-  pool.on("job:cancelled", (job) => mainWindow?.webContents.send("job:cancelled", job));
-  pool.on("job:paused", (job) => mainWindow?.webContents.send("job:paused", job));
 
-  // Forward window state changes to renderer (for custom titlebar)
-  mainWindow.on("maximize", () => mainWindow?.webContents.send("window:maximized"));
-  mainWindow.on("unmaximize", () => mainWindow?.webContents.send("window:unmaximized"));
+  pool.on("job:cancelled", (job) => sendToRenderer("job:cancelled", job));
+  pool.on("job:paused", (job) => sendToRenderer("job:paused", job));
 }
 
 function registerIpcHandlers(): void {
   ipcMain.handle("formats:probe", async (_e, url: string, playlistLimit?: number) => {
     const cached = db.getCachedFormats(url);
-    if (cached && !playlistLimit) return cached; // Only use cache if not requesting specific limit
-
-    // Use cached cookies if available
+    if (cached && !playlistLimit) return cached;
     const cookieFile = cookies.getCookiesPath();
     const probeExtras = cookieFile ? { cookiesFile: cookieFile, playlistLimit } : { playlistLimit };
-
     const formats = await ytdlp.probeFormats(url, probeExtras);
-    if (!playlistLimit) db.setCachedFormats(url, formats); // Only cache full results
+    if (!playlistLimit) db.setCachedFormats(url, formats);
     return formats;
   });
 
   ipcMain.handle("formats:playlistPage", async (_e, url: string, start: number, end: number) => {
-    // Use cached cookies if available
     const cookieFile = cookies.getCookiesPath();
     const probeExtras = cookieFile ? { cookiesFile: cookieFile } : {};
-
-    // Use the live ytdlp instance paths so this always reflects the downloaded binaries
     const binaryPaths = {
       binaryPath: ytdlp.binaryPath,
       ffmpegPath: ytdlp.ffmpegPath,
@@ -208,131 +214,57 @@ function registerIpcHandlers(): void {
     return await probePlaylistPage(binaryPaths, url, start, end, probeExtras);
   });
 
-  // Intercept downloads: validate URL and format, inject cookies if available
   ipcMain.handle("queue:add", (_e, jobInput: JobInput) => {
     logger.info("Queueing download:", jobInput.url);
-    logger.debug("Job input details:", {
-      url: jobInput.url,
-      formatSelector: jobInput.formatSelector,
-      outputTemplate: jobInput.outputTemplate,
-      extra: jobInput.extra
-    });
-
-    // Validate URL
     const urlValidation = validateMediaUrl(jobInput.url);
-    if (!urlValidation.valid) {
-      logger.error("Invalid URL:", urlValidation.error);
-      throw new Error(`Invalid URL: ${urlValidation.error}`);
-    }
-
-    // Validate output template
+    if (!urlValidation.valid) throw new Error(`Invalid URL: ${urlValidation.error}`);
     const templateValidation = validateOutputTemplate(jobInput.outputTemplate);
-    if (!templateValidation.valid) {
-      logger.error("Invalid output template:", templateValidation.error);
+    if (!templateValidation.valid)
       throw new Error(`Invalid output template: ${templateValidation.error}`);
-    }
-
-    // Validate format selector
     const formatValidation = validateFormatSelector(jobInput.formatSelector);
-    if (!formatValidation.valid) {
-      logger.error("Invalid format selector:", formatValidation.error);
+    if (!formatValidation.valid)
       throw new Error(`Invalid format selector: ${formatValidation.error}`);
-    }
 
-    // Use cached cookies if available
     const cookieFile = cookies.getCookiesPath();
     if (cookieFile) {
-      logger.debug("Using cached cookies for download:", cookieFile);
       jobInput = {
         ...jobInput,
-        extra: {
-          ...jobInput.extra,
-          cookiesFile: cookieFile,
-          cookiesFromBrowser: undefined
-        }
+        extra: { ...jobInput.extra, cookiesFile: cookieFile, cookiesFromBrowser: undefined }
       };
-    } else {
-      logger.debug("No cached cookies available");
     }
-
-    const jobId = pool.enqueue(jobInput);
-    logger.debug("Job queued with ID:", jobId);
-    return jobId;
+    return pool.enqueue(jobInput);
   });
 
-  ipcMain.handle("queue:cancel", (_e, jobId: string) => {
-    logger.debug("IPC: queue:cancel", jobId);
-    return pool.cancel(jobId);
-  });
-
-  ipcMain.handle("queue:pause", (_e, jobId: string) => {
-    logger.debug("IPC: queue:pause", jobId);
-    return pool.pause(jobId);
-  });
-
-  ipcMain.handle("queue:pauseAll", () => {
-    logger.debug("IPC: queue:pauseAll");
-    return pool.pauseAll();
-  });
-
-  ipcMain.handle("queue:resume", (_e, jobId: string) => {
-    logger.debug("IPC: queue:resume", jobId);
-    return pool.resume(jobId);
-  });
-
-  ipcMain.handle("queue:retry", (_e, jobId: string) => {
-    logger.debug("IPC: queue:retry", jobId);
-    return pool.retry(jobId);
-  });
-
-  ipcMain.handle("queue:getJobs", () => {
-    return pool.getJobs();
-  });
-
+  ipcMain.handle("queue:cancel", (_e, jobId: string) => pool.cancel(jobId));
+  ipcMain.handle("queue:pause", (_e, jobId: string) => pool.pause(jobId));
+  ipcMain.handle("queue:pauseAll", () => pool.pauseAll());
+  ipcMain.handle("queue:resume", (_e, jobId: string) => pool.resume(jobId));
+  ipcMain.handle("queue:retry", (_e, jobId: string) => pool.retry(jobId));
+  ipcMain.handle("queue:getJobs", () => pool.getJobs());
   ipcMain.handle("queue:setConcurrency", (_e, n: number) => {
-    logger.debug("IPC: queue:setConcurrency", n);
     pool.setMaxConcurrent(n);
     return true;
   });
 
-  ipcMain.handle("history:list", (_e, limit?: number, offset?: number) => {
-    logger.debug("IPC: history:list", { limit, offset });
-    return db.listHistory(limit, offset);
-  });
-
+  ipcMain.handle("history:list", (_e, limit?: number, offset?: number) =>
+    db.listHistory(limit, offset)
+  );
   ipcMain.handle("history:delete", (_e, jobId: string) => {
-    logger.debug("IPC: history:delete", jobId);
     db.deleteHistory(jobId);
     return true;
   });
-
   ipcMain.handle("history:bulkDelete", (_e, jobIds: string[]) => {
-    logger.debug("IPC: history:bulkDelete", { count: jobIds.length });
     db.bulkDeleteHistory(jobIds);
     return true;
   });
 
   ipcMain.handle("fs:reveal", (_e, filePath: string) => {
-    logger.debug("IPC: fs:reveal", filePath);
     shell.showItemInFolder(filePath);
   });
-
-  ipcMain.handle("fs:open", async (_e, filePath: string) => {
-    logger.debug("IPC: fs:open", filePath);
-    const error = await shell.openPath(filePath);
-    return error || null;
-  });
-
-  ipcMain.handle("fs:fileExists", async (_e, filePath: string) => {
-    logger.debug("IPC: fs:fileExists", filePath);
-    const fs = await import("node:fs");
-    return fs.existsSync(filePath);
-  });
-
+  ipcMain.handle("fs:open", async (_e, filePath: string) => shell.openPath(filePath) || null);
+  ipcMain.handle("fs:fileExists", async (_e, filePath: string) => fs.existsSync(filePath));
   ipcMain.handle("fs:scanDir", async (_e, dirPath: string) => {
-    logger.debug("IPC: fs:scanDir", dirPath);
     try {
-      const fs = await import("node:fs");
       if (!fs.existsSync(dirPath)) return [];
       return fs
         .readdirSync(dirPath, { withFileTypes: true })
@@ -345,90 +277,62 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(
     "dialog:openFile",
-    async (_e, opts: { title?: string; filters?: { name: string; extensions: string[] }[] }) => {
-      logger.debug("IPC: dialog:openFile", opts);
+    async (_e, opts?: { title?: string; filters?: { name: string; extensions: string[] }[] }) => {
       const result = await dialog.showOpenDialog(mainWindow, {
         title: opts?.title || "Select file",
         properties: ["openFile"],
         filters: opts?.filters || [{ name: "All Files", extensions: ["*"] }]
       });
-      if (result.canceled || result.filePaths.length === 0) return null;
-      return result.filePaths[0];
+      return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
     }
   );
 
   ipcMain.handle("dialog:openFolder", async () => {
-    logger.debug("IPC: dialog:openFolder");
     const result = await dialog.showOpenDialog(mainWindow, {
       title: "Select download folder",
       properties: ["openDirectory", "createDirectory"]
     });
-    if (result.canceled || result.filePaths.length === 0) return null;
-    return result.filePaths[0];
+    return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
   });
 
-  // Cookie management - browser-based approach
-  ipcMain.handle("cookies:info", (_e, browserSetting: string | null) => {
-    logger.debug("Cookie info requested for:", browserSetting);
-    return cookies.getCookieInfo(browserSetting);
-  });
-
+  ipcMain.handle("cookies:info", (_e, browserSetting: string | null) =>
+    cookies.getCookieInfo(browserSetting)
+  );
   ipcMain.handle("cookies:set", async (_e, browserSetting: string) => {
-    logger.debug("IPC: cookies:set", browserSetting);
-    logger.info("Setting cookies browser:", browserSetting);
-    const { binaryPath, ffmpegPath } = resolveBinaryPaths();
-    const info = await cookies.refreshCookies(browserSetting, binaryPath, ffmpegPath);
-    return info;
-  });
-
-  ipcMain.handle("cookies:refresh", async (_e, browserSetting: string | null) => {
-    logger.debug("IPC: cookies:refresh", browserSetting);
-    logger.info("Refreshing cookies for:", browserSetting);
     const { binaryPath, ffmpegPath } = resolveBinaryPaths();
     return cookies.refreshCookies(browserSetting, binaryPath, ffmpegPath);
   });
-
+  ipcMain.handle("cookies:refresh", async (_e, browserSetting: string | null) => {
+    const { binaryPath, ffmpegPath } = resolveBinaryPaths();
+    return cookies.refreshCookies(browserSetting, binaryPath, ffmpegPath);
+  });
   ipcMain.handle("cookies:clear", (_e, browserSetting: string | null) => {
-    logger.debug("IPC: cookies:clear", browserSetting);
-    logger.info("Clearing cookies");
     cookies.clearCookies();
     return cookies.getCookieInfo(browserSetting);
   });
 
-  ipcMain.handle("cache:clearFormats", (_e, url?: string) => {
-    logger.debug("IPC: cache:clearFormats", url);
-    db.clearFormatCache(url);
-  });
-
+  ipcMain.handle("cache:clearFormats", (_e, url?: string) => db.clearFormatCache(url));
   ipcMain.handle("cache:clearDownloadArchive", async (_e, downloadPath: string) => {
-    logger.debug("IPC: cache:clearDownloadArchive", downloadPath);
-    const { unlinkSync, existsSync } = await import("node:fs");
-    const { join } = await import("node:path");
-
     const archivePath = join(downloadPath, "archive.txt");
     if (existsSync(archivePath)) {
       try {
-        unlinkSync(archivePath);
-        logger.info("Download archive cleared:", archivePath);
+        fs.unlinkSync(archivePath);
         return { success: true };
       } catch (error) {
-        logger.error("Failed to clear download archive:", error);
         return { success: false, error: String(error) };
       }
     }
-    logger.info("Download archive not found, nothing to clear");
     return { success: true };
   });
 
   ipcMain.handle("app:info", async () => {
-    logger.debug("IPC: app:info");
     const { binaryPath } = resolveBinaryPaths();
     let ytDlpVersion = "unknown";
     try {
       const { stdout } = await execFileAsync(binaryPath, ["--version"]);
       ytDlpVersion = stdout.trim();
     } catch {
-      // Binary not found in dev, that's fine
+      /* ignore */
     }
     return {
       appVersion: app.getVersion(),
@@ -438,10 +342,8 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("dependencies:check", async () => {
-    logger.debug("IPC: dependencies:check");
     const { binaryPath, ffmpegPath } = resolveBinaryPaths();
     const status = await checkDependencies(binaryPath, ffmpegPath);
-    logger.debug("Dependency check result:", status);
     return {
       ready: status.allReady,
       ytDlp: status.ytDlp,
@@ -452,27 +354,14 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("dependencies:download", async () => {
-    logger.debug("IPC: dependencies:download");
     const { binaryPath, ffmpegPath } = resolveBinaryPaths();
     const destDir = join(binaryPath, "..");
-    logger.debug("Downloading dependencies to:", destDir);
-    logger.debug("Resolved binary paths:", { binaryPath, ffmpegPath });
-
-    await downloadDependencies(destDir, (progress) => {
-      logger.debug("Dependency download progress:", progress);
-      mainWindow?.webContents.send("dependency:download:progress", progress);
-    });
-
+    await downloadDependencies(destDir, (progress) =>
+      sendToRenderer("dependency:download:progress", progress)
+    );
     const status = await checkDependencies(binaryPath, ffmpegPath);
-    logger.debug("Dependency check after download:", status);
-
-    // Re-initialize ytdlp manager and worker pool with updated binary paths after download
     if (status.allReady) {
       const { binaryPath: newPath, ffmpegPath: newFfmpegPath } = resolveBinaryPaths();
-      logger.info("Re-initializing ytdlp manager with paths:", {
-        newPath,
-        newFfmpegPath
-      });
       ytdlp = createYtDlpManager({
         binaryPath: newPath,
         ffmpegPath: newFfmpegPath,
@@ -480,11 +369,7 @@ function registerIpcHandlers(): void {
       });
       pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
       forwardPoolEventsToRenderer();
-      logger.info("Re-initialized ytdlp manager and worker pool with updated binary paths");
-    } else {
-      logger.error("Dependencies not ready after download:", status);
     }
-
     return {
       ready: status.allReady,
       ytDlp: status.ytDlp,
@@ -495,27 +380,20 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("dependencies:update", async (_e, binary: "ytdlp" | "ffmpeg" | "all") => {
-    logger.debug("IPC: dependencies:update", binary);
     const { binaryPath, ffmpegPath } = resolveBinaryPaths();
     const destDir = join(binaryPath, "..");
-
     try {
       if (binary === "ytdlp" || binary === "all") {
-        await updateYtDlp(destDir, (progress) => {
-          logger.debug("yt-dlp update progress:", progress);
-          mainWindow?.webContents.send("dependency:download:progress", progress);
-        });
+        await updateYtDlp(destDir, (progress) =>
+          sendToRenderer("dependency:download:progress", progress)
+        );
       }
       if (binary === "ffmpeg" || binary === "all") {
-        await updateFfmpeg(destDir, (progress) => {
-          logger.debug("ffmpeg update progress:", progress);
-          mainWindow?.webContents.send("dependency:download:progress", progress);
-        });
+        await updateFfmpeg(destDir, (progress) =>
+          sendToRenderer("dependency:download:progress", progress)
+        );
       }
-
       const status = await checkDependencies(binaryPath, ffmpegPath);
-
-      // Re-initialize ytdlp manager and worker pool after update
       if (status.allReady) {
         const { binaryPath: newPath, ffmpegPath: newFfmpegPath } = resolveBinaryPaths();
         ytdlp = createYtDlpManager({
@@ -525,9 +403,7 @@ function registerIpcHandlers(): void {
         });
         pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
         forwardPoolEventsToRenderer();
-        logger.info("Re-initialized ytdlp manager after binary update");
       }
-
       return {
         ready: status.allReady,
         ytDlp: status.ytDlp,
@@ -541,51 +417,35 @@ function registerIpcHandlers(): void {
     }
   });
 
-  ipcMain.handle("settings:getAutoUpdateApp", async () => {
-    return autoUpdateAppSetting;
-  });
-
+  ipcMain.handle("settings:getAutoUpdateApp", async () => mainSettings.autoUpdateApp);
   ipcMain.handle("settings:setAutoUpdateApp", async (_e, value: boolean) => {
-    autoUpdateAppSetting = value;
-    // Update autoUpdater if it's already initialized
-    try {
-      const { autoUpdater } = await import("electron-updater");
-      autoUpdater.autoDownload = value;
-      logger.info("Auto-update app setting updated:", value);
-    } catch {
-      // electron-updater not available, setting will be used on init
-    }
-    return autoUpdateAppSetting;
+    mainSettings.autoUpdateApp = value;
+    saveMainSettings(mainSettings);
+    if (autoUpdaterInstance) autoUpdaterInstance.autoDownload = value;
+    logger.info("Auto-update app setting updated:", value);
+    return mainSettings.autoUpdateApp;
   });
 
-  ipcMain.handle("settings:getNotifications", async () => {
-    return notificationsEnabled;
-  });
-
+  ipcMain.handle("settings:getNotifications", async () => mainSettings.notifications);
   ipcMain.handle("settings:setNotifications", async (_e, value: boolean) => {
-    notificationsEnabled = value;
+    mainSettings.notifications = value;
+    saveMainSettings(mainSettings);
     logger.info("Notifications setting updated:", value);
-    return notificationsEnabled;
+    return mainSettings.notifications;
   });
 
-  // YouTube search via yt-dlp ytsearch
   ipcMain.handle("search:youtube", async (_e, query: string, page: number = 0) => {
-    logger.debug("IPC: search:youtube", { query, page });
     const binaryPath = ytdlp.binaryPath;
     const count = 20;
     const safePage = Math.max(0, page);
     const requestedCount = count * (safePage + 1);
     const searchQuery = `ytsearch${requestedCount}:${query}`;
     const cookieFile = cookies.getCookiesPath();
-    logger.debug("Search query:", searchQuery, "Using cookies:", !!cookieFile);
-
     const args = ["--dump-json", "--flat-playlist", "--no-playlist"];
     if (cookieFile) args.push("--cookies", cookieFile);
     args.push(searchQuery);
-
     try {
       const { stdout } = await execFileAsync(binaryPath, args, { maxBuffer: 10 * 1024 * 1024 });
-      logger.debug("Search stdout length:", stdout.length);
       const lines = stdout.split("\n").filter(Boolean);
       const results = lines
         .map((line) => {
@@ -606,121 +466,93 @@ function registerIpcHandlers(): void {
             return null;
           }
         })
-        .filter(
-          (
-            item
-          ): item is {
-            id: string;
-            title: string;
-            url: string;
-            thumbnail: string | null;
-            duration: number | null;
-            channel: string;
-          } => item !== null
-        );
-      const paginatedResults = results.slice(safePage * count, (safePage + 1) * count);
-      logger.debug("Search results count:", paginatedResults.length);
-      return paginatedResults;
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+      return results.slice(safePage * count, (safePage + 1) * count);
     } catch (err: unknown) {
-      logger.error("Search failed:", err instanceof Error ? err.message : String(err));
       throw new Error(`Search failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   });
 
-  // List available subtitle tracks for a video
   ipcMain.handle("subtitles:list", async (_e, url: string) => {
-    logger.debug("IPC: subtitles:list", url);
     const binaryPath = ytdlp.binaryPath;
     const cookieFile = cookies.getCookiesPath();
-    logger.debug("Using cookies for subtitles:", !!cookieFile);
-
     const args = ["--dump-json", "--no-playlist"];
     if (cookieFile) args.push("--cookies", cookieFile);
     args.push(url);
-
     try {
       const { stdout } = await execFileAsync(binaryPath, args, { maxBuffer: 5 * 1024 * 1024 });
-      logger.debug("Subtitles info retrieved");
       const info = JSON.parse(stdout.trim().split("\n")[0]);
       const tracks: { id: string; name: string; ext: string; isAutoGenerated: boolean }[] = [];
-
       const subtitles: Record<string, { name?: string; ext?: string }[]> = info.subtitles || {};
       const autoCaptions: Record<string, { name?: string; ext?: string }[]> =
         info.automatic_captions || {};
 
       for (const [langCode, formats] of Object.entries(subtitles)) {
-        const firstFormat = formats?.[0];
+        const first = formats?.[0];
         tracks.push({
           id: langCode,
-          name: firstFormat?.name || langCode,
-          ext: firstFormat?.ext || "vtt",
+          name: first?.name || langCode,
+          ext: first?.ext || "vtt",
           isAutoGenerated: false
         });
       }
-
       for (const [langCode, formats] of Object.entries(autoCaptions)) {
         if (!subtitles[langCode]) {
-          const firstFormat = formats?.[0];
+          const first = formats?.[0];
           tracks.push({
             id: langCode,
-            name: (firstFormat?.name || langCode) + " (auto)",
-            ext: firstFormat?.ext || "vtt",
+            name: (first?.name || langCode) + " (auto)",
+            ext: first?.ext || "vtt",
             isAutoGenerated: true
           });
         }
       }
-
-      logger.debug("Subtitle tracks found:", tracks.length);
       return tracks;
     } catch (err: unknown) {
-      logger.error("Failed to list subtitles:", err instanceof Error ? err.message : String(err));
       throw new Error(
         `Failed to list subtitles: ${err instanceof Error ? err.message : String(err)}`
       );
     }
   });
 
-  // App update management
   ipcMain.handle("app:checkUpdate", async () => {
     logger.debug("IPC: app:checkUpdate");
     try {
-      // Try electron-updater if available
-      const { autoUpdater } = await import("electron-updater").catch(() => ({
-        autoUpdater: null
-      }));
+      const updater = autoUpdaterInstance;
+      if (!updater) return { updateAvailable: false };
 
-      if (!autoUpdater) {
-        logger.debug("electron-updater not available");
-        return { updateAvailable: false };
-      }
-
-      logger.debug("Checking for updates...");
       return new Promise<{ updateAvailable: boolean; version?: string }>((resolve) => {
-        const timeout = setTimeout(() => {
-          logger.debug("Update check timeout");
-          resolve({ updateAvailable: false });
-        }, 15000); // 15 second timeout
+        const timeout = setTimeout(() => resolve({ updateAvailable: false }), 15000);
 
-        autoUpdater.once("update-available", (info: { version: string }) => {
+        const onAvailable = (info: { version: string }) => {
           clearTimeout(timeout);
-          logger.debug("Update available:", info.version);
+          cleanup();
           resolve({ updateAvailable: true, version: info.version });
-        });
-
-        autoUpdater.once("update-not-available", () => {
+        };
+        const onNotAvailable = () => {
           clearTimeout(timeout);
-          logger.debug("No update available");
+          cleanup();
           resolve({ updateAvailable: false });
-        });
-
-        autoUpdater.once("error", (err: Error) => {
+        };
+        const onError = () => {
           clearTimeout(timeout);
-          logger.debug("Update check error:", err.message);
+          cleanup();
           resolve({ updateAvailable: false });
-        });
+        };
 
-        autoUpdater.checkForUpdates().catch(() => {
+        const cleanup = () => {
+          updater.removeListener("update-available", onAvailable);
+          updater.removeListener("update-not-available", onNotAvailable);
+          updater.removeListener("error", onError);
+        };
+
+        updater.once("update-available", onAvailable);
+        updater.once("update-not-available", onNotAvailable);
+        updater.once("error", onError);
+
+        updater.checkForUpdates().catch(() => {
           clearTimeout(timeout);
+          cleanup();
           resolve({ updateAvailable: false });
         });
       });
@@ -729,37 +561,31 @@ function registerIpcHandlers(): void {
     }
   });
 
-  ipcMain.handle("app:installUpdate", async () => {
-    logger.debug("IPC: app:installUpdate");
-    try {
-      const { autoUpdater } = await import("electron-updater");
-      logger.debug("Installing update and quitting");
-      autoUpdater.quitAndInstall();
-    } catch {
-      logger.debug("electron-updater not available for install");
-    }
-  });
-
   ipcMain.handle("app:downloadUpdate", async () => {
     logger.debug("IPC: app:downloadUpdate");
     try {
-      const { autoUpdater } = await import("electron-updater");
-      logger.debug("Downloading update");
-      autoUpdater.downloadUpdate();
-    } catch {
-      logger.debug("electron-updater not available for download");
+      await autoUpdaterInstance?.downloadUpdate();
+    } catch (err) {
+      logger.error("Download update failed:", err);
+      throw err;
+    }
+  });
+
+  ipcMain.handle("app:installUpdate", async () => {
+    logger.debug("IPC: app:installUpdate");
+    try {
+      autoUpdaterInstance?.quitAndInstall(false, true);
+    } catch (err) {
+      logger.error("Install update failed:", err);
+      throw err;
     }
   });
 
   ipcMain.handle("system:checkDiskSpace", async (_e, path: string) => {
-    logger.debug("IPC: system:checkDiskSpace for", path);
     try {
       if (!path || path === "__unset__") return { available: 0, total: 0 };
       const stats = await fs.promises.statfs(path);
-      return {
-        available: stats.bavail * stats.bsize,
-        total: stats.blocks * stats.bsize
-      };
+      return { available: stats.bavail * stats.bsize, total: stats.blocks * stats.bsize };
     } catch (err) {
       logger.error("Failed to check disk space:", err);
       return { available: 0, total: 0 };
@@ -767,45 +593,98 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("app:quit", () => {
-    logger.debug("IPC: app:quit");
     vaultApp.isQuitting = true;
-    logger.info("Quitting application");
     app.quit();
   });
 
-  // Logger IPC
-  ipcMain.handle("logs:history", () => {
-    return logger.history();
-  });
+  ipcMain.handle("logs:history", () => logger.history());
 
-  // Window controls (used by CustomTitlebar)
-  ipcMain.handle("window:minimize", () => {
-    logger.debug("IPC: window:minimize");
-    mainWindow?.minimize();
-  });
+  ipcMain.handle("window:minimize", () => mainWindow?.minimize());
   ipcMain.handle("window:maximize", () => {
-    logger.debug("IPC: window:maximize");
-    if (mainWindow?.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow?.maximize();
-    }
+    if (mainWindow?.isMaximized()) mainWindow.unmaximize();
+    else mainWindow?.maximize();
   });
-  ipcMain.handle("window:close", () => {
-    logger.debug("IPC: window:close");
-    mainWindow?.close();
-  });
+  ipcMain.handle("window:close", () => mainWindow?.close());
 
   ipcMain.on("settings:sync", (_e, settings) => {
-    if (typeof settings.minimizeToTray === "boolean") {
+    if (typeof settings.minimizeToTray === "boolean")
       minimizeToTraySetting = settings.minimizeToTray;
-    }
   });
 }
 
-// Enforce single instance lock
-const gotTheLock = app.requestSingleInstanceLock();
+/* ── Auto-updater ── */
+async function setupAutoUpdater() {
+  try {
+    const { autoUpdater } = await import("electron-updater");
+    autoUpdaterInstance = autoUpdater;
 
+    autoUpdater.autoDownload = mainSettings.autoUpdateApp;
+    autoUpdater.autoInstallOnAppQuit = false; // We handle installation manually via UI
+    autoUpdater.allowDowngrade = false;
+
+    if (!app.isPackaged) {
+      autoUpdater.forceDevUpdateConfig = true;
+      logger.info("Dev mode — forcing update config via dev-app-update.yml");
+    }
+
+    autoUpdater.on("checking-for-update", () => {
+      logger.info("Checking for app updates…");
+      sendToRenderer("update:checking");
+    });
+
+    autoUpdater.on("update-available", (info: { version: string }) => {
+      logger.info("App update available:", info.version);
+      sendToRenderer("update:available", info);
+    });
+
+    autoUpdater.on("update-not-available", (info: { version: string }) => {
+      logger.info("App is up to date:", info.version);
+      sendToRenderer("update:not-available", info);
+    });
+
+    autoUpdater.on("update-downloaded", (info: { version: string }) => {
+      logger.info("App update downloaded:", info.version);
+      sendToRenderer("update:downloaded", info);
+    });
+
+    autoUpdater.on(
+      "download-progress",
+      (info: { percent: number; transferred: number; total: number }) => {
+        logger.debug("Download progress:", info.percent);
+        sendToRenderer("update:progress", info);
+      }
+    );
+
+    autoUpdater.on("error", (err: Error) => {
+      logger.warn("App update error:", err.message);
+      sendToRenderer("update:error", { message: err.message });
+    });
+
+    // Initial check on startup
+    setTimeout(() => {
+      if (mainSettings.autoUpdateApp) {
+        autoUpdater
+          .checkForUpdates()
+          .catch((err) => logger.warn("Launch update check failed:", err?.message ?? err));
+      }
+    }, 4000);
+
+    // Periodic background check every 30 minutes
+    updateCheckInterval = setInterval(() => {
+      if (mainSettings.autoUpdateApp) {
+        logger.debug("Running periodic update check");
+        autoUpdater
+          .checkForUpdates()
+          .catch((err) => logger.warn("Periodic update check failed:", err?.message ?? err));
+      }
+    }, UPDATE_CHECK_INTERVAL_MS);
+  } catch (err) {
+    logger.warn("electron-updater not configured — skipping auto-updates", err);
+  }
+}
+
+/* ── App lifecycle ── */
+const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
   process.exit(0);
@@ -819,38 +698,25 @@ app.on("second-instance", () => {
   }
 });
 
-// Initialize the app when ready
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId("com.vault.app");
 
-  app.on("browser-window-created", (_, window) => {
-    optimizer.watchWindowShortcuts(window);
-  });
+  app.on("browser-window-created", (_, window) => optimizer.watchWindowShortcuts(window));
 
   const { binaryPath, ffmpegPath } = resolveBinaryPaths();
-
   logger.info("Vault started, version", app.getVersion());
 
-  // Check dependencies before starting
   const depStatus = await checkDependencies(binaryPath, ffmpegPath);
   if (depStatus.allReady) {
     logger.info("All dependencies ready");
-    logger.info(`yt-dlp: ${depStatus.ytDlp.version}`);
-    logger.info(`ffmpeg: ${depStatus.ffmpeg.version}`);
   } else {
     logger.error("Dependencies missing:", depStatus.errors);
   }
 
-  ytdlp = createYtDlpManager({
-    binaryPath,
-    ffmpegPath,
-    userDataPath: app.getPath("userData")
-  });
-
+  ytdlp = createYtDlpManager({ binaryPath, ffmpegPath, userDataPath: app.getPath("userData") });
   pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
   db = initDb(join(app.getPath("userData"), "library.db"));
 
-  logger.info("IPC handlers registered");
   registerIpcHandlers();
   createWindow();
   forwardPoolEventsToRenderer();
@@ -858,12 +724,7 @@ app.whenReady().then(async () => {
   tray = new Tray(icon);
   tray.setToolTip("Vault");
   const contextMenu = Menu.buildFromTemplate([
-    {
-      label: "Show Vault",
-      click: () => {
-        mainWindow?.show();
-      }
-    },
+    { label: "Show Vault", click: () => mainWindow?.show() },
     {
       label: "Quit",
       click: () => {
@@ -874,84 +735,28 @@ app.whenReady().then(async () => {
   ]);
   tray.setContextMenu(contextMenu);
   tray.on("click", () => {
-    if (mainWindow) {
-      if (mainWindow.isVisible()) {
-        if (mainWindow.isFocused()) {
-          mainWindow.hide();
-        } else {
-          mainWindow.focus();
-        }
-      } else {
-        mainWindow.show();
-      }
+    if (!mainWindow) return;
+    if (mainWindow.isVisible()) {
+      if (mainWindow.isFocused()) mainWindow.hide();
+      else mainWindow.focus();
+    } else {
+      mainWindow.show();
     }
   });
 
-  // Set up auto-updater event forwarding (best-effort)
-  try {
-    const { autoUpdater } = await import("electron-updater");
-    // Respect user preference for auto-download
-    autoUpdater.autoDownload = autoUpdateAppSetting;
-    autoUpdater.autoInstallOnAppQuit = true;
-    autoUpdater.allowDowngrade = false;
-
-    // Avoid hanging on checkForUpdates in an unpackaged dev build
-    if (!app.isPackaged) {
-      autoUpdater.forceDevUpdateConfig = true;
-    }
-
-    autoUpdater.on("checking-for-update", () => {
-      logger.info("Checking for app updates…");
-      mainWindow?.webContents.send("update:checking");
-    });
-    autoUpdater.on("update-available", (info: { version: string }) => {
-      logger.info("App update available:", info.version);
-      mainWindow?.webContents.send("update:available", info);
-    });
-    autoUpdater.on("update-not-available", (info: { version: string }) => {
-      logger.info("App is up to date:", info.version);
-      mainWindow?.webContents.send("update:not-available", info);
-    });
-    autoUpdater.on("update-downloaded", (info: { version: string }) => {
-      logger.info("App update downloaded:", info.version);
-      mainWindow?.webContents.send("update:downloaded", info);
-    });
-    autoUpdater.on(
-      "download-progress",
-      (info: { percent: number; transferred: number; total: number }) => {
-        logger.debug("Download progress:", info.percent);
-        mainWindow?.webContents.send("update:progress", info);
-      }
-    );
-    autoUpdater.on("error", (err: Error) => {
-      logger.warn("App update error:", err.message);
-      mainWindow?.webContents.send("update:error", { message: err.message });
-    });
-    // Check silently on startup after window is ready (no native notification)
-    setTimeout(() => {
-      autoUpdater.checkForUpdates().catch((err) => {
-        logger.warn("Launch update check failed:", err?.message ?? err);
-      });
-    }, 4000);
-  } catch {
-    // electron-updater not configured — skip silently
-  }
+  await setupAutoUpdater();
 });
 
-app.on("activate", function () {
+app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  if (process.platform !== "darwin") app.quit();
 });
 
 app.on("before-quit", () => {
   vaultApp.isQuitting = true;
-  // Gracefully close the SQLite connection
-  if (db?.raw) {
-    db.raw.close();
-  }
+  if (updateCheckInterval) clearInterval(updateCheckInterval);
+  if (db?.raw) db.raw.close();
 });

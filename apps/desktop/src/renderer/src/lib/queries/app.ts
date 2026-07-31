@@ -7,12 +7,17 @@ export const useAppInfo = () =>
   useQuery({
     queryKey: ["app", "info"] as const,
     queryFn: () => appApi.getInfo(),
-    staleTime: Infinity // App version doesn't change at runtime
+    staleTime: Infinity
   });
 
 export const useDownloadUpdate = () => {
   return useMutation({
     mutationFn: () => appApi.downloadUpdate(),
+    onSuccess: () => {
+      toast.success("Download started", {
+        description: "The update is being downloaded in the background."
+      });
+    },
     onError: (error: Error) => {
       toast.error("Could not download update", {
         description: formatError(error)
@@ -24,6 +29,11 @@ export const useDownloadUpdate = () => {
 export const useInstallUpdate = () => {
   return useMutation({
     mutationFn: () => appApi.installUpdate(),
+    onSuccess: () => {
+      toast.success("Installing update", {
+        description: "Vault will restart shortly."
+      });
+    },
     onError: (error: Error) => {
       toast.error("Could not install update", {
         description: formatError(error)

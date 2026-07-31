@@ -271,6 +271,12 @@ const vaultApi = {
     return () => ipcRenderer.removeListener("update:available", handler);
   },
 
+  onUpdateNotAvailable: (cb: (info: { version: string }) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, info: { version: string }) => cb(info);
+    ipcRenderer.on("update:not-available", handler);
+    return () => ipcRenderer.removeListener("update:not-available", handler);
+  },
+
   onUpdateDownloaded: (cb: (info: { version: string }) => void): (() => void) => {
     const handler = (_e: Electron.IpcRendererEvent, info: { version: string }) => cb(info);
     ipcRenderer.on("update:downloaded", handler);
@@ -292,6 +298,12 @@ const vaultApi = {
     const handler = (_e: Electron.IpcRendererEvent, error: { message: string }) => cb(error);
     ipcRenderer.on("update:error", handler);
     return () => ipcRenderer.removeListener("update:error", handler);
+  },
+
+  onUpdateChecking: (cb: () => void): (() => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("update:checking", handler);
+    return () => ipcRenderer.removeListener("update:checking", handler);
   },
 
   onOpenQuickActions: (cb: () => void): (() => void) => {
