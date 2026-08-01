@@ -57,25 +57,40 @@ export function createProgressTracker(): ProgressTracker {
   const startTime = Date.now();
   let totalBytes = 0;
   let lastProgressTime = startTime;
+  let accumulatedBytes = 0;
+  let currentStreamDownloaded = 0;
 
   function track(progress: YtDlpProgress): EnrichedProgress {
     const now = Date.now();
     lastProgressTime = now;
     const elapsedSeconds = (now - startTime) / 1000;
 
-    if (progress.total_bytes_estimate) totalBytes = progress.total_bytes_estimate;
-    else if (progress.total_bytes) totalBytes = progress.total_bytes;
+    if (progress.total_bytes_estimate) {
+      totalBytes = Math.max(totalBytes, progress.total_bytes_estimate);
+    }
+    if (progress.total_bytes) {
+      totalBytes = Math.max(totalBytes, progress.total_bytes + accumulatedBytes);
+    }
 
     const downloaded = progress.downloaded_bytes ?? 0;
 
+    // Detect if a new stream started (e.g., switched from video to audio)
+    // If downloaded bytes drops significantly, it's a new file
+    if (downloaded < currentStreamDownloaded - 1024 * 1024) {
+      accumulatedBytes += currentStreamDownloaded;
+    }
+    currentStreamDownloaded = downloaded;
+
+    const totalDownloaded = accumulatedBytes + currentStreamDownloaded;
+
     const percentComplete =
-      typeof progress.percentComplete === "number" && !Number.isNaN(progress.percentComplete)
-        ? progress.percentComplete
-        : totalBytes > 0
-          ? Math.min(100, (downloaded / totalBytes) * 100)
+      totalBytes > 0
+        ? Math.min(100, (totalDownloaded / totalBytes) * 100)
+        : typeof progress.percentComplete === "number" && !Number.isNaN(progress.percentComplete)
+          ? progress.percentComplete
           : undefined;
 
-    const remainingBytes = totalBytes > 0 ? Math.max(0, totalBytes - downloaded) : undefined;
+    const remainingBytes = totalBytes > 0 ? Math.max(0, totalBytes - totalDownloaded) : undefined;
 
     const speedMbps = progress.speed ? (progress.speed * 8) / 1_000_000 : undefined;
 
@@ -92,6 +107,8 @@ export function createProgressTracker(): ProgressTracker {
 
     return {
       ...progress,
+      downloaded_bytes: totalDownloaded,
+      total_bytes: totalBytes > 0 ? totalBytes : progress.total_bytes,
       percentComplete,
       speedMbps,
       etaSeconds,
