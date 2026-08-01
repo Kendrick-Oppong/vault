@@ -312,6 +312,24 @@ const vaultApi = {
     return () => ipcRenderer.removeListener("open-quick-actions", handler);
   },
 
+  onMediaPlayPause: (cb: () => void): (() => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("media:play-pause", handler);
+    return () => ipcRenderer.removeListener("media:play-pause", handler);
+  },
+
+  onMediaNextTrack: (cb: () => void): (() => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("media:next-track", handler);
+    return () => ipcRenderer.removeListener("media:next-track", handler);
+  },
+
+  onMediaPreviousTrack: (cb: () => void): (() => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("media:prev-track", handler);
+    return () => ipcRenderer.removeListener("media:prev-track", handler);
+  },
+
   // Window controls (used by CustomTitlebar)
   minimizeWindow: (): void => {
     void ipcRenderer.invoke("window:minimize");
