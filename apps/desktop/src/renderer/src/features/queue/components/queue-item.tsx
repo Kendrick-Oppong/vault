@@ -108,11 +108,13 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
       : item.downloaded;
 
   const size =
-    !isCompleted && rawProgress?.total_bytes
-      ? formatBytes(rawProgress.total_bytes)
-      : !isCompleted && rawProgress?.total_bytes_estimate
-        ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
-        : item.size;
+    item.size && item.size !== "Unknown"
+      ? item.size
+      : !isCompleted && rawProgress?.total_bytes
+        ? formatBytes(rawProgress.total_bytes)
+        : !isCompleted && rawProgress?.total_bytes_estimate
+          ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
+          : item.size;
 
   const speed =
     !isCompleted && !isPostProcessing && rawProgress?.speed
