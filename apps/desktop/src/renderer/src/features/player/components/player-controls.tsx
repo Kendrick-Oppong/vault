@@ -3,6 +3,7 @@ import { Button } from "@vault/ui/components/button";
 import { formatDuration } from "@/lib/utils/format";
 import { PlayerSlider } from "./player-slider";
 import { EqualizerBars } from "./equalizer-bars";
+import { LoopToggle } from "./loop-toggle";
 
 const EASE = "ease-[cubic-bezier(0.16,1,0.3,1)]";
 
@@ -11,10 +12,12 @@ interface PlayerControlsProps {
   channel: string;
   isPlaying: boolean;
   isBuffering: boolean;
+  isLooping: boolean;
   progress: number;
   duration: number;
   onSeek: (value: number | readonly number[]) => void;
   onTogglePlay: () => void;
+  onToggleLoop: (value: boolean) => void;
   muteButton: React.ReactNode;
   volumeReveal: React.ReactNode;
 }
@@ -24,10 +27,12 @@ export const PlayerControls = ({
   channel,
   isPlaying,
   isBuffering,
+  isLooping,
   progress,
   duration,
   onSeek,
   onTogglePlay,
+  onToggleLoop,
   muteButton,
   volumeReveal
 }: PlayerControlsProps) => {
@@ -97,9 +102,12 @@ export const PlayerControls = ({
         </Button>
       </div>
 
-      <div className="group/vol relative flex items-center justify-center">
-        {muteButton}
-        {volumeReveal}
+      <div className="flex items-center justify-center gap-6">
+        <LoopToggle isLooping={isLooping} onToggle={onToggleLoop} />
+        <div className="group/vol relative flex items-center">
+          {muteButton}
+          {volumeReveal}
+        </div>
       </div>
     </>
   );

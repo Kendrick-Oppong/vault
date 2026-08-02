@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Play, Volume2, VolumeX, Music } from "lucide-react";
 import { Button } from "@vault/ui/components/button";
 import { usePlayerStore } from "@/stores/player/player.store";
-import { usePlayerActions } from "@/stores/player/player.selectors";
+import { usePlayerState, usePlayerActions } from "@/stores/player/player.selectors";
 import { cn } from "@vault/ui/lib/utils";
 import { PlayerSlider } from "./player-slider";
 import { EqualizerBars } from "./equalizer-bars";
@@ -13,8 +13,10 @@ import { PlayerControls } from "./player-controls";
 const EASE = "ease-[cubic-bezier(0.16,1,0.3,1)]";
 
 export const GlobalPlayer = () => {
-  const { currentMedia, isPlaying, isPiP, volume, isMuted, isExpanded } = usePlayerStore();
-  const { setIsPlaying, closeMedia, toggleExpanded, setVolume, toggleMute } = usePlayerActions();
+  const { currentMedia, isPlaying, isPiP, volume, isMuted, isExpanded, isLooping } =
+    usePlayerState();
+  const { setIsPlaying, closeMedia, toggleExpanded, setVolume, toggleMute, toggleLoop } =
+    usePlayerActions();
 
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const [mediaSrc, setMediaSrc] = useState<string | null>(null);
@@ -117,11 +119,11 @@ export const GlobalPlayer = () => {
       setPointerActive(false);
     };
 
-    globalThis.addEventListener("mousemove", onMove);
-    globalThis.addEventListener("mouseup", onUp);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
     return () => {
-      globalThis.removeEventListener("mousemove", onMove);
-      globalThis.removeEventListener("mouseup", onUp);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
     };
   }, [pointerActive]);
 
@@ -170,6 +172,18 @@ export const GlobalPlayer = () => {
     }
   };
 
+  const handleEnded = () => {
+    if (usePlayerStore.getState().isLooping) {
+      const el = mediaRef.current;
+      if (el) {
+        el.currentTime = 0;
+        el.play().catch(() => setIsPlaying(false));
+      }
+    } else {
+      setIsPlaying(false);
+    }
+  };
+
   const handleSeek = (value: number | readonly number[]) => {
     const time = Array.isArray(value) ? value[0] : (value as number);
     if (mediaRef.current) {
@@ -180,8 +194,7 @@ export const GlobalPlayer = () => {
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isExpanded) return;
-    if ((e.target as HTMLElement).closest("button, [role=slider], input, a, .js-no-drag, video"))
-      return;
+    if ((e.target as HTMLElement).closest("button, [role=slider], input, a, .js-no-drag")) return;
     dragStartMouse.current = { x: e.clientX, y: e.clientY };
     dragStartPos.current = { ...position };
     draggingRef.current = false;
@@ -305,7 +318,7 @@ export const GlobalPlayer = () => {
           onCanPlay={handleCanPlay}
           onWaiting={() => setIsBuffering(true)}
           onPlaying={() => setIsBuffering(false)}
-          onEnded={() => setIsPlaying(false)}
+          onEnded={handleEnded}
           onError={(e) => {
             const err = (e.target as HTMLAudioElement).error;
             setError(`Failed to load audio (code ${err?.code})`);
@@ -332,7 +345,7 @@ export const GlobalPlayer = () => {
           onCanPlay={handleCanPlay}
           onWaiting={() => setIsBuffering(true)}
           onPlaying={() => setIsBuffering(false)}
-          onEnded={() => setIsPlaying(false)}
+          onEnded={handleEnded}
           onError={(e) => {
             const err = (e.target as HTMLVideoElement).error;
             setError(`Failed to load video (code ${err?.code})`);
@@ -405,10 +418,12 @@ export const GlobalPlayer = () => {
               channel={currentMedia.channel}
               isPlaying={isPlaying}
               isBuffering={isBuffering}
+              isLooping={isLooping}
               progress={progress}
               duration={duration}
               onSeek={handleSeek}
               onTogglePlay={handleTogglePlay}
+              onToggleLoop={toggleLoop}
               muteButton={muteButton}
               volumeReveal={volumeReveal}
             />
