@@ -1,10 +1,9 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, Tray, Menu } from "electron";
-import { join } from "node:path";
-import fs from "node:fs";
+import { app, shell, BrowserWindow, ipcMain, dialog, Tray, Menu, globalShortcut } from "electron";
+import { join, dirname, basename, extname } from "node:path";
+import fs, { statSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { statSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import icon from "../../resources/icon.png?asset";
 import { createYtDlpManager, type YtDlpManager } from "./ytdlp-manager";
 import { probePlaylistPage } from "./ytdlp-manager";
@@ -22,6 +21,7 @@ import {
 import * as cookies from "./cookies";
 import { logger } from "./logger";
 import { notifyDownloadComplete } from "./notifications";
+import { startMediaServer, stopMediaServer, buildMediaUrl } from "./media-server";
 
 app.commandLine.appendSwitch("disable-blink-features", "AutomationControlled");
 
@@ -138,20 +138,38 @@ function forwardPoolEventsToRenderer(): void {
     notifyDownloadComplete(job, mainSettings.notifications);
     try {
       let file_size: number | null = null;
-      if (job.meta?.expectedPath) {
+      let actualPath: string | null = job.meta?.expectedPath || null;
+
+      if (actualPath) {
+        // yt-dlp might change the extension during muxing (e.g. .webm to .mp4)
+        if (!existsSync(actualPath)) {
+          const dir = dirname(actualPath);
+          const ext = extname(actualPath);
+          const base = basename(actualPath, ext);
+          const possibleExts = [".mp4", ".mkv", ".webm", ".mp3", ".m4a", ".flac", ".wav", ".opus"];
+          for (const pExt of possibleExts) {
+            const testPath = join(dir, base + pExt);
+            if (existsSync(testPath)) {
+              actualPath = testPath;
+              break;
+            }
+          }
+        }
+
         try {
-          file_size = statSync(job.meta.expectedPath).size;
+          file_size = statSync(actualPath).size;
         } catch {
           /* ignore */
         }
       }
+
       db.addHistoryEntry({
         job_id: job.id,
         video_id: job.meta?.videoId || null,
         title: job.meta?.title || null,
         channel: job.meta?.channel || null,
         url: job.url,
-        file_path: job.meta?.expectedPath || null,
+        file_path: actualPath,
         thumbnail_url: job.meta?.thumbnailUrl || null,
         status: job.status,
         media_type: job.meta?.mediaType || null,
@@ -261,7 +279,10 @@ function registerIpcHandlers(): void {
   ipcMain.handle("fs:reveal", (_e, filePath: string) => {
     shell.showItemInFolder(filePath);
   });
-  ipcMain.handle("fs:open", async (_e, filePath: string) => shell.openPath(filePath) || null);
+  ipcMain.handle("fs:open", async (_e, filePath: string) => {
+    const error = await shell.openPath(filePath);
+    return error || null;
+  });
   ipcMain.handle("fs:fileExists", async (_e, filePath: string) => fs.existsSync(filePath));
   ipcMain.handle("fs:scanDir", async (_e, dirPath: string) => {
     try {
@@ -521,7 +542,7 @@ function registerIpcHandlers(): void {
       const updater = autoUpdaterInstance;
       if (!updater) return { updateAvailable: false };
 
-      return new Promise<{ updateAvailable: boolean; version?: string }>((resolve) => {
+      return await new Promise<{ updateAvailable: boolean; version?: string }>((resolve) => {
         const timeout = setTimeout(() => resolve({ updateAvailable: false }), 15000);
 
         const onAvailable = (info: { version: string }) => {
@@ -529,12 +550,7 @@ function registerIpcHandlers(): void {
           cleanup();
           resolve({ updateAvailable: true, version: info.version });
         };
-        const onNotAvailable = () => {
-          clearTimeout(timeout);
-          cleanup();
-          resolve({ updateAvailable: false });
-        };
-        const onError = () => {
+        const onNotAvailableOrError = () => {
           clearTimeout(timeout);
           cleanup();
           resolve({ updateAvailable: false });
@@ -542,13 +558,13 @@ function registerIpcHandlers(): void {
 
         const cleanup = () => {
           updater.removeListener("update-available", onAvailable);
-          updater.removeListener("update-not-available", onNotAvailable);
-          updater.removeListener("error", onError);
+          updater.removeListener("update-not-available", onNotAvailableOrError);
+          updater.removeListener("error", onNotAvailableOrError);
         };
 
         updater.once("update-available", onAvailable);
-        updater.once("update-not-available", onNotAvailable);
-        updater.once("error", onError);
+        updater.once("update-not-available", onNotAvailableOrError);
+        updater.once("error", onNotAvailableOrError);
 
         updater.checkForUpdates().catch(() => {
           clearTimeout(timeout);
@@ -605,6 +621,8 @@ function registerIpcHandlers(): void {
     else mainWindow?.maximize();
   });
   ipcMain.handle("window:close", () => mainWindow?.close());
+
+  ipcMain.handle("media:getUrl", (_e, filePath: string) => buildMediaUrl(filePath));
 
   ipcMain.on("settings:sync", (_e, settings) => {
     if (typeof settings.minimizeToTray === "boolean")
@@ -699,6 +717,8 @@ app.on("second-instance", () => {
 });
 
 app.whenReady().then(async () => {
+  await startMediaServer();
+
   electronApp.setAppUserModelId("com.vault.app");
 
   app.on("browser-window-created", (_, window) => optimizer.watchWindowShortcuts(window));
@@ -745,6 +765,17 @@ app.whenReady().then(async () => {
   });
 
   await setupAutoUpdater();
+
+  // Register Global Media Keys
+  globalShortcut.register("MediaPlayPause", () => {
+    sendToRenderer("media:play-pause");
+  });
+  globalShortcut.register("MediaNextTrack", () => {
+    sendToRenderer("media:next-track");
+  });
+  globalShortcut.register("MediaPreviousTrack", () => {
+    sendToRenderer("media:prev-track");
+  });
 });
 
 app.on("activate", () => {
@@ -759,4 +790,6 @@ app.on("before-quit", () => {
   vaultApp.isQuitting = true;
   if (updateCheckInterval) clearInterval(updateCheckInterval);
   if (db?.raw) db.raw.close();
+  globalShortcut.unregisterAll();
+  stopMediaServer();
 });

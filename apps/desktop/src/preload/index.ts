@@ -215,6 +215,9 @@ const vaultApi = {
   getLogsHistory: (): Promise<{ level: string; message: string; timestamp: number }[]> =>
     ipcRenderer.invoke("logs:history"),
 
+  // Media streaming
+  getMediaUrl: (filePath: string): Promise<string> => ipcRenderer.invoke("media:getUrl", filePath),
+
   // --- Event listeners (return cleanup) ---
   onJobQueued: (cb: (job: Job) => void): (() => void) => {
     const handler = (_e: Electron.IpcRendererEvent, job: Job) => cb(job);
