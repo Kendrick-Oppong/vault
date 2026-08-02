@@ -15,6 +15,7 @@ import { HistoryView } from "@/features/history/components/shell";
 import { SettingsView } from "@/features/settings/components/shell";
 import { QueueView } from "@/features/queue/components/shell";
 import { LogsView } from "@/features/logs/components/logs-view";
+import { GlobalPlayer } from "@/features/player/components/global-player";
 
 function App(): React.JSX.Element {
   const currentView = useNavigationStore(selectCurrentView);
@@ -44,9 +45,9 @@ function App(): React.JSX.Element {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <Titlebar />
-      <main className="flex flex-1 overflow-hidden">
+      <main className="flex flex-1 overflow-hidden relative">
         <SideBar />
 
         <div className="flex flex-1 flex-col bg-background">
@@ -58,6 +59,7 @@ function App(): React.JSX.Element {
         </div>
 
         <GlobalModals />
+        <GlobalPlayer />
       </main>
     </div>
   );
