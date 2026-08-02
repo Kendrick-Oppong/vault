@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, Tray, Menu, globalShortcut } from "electron";
-import { join, dirname, basename, extname } from "node:path";
+import { join } from "node:path";
 import fs, { statSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { execFile } from "node:child_process";
@@ -22,6 +22,8 @@ import * as cookies from "./cookies";
 import { logger } from "./logger";
 import { notifyDownloadComplete } from "./notifications";
 import { startMediaServer, stopMediaServer, buildMediaUrl } from "./media-server";
+import { resolveActualOutputPath } from "./resolve-output";
+import { repairHistoryPaths } from "./repair-history";
 
 app.commandLine.appendSwitch("disable-blink-features", "AutomationControlled");
 
@@ -38,24 +40,32 @@ let tray: Tray | null = null;
 let minimizeToTraySetting = false;
 
 /* ── Persisted main-process settings ── */
+interface MainSettings {
+  autoUpdateApp: boolean;
+  notifications: boolean;
+  historyRepairedV1: boolean;
+}
+
 const mainSettingsPath = join(app.getPath("userData"), "main-settings.json");
 
-function loadMainSettings(): { autoUpdateApp: boolean; notifications: boolean } {
+function loadMainSettings(): MainSettings {
   try {
     if (existsSync(mainSettingsPath)) {
       const data = JSON.parse(readFileSync(mainSettingsPath, "utf-8"));
       return {
         autoUpdateApp: typeof data.autoUpdateApp === "boolean" ? data.autoUpdateApp : true,
-        notifications: typeof data.notifications === "boolean" ? data.notifications : true
+        notifications: typeof data.notifications === "boolean" ? data.notifications : true,
+        historyRepairedV1:
+          typeof data.historyRepairedV1 === "boolean" ? data.historyRepairedV1 : false
       };
     }
   } catch {
     /* ignore */
   }
-  return { autoUpdateApp: true, notifications: true };
+  return { autoUpdateApp: true, notifications: true, historyRepairedV1: false };
 }
 
-function saveMainSettings(settings: { autoUpdateApp: boolean; notifications: boolean }): void {
+function saveMainSettings(settings: MainSettings): void {
   try {
     writeFileSync(mainSettingsPath, JSON.stringify(settings));
   } catch {
@@ -138,24 +148,11 @@ function forwardPoolEventsToRenderer(): void {
     notifyDownloadComplete(job, mainSettings.notifications);
     try {
       let file_size: number | null = null;
-      let actualPath: string | null = job.meta?.expectedPath || null;
+      const actualPath: string | null = job.meta?.expectedPath
+        ? resolveActualOutputPath(job.meta.expectedPath, job.meta?.mediaType)
+        : null;
 
-      if (actualPath) {
-        // yt-dlp might change the extension during muxing (e.g. .webm to .mp4)
-        if (!existsSync(actualPath)) {
-          const dir = dirname(actualPath);
-          const ext = extname(actualPath);
-          const base = basename(actualPath, ext);
-          const possibleExts = [".mp4", ".mkv", ".webm", ".mp3", ".m4a", ".flac", ".wav", ".opus"];
-          for (const pExt of possibleExts) {
-            const testPath = join(dir, base + pExt);
-            if (existsSync(testPath)) {
-              actualPath = testPath;
-              break;
-            }
-          }
-        }
-
+      if (actualPath && existsSync(actualPath)) {
         try {
           file_size = statSync(actualPath).size;
         } catch {
@@ -622,7 +619,9 @@ function registerIpcHandlers(): void {
   });
   ipcMain.handle("window:close", () => mainWindow?.close());
 
-  ipcMain.handle("media:getUrl", (_e, filePath: string) => buildMediaUrl(filePath));
+  ipcMain.handle("media:getUrl", (_e, filePath: string) =>
+    buildMediaUrl(resolveActualOutputPath(filePath, undefined, { preferExisting: true }))
+  );
 
   ipcMain.on("settings:sync", (_e, settings) => {
     if (typeof settings.minimizeToTray === "boolean")
@@ -736,6 +735,20 @@ app.whenReady().then(async () => {
   ytdlp = createYtDlpManager({ binaryPath, ffmpegPath, userDataPath: app.getPath("userData") });
   pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
   db = initDb(join(app.getPath("userData"), "library.db"));
+
+  // One-time heal of history rows whose stored file_path is a stale yt-dlp
+  // intermediate name. Runs before the window shows so the first history paint
+  // is correct. Guarded by a flag so it only ever runs once.
+  if (!mainSettings.historyRepairedV1) {
+    try {
+      const result = repairHistoryPaths(db.raw);
+      logger.info("History path repair complete:", result);
+      mainSettings.historyRepairedV1 = true;
+      saveMainSettings(mainSettings);
+    } catch (err) {
+      logger.error("History path repair failed (will retry next launch):", err);
+    }
+  }
 
   registerIpcHandlers();
   createWindow();
