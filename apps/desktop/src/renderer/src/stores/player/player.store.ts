@@ -8,6 +8,7 @@ export interface PlayerState {
   isMuted: boolean;
   isPiP: boolean;
   isExpanded: boolean; // Full theater mode vs floating
+  isLooping: boolean;
 }
 
 export interface PlayerActions {
@@ -18,6 +19,7 @@ export interface PlayerActions {
   toggleMute: () => void;
   setIsPiP: (isPiP: boolean) => void;
   toggleExpanded: () => void;
+  toggleLoop: () => void;
 }
 
 export type PlayerStore = PlayerState & PlayerActions;
@@ -29,6 +31,7 @@ export const usePlayerStore = create<PlayerStore>((set) => ({
   isMuted: false,
   isPiP: false,
   isExpanded: false,
+  isLooping: false,
 
   playMedia: (item) => set({ currentMedia: item, isPlaying: true, isExpanded: false }),
   closeMedia: () => set({ currentMedia: null, isPlaying: false, isPiP: false }),
@@ -36,5 +39,6 @@ export const usePlayerStore = create<PlayerStore>((set) => ({
   setVolume: (volume) => set({ volume }),
   toggleMute: () => set((state) => ({ isMuted: !state.isMuted })),
   setIsPiP: (isPiP) => set({ isPiP }),
-  toggleExpanded: () => set((state) => ({ isExpanded: !state.isExpanded }))
+  toggleExpanded: () => set((state) => ({ isExpanded: !state.isExpanded })),
+  toggleLoop: () => set((state) => ({ isLooping: !state.isLooping }))
 }));

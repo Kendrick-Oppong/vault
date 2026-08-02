@@ -9,7 +9,8 @@ const selectPlayerState = (state: PlayerStore) => ({
   volume: state.volume,
   isMuted: state.isMuted,
   isPiP: state.isPiP,
-  isExpanded: state.isExpanded
+  isExpanded: state.isExpanded,
+  isLooping: state.isLooping
 });
 
 const selectPlayerActions = (state: PlayerStore) => ({
@@ -19,7 +20,8 @@ const selectPlayerActions = (state: PlayerStore) => ({
   setVolume: state.setVolume,
   toggleMute: state.toggleMute,
   setIsPiP: state.setIsPiP,
-  toggleExpanded: state.toggleExpanded
+  toggleExpanded: state.toggleExpanded,
+  toggleLoop: state.toggleLoop
 });
 
 export const selectCurrentMedia = (state: PlayerStore) => state.currentMedia;
@@ -28,6 +30,7 @@ export const selectVolume = (state: PlayerStore) => state.volume;
 export const selectIsMuted = (state: PlayerStore) => state.isMuted;
 export const selectIsPiP = (state: PlayerStore) => state.isPiP;
 export const selectIsExpanded = (state: PlayerStore) => state.isExpanded;
+export const selectIsLooping = (state: PlayerStore) => state.isLooping;
 
 export const usePlayerState = () => {
   return usePlayerStore(useShallow(selectPlayerState));
