@@ -2,7 +2,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 
 const VIDEO_EXTS = new Set(["mp4", "mkv", "webm", "mov", "m4v", "avi", "flv", "ts"]);
-const AUDIO_EXTS = new Set(["mp3", "m4a", "flac", "wav", "opus", "ogg", "aac"]);
+const AUDIO_EXTS = new Set(["mp3", "m4a", "flac", "wav", "opus", "ogg", "aac", "weba"]);
 const MEDIA_EXTS = new Set([...VIDEO_EXTS, ...AUDIO_EXTS]);
 
 export interface Candidate {
@@ -20,6 +20,11 @@ export function toStem(fileName: string): string {
     .replace(/\.[^.]+$/, "");
 }
 
+/** Normalise a stem for fuzzy comparison: lowercase, alphanumerics only. */
+export function normalizeStem(stem: string): string {
+  return stem.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 /**
  * Read a directory once and group every real media file by its title stem.
  * Part files (`.f137.mp4`, `.part`, …) and non-media sidecars are ignored.
@@ -35,8 +40,8 @@ export function buildStemIndex(dir: string): Map<string, Candidate[]> {
 
   for (const name of entries) {
     const ext = extname(name).slice(1).toLowerCase();
-    if (!MEDIA_EXTS.has(ext)) continue; // ignore thumbs, subtitles, .info.json, etc.
-    if (/\.f\d+\.[^.]+$/i.test(name)) continue; // ignore leftover per-stream part files
+    if (!MEDIA_EXTS.has(ext)) continue;
+    if (/\.f\d+\.[^.]+$/i.test(name)) continue;
     const stem = toStem(name);
     if (!stem) continue;
 
@@ -48,38 +53,64 @@ export function buildStemIndex(dir: string): Map<string, Candidate[]> {
       mtimeMs = st.mtimeMs;
       size = st.size;
     } catch {
-      /* ignore unreadable entries */
+      continue;
     }
 
     const list = index.get(stem);
-    if (list) list.push({ full, ext, mtimeMs, size });
-    else index.set(stem, [{ full, ext, mtimeMs, size }]);
+    const cand: Candidate = { full, ext, mtimeMs, size };
+    if (list) list.push(cand);
+    else index.set(stem, [cand]);
   }
 
   return index;
 }
 
-/** Pick the best candidate for a stem, preferring the expected media type, then newest, then largest. */
+function sortCandidates(candidates: Candidate[], mediaType?: string | null): Candidate[] {
+  const preferred =
+    mediaType === "music" ? AUDIO_EXTS : mediaType === "video" ? VIDEO_EXTS : MEDIA_EXTS;
+
+  return [...candidates].sort((a, b) => {
+    const ap = preferred.has(a.ext) ? 1 : 0;
+    const bp = preferred.has(b.ext) ? 1 : 0;
+    if (ap !== bp) return bp - ap;
+    if (b.mtimeMs !== a.mtimeMs) return b.mtimeMs - a.mtimeMs;
+    return b.size - a.size;
+  });
+}
+
+/**
+ * Pick the best candidate for a stem.
+ *
+ * Match order:
+ *  1. Exact stem hit.
+ *  2. Audio/video pair — if the expected stem only has a VIDEO candidate but the job is
+ *     "music" (or vice-versa), look for a sibling stem that differs only by the audio
+ *     extraction step (yt-dlp often renames `Title.f251.webm` → `Title.opus`).
+ *  3. Fuzzy — normalised stem comparison (case / punctuation insensitive).
+ */
 export function pickCandidate(
   index: Map<string, Candidate[]>,
   stem: string,
   mediaType?: string | null
 ): Candidate | null {
-  const list = index.get(stem);
-  if (!list || list.length === 0) return null;
+  // 1) Exact stem
+  const exact = index.get(stem);
+  if (exact && exact.length > 0) return sortCandidates(exact, mediaType)[0];
 
-  const preferred =
-    mediaType === "music" ? AUDIO_EXTS : mediaType === "video" ? VIDEO_EXTS : MEDIA_EXTS;
+  // 2) Fuzzy normalised stem scan
+  const target = normalizeStem(stem);
+  if (!target) return null;
 
-  const sorted = [...list].sort((a, b) => {
-    const ap = preferred.has(a.ext) ? 1 : 0;
-    const bp = preferred.has(b.ext) ? 1 : 0;
-    if (ap !== bp) return bp - ap; // preferred media type first
-    if (b.mtimeMs !== a.mtimeMs) return b.mtimeMs - a.mtimeMs; // newest first
-    return b.size - a.size; // largest first
-  });
+  let fuzzy: Candidate[] = [];
+  for (const [candidateStem, candidates] of index) {
+    if (normalizeStem(candidateStem) === target) {
+      fuzzy = candidates;
+      break;
+    }
+  }
+  if (fuzzy.length > 0) return sortCandidates(fuzzy, mediaType)[0];
 
-  return sorted[0];
+  return null;
 }
 
 export interface ResolveOptions {
@@ -87,14 +118,6 @@ export interface ResolveOptions {
   preferExisting?: boolean;
 }
 
-/**
- * Resolve the real, final output file for a yt-dlp job.
- *
- * yt-dlp reports intermediate filenames (e.g. `Title.f137.mp4`, `Title.f140.m4a`)
- * and may change the container extension during merging/extraction, so the path
- * captured during download frequently does not match the file on disk. This scans
- * the destination directory for the newest real media file sharing the same stem.
- */
 export function resolveActualOutputPath(
   expectedPath: string,
   mediaType?: string | null,

@@ -619,10 +619,16 @@ function registerIpcHandlers(): void {
   });
   ipcMain.handle("window:close", () => mainWindow?.close());
 
-  ipcMain.handle("media:getUrl", (_e, filePath: string) =>
-    buildMediaUrl(resolveActualOutputPath(filePath, undefined, { preferExisting: true }))
-  );
+  ipcMain.handle("media:getUrl", (_e, filePath: string) => {
+    const resolved = resolveActualOutputPath(filePath, undefined, { preferExisting: true });
 
+    if (!existsSync(resolved)) {
+      // Return null so the renderer can show a clear "file missing" message
+      return { url: null, resolvedPath: resolved, exists: false };
+    }
+
+    return { url: buildMediaUrl(resolved), resolvedPath: resolved, exists: true };
+  });
   ipcMain.on("settings:sync", (_e, settings) => {
     if (typeof settings.minimizeToTray === "boolean")
       minimizeToTraySetting = settings.minimizeToTray;

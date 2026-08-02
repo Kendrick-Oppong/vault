@@ -20,6 +20,9 @@ const mimeMap: Record<string, string> = {
   ".aac": "audio/aac"
 };
 
+// Extensions we're willing to stream.
+const SERVABLE_EXTS = new Set(Object.keys(mimeMap));
+
 function guessMimeType(filePath: string): string {
   return mimeMap[extname(filePath).toLowerCase()] || "application/octet-stream";
 }
@@ -54,7 +57,13 @@ export function startMediaServer(): Promise<void> {
           return;
         }
 
-        // ── FIX 1: Use async stat instead of statSync ──
+        // Only stream known media extensions — reject everything else before
+        // touching the filesystem.
+        if (!SERVABLE_EXTS.has(extname(filePath).toLowerCase())) {
+          res.writeHead(403).end();
+          return;
+        }
+
         let stat: fs.Stats;
         try {
           stat = await fs.promises.stat(filePath);

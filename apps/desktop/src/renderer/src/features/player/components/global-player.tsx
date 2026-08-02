@@ -62,8 +62,17 @@ export const GlobalPlayer = () => {
 
     globalThis.api
       .getMediaUrl(currentMedia.filePath)
-      .then((url) => {
-        if (!cancelled) setMediaSrc(url);
+      .then((result) => {
+        if (cancelled) return;
+
+        if (!result.exists || !result.url) {
+          setError(
+            "File not found — it may have been moved or deleted from your downloads folder."
+          );
+          return;
+        }
+
+        setMediaSrc(result.url);
       })
       .catch(() => {
         if (!cancelled) setError("Failed to load media");

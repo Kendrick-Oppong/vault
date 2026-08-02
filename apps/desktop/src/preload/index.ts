@@ -216,7 +216,10 @@ const vaultApi = {
     ipcRenderer.invoke("logs:history"),
 
   // Media streaming
-  getMediaUrl: (filePath: string): Promise<string> => ipcRenderer.invoke("media:getUrl", filePath),
+  getMediaUrl: (
+    filePath: string
+  ): Promise<{ url: string | null; resolvedPath: string; exists: boolean }> =>
+    ipcRenderer.invoke("media:getUrl", filePath),
 
   // --- Event listeners (return cleanup) ---
   onJobQueued: (cb: (job: Job) => void): (() => void) => {
