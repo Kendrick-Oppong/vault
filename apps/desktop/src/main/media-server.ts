@@ -91,8 +91,8 @@ export function startMediaServer(): Promise<void> {
 
         // ── Partial response (Range header) ──
         const match = /bytes=(\d*)-(\d*)/.exec(range);
-        let start = match?.[1] ? parseInt(match[1], 10) : 0;
-        let end = match?.[2] ? parseInt(match[2], 10) : fileSize - 1;
+        let start = match?.[1] ? Number.parseInt(match[1], 10) : 0;
+        let end = match?.[2] ? Number.parseInt(match[2], 10) : fileSize - 1;
 
         if (Number.isNaN(start) || start < 0) start = 0;
         if (Number.isNaN(end) || end >= fileSize) end = fileSize - 1;
