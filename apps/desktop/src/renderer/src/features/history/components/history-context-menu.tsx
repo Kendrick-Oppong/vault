@@ -5,12 +5,13 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger
 } from "@vault/ui/components/context-menu";
-import { Play, FolderOpen, Trash2 } from "lucide-react";
+import { Play, FolderOpen, Trash2, ExternalLink } from "lucide-react";
 import type { HistoryItem } from "../types";
 import { toast } from "sonner";
 import { useModalStore } from "@/stores/ui/modal.store";
 import { useDeleteHistory } from "@/lib/mutations/history";
 import { useOpenFile, useRevealFile } from "@/lib/mutations/downloads";
+import { usePlayerActions } from "@renderer/stores/player/player.selectors";
 
 interface HistoryContextMenuProps {
   children: React.ReactNode;
@@ -22,10 +23,29 @@ export const HistoryContextMenu = ({ children, item }: HistoryContextMenuProps) 
   const deleteHistory = useDeleteHistory();
   const openFileMutation = useOpenFile();
   const revealFileMutation = useRevealFile();
+  const { playMedia } = usePlayerActions();
+
   return (
     <ContextMenu>
       <ContextMenuTrigger render={(props) => <div {...props}>{children}</div>} />
       <ContextMenuContent className="w-56">
+        <ContextMenuItem
+          onClick={() => {
+            if (item.filePath) {
+              playMedia(item);
+            } else {
+              toast.error("File path not available", {
+                description:
+                  "This file might have been downloaded with an older version, or it was moved/deleted."
+              });
+            }
+          }}
+          className="flex items-center gap-2"
+        >
+          <Play className="w-3.5 h-3.5" />
+          Play in Vault
+        </ContextMenuItem>
+
         <ContextMenuItem
           onClick={() => {
             if (item.filePath) {
@@ -39,8 +59,8 @@ export const HistoryContextMenu = ({ children, item }: HistoryContextMenuProps) 
           }}
           className="flex items-center gap-2"
         >
-          <Play className="w-3.5 h-3.5" />
-          Play
+          <ExternalLink className="w-3.5 h-3.5" />
+          Play in External Player
         </ContextMenuItem>
 
         <ContextMenuItem

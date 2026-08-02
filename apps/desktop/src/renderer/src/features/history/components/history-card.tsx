@@ -2,8 +2,8 @@ import { Play, Video, Music, RefreshCw } from "lucide-react";
 import { HistoryContextMenu } from "./history-context-menu";
 import type { HistoryItem } from "../types";
 import { getTimeAgo } from "@/lib/utils/platform";
-import { useOpenFile } from "@/lib/mutations/downloads";
 import { toast } from "sonner";
+import { usePlayerStore } from "@/stores/player/player.store";
 
 import { Checkbox } from "@vault/ui/components/checkbox";
 import { cn } from "@vault/ui/lib/utils";
@@ -16,11 +16,11 @@ interface HistoryCardProps {
 
 export const HistoryCard = ({ item, isSelected, onSelect }: HistoryCardProps) => {
   const isVideo = item.type === "video";
-  const openFileMutation = useOpenFile();
+  const playMedia = usePlayerStore((state) => state.playMedia);
 
   const handlePlayClick = () => {
     if (item.status === "completed" && item.filePath) {
-      openFileMutation.mutate(item.filePath);
+      playMedia(item);
     } else if (item.status === "completed") {
       toast.error("File path not available", {
         description:
@@ -32,13 +32,26 @@ export const HistoryCard = ({ item, isSelected, onSelect }: HistoryCardProps) =>
   return (
     <HistoryContextMenu item={item}>
       <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handlePlayClick();
+          }
+        }}
         className={cn(
           "group relative cursor-pointer rounded-xl overflow-hidden border transition-colors",
           isSelected ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-card-hover"
         )}
         onClick={handlePlayClick}
       >
-        <div className={cn("absolute top-2 right-2 z-20")} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={cn("absolute top-2 right-2 z-20")}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          role="presentation"
+        >
           <Checkbox
             className="w-5! h-5! border border-border-strong dark:border-gray-300 backdrop-blur-md"
             checked={isSelected}
