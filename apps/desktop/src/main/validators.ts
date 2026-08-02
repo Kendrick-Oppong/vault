@@ -2,7 +2,6 @@
  * URL and input validation utilities for yt-dlp media downloads.
  */
 import type { MediaPlatform } from "@vault/types";
-
 export interface ValidationResult {
   valid: boolean;
   error?: string;
