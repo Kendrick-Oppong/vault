@@ -23,9 +23,14 @@ export const PlayerSlider = ({
   const pct = max > 0 ? Math.min(100, Math.max(0, (value[0] / max) * 100)) : 0;
 
   return (
-    <div className={cn("group/ps relative flex h-4 items-center js-no-drag", className)}>
+    <div className="group/ps relative flex h-4 items-center js-no-drag">
       {/* Unfilled track */}
-      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-foreground/20 transition-all group-hover/ps:h-1.5" />
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-foreground/20 transition-all group-hover/ps:h-1.5",
+          className
+        )}
+      />
       {/* Filled / played track */}
       <div
         className="pointer-events-none absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-primary transition-all group-hover/ps:h-1.5"
