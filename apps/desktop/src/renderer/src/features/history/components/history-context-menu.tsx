@@ -86,7 +86,7 @@ export const HistoryContextMenu = ({ children, item }: HistoryContextMenuProps) 
           onClick={() => {
             openConfirmDialog({
               title: "Delete item",
-              description: `Are you sure you want to delete "${item.title}"?`,
+              description: `Are you sure you want to delete "${item.title}"?. This will only remove them from the list, not your disk.`,
               confirmText: "Delete",
               variant: "danger",
               onConfirm: () => {
