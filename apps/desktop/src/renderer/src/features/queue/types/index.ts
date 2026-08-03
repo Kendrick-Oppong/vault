@@ -2,6 +2,11 @@ import type { YtDlpProgress } from "@vault/types";
 
 export type QueueFilter = "all" | "downloading" | "paused" | "queued" | "completed" | "error";
 
+export interface TrimRange {
+  start?: string;
+  end?: string;
+}
+
 export interface QueueItem {
   id: string;
   title: string;
@@ -20,6 +25,8 @@ export interface QueueItem {
   errorMessage?: string;
   errorDetails?: string;
   duration?: string;
+  /** Present when the job is a trimmed section (from job.extra.trimRange). */
+  trimRange?: TrimRange;
 }
 
 export interface QueueStats {

@@ -14,10 +14,12 @@ import {
   CircleAlert,
   ChevronDown,
   AudioLines,
-  CheckCircle2
+  CheckCircle2,
+  Scissors,
+  type LucideIcon
 } from "lucide-react";
 import { QueueContextMenu } from "./queue-context-menu";
-import type { QueueItem as QueueItemType } from "../types";
+import type { QueueItem as QueueItemType, QueueFilter } from "../types";
 import { useJobProgress } from "@/lib/queries/jobs";
 import {
   useCancelDownload,
@@ -33,7 +35,8 @@ interface QueueItemProps {
   onSelect: (id: string) => void;
 }
 
-const statusColorMap: Record<string, string> = {
+const statusColorMap: Record<QueueFilter, string> = {
+  all: "text-muted-foreground",
   downloading: "text-blue-500",
   paused: "text-primary",
   queued: "text-muted-foreground",
@@ -41,17 +44,30 @@ const statusColorMap: Record<string, string> = {
   completed: "text-green-500"
 };
 
-const statusIconMap = {
+// Complete Record so every possible status resolves to a real icon component.
+const statusIconMap: Record<QueueFilter, LucideIcon> = {
+  all: Clock,
   downloading: Pause,
   paused: Play,
   queued: Clock,
   error: CircleAlert,
   completed: CheckCircle2
-} as const;
+};
+
+/** Format a trim range into a compact "0:00–1:04" label. */
+function formatTrimLabel(trimRange?: { start?: string; end?: string }): string | null {
+  if (!trimRange) return null;
+  const hasStart = Boolean(trimRange.start);
+  const hasEnd = Boolean(trimRange.end);
+  if (!hasStart && !hasEnd) return null;
+  const start = trimRange.start || "0:00";
+  const end = trimRange.end || "end";
+  return `${start}–${end}`;
+}
 
 export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
-  const StatusIcon = statusIconMap[item.status] || CircleAlert;
-  const statusColor = statusColorMap[item.status] || "text-muted-foreground";
+  const StatusIcon = statusIconMap[item.status];
+  const statusColor = statusColorMap[item.status];
   const isPaused = item.status === "paused";
   const isQueued = item.status === "queued";
   const isError = item.status === "error";
@@ -75,8 +91,6 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const rawPercentComplete =
     typeof rawProgress?.percentComplete === "number" ? rawProgress.percentComplete : undefined;
 
-  // Map raw progress to queue item format if available. Some platforms only
-  // provide an estimated total, so use the enriched percent first.
   const progress =
     !isCompleted && rawPercentComplete !== undefined
       ? rawPercentComplete
@@ -86,20 +100,14 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const hasProgressPercent = typeof progress === "number" && !Number.isNaN(progress);
   const clampedProgress = hasProgressPercent ? Math.max(0, Math.min(100, progress)) : undefined;
 
-  // yt-dlp sets status to 'finished' when the download stream is done and it
-  // hands off to ffmpeg for merging/remuxing/audio-extraction. During this
-  // phase there is no meaningful percent or speed to show.
+  const progressStatus = rawProgress?.status;
+  const isCutting = isDownloading && progressStatus === "cutting";
   const isPostProcessing =
-    isDownloading &&
-    (rawProgress?.status === "finished" ||
-      rawProgress?.status === "processing" ||
-      rawProgress?.status === "postprocessing");
+    isDownloading && (progressStatus === "processing" || progressStatus === "postprocessing");
 
   const postProcessLabel = (() => {
     if (!isPostProcessing) return null;
-    const filename = typeof rawProgress?.filename === "string" ? rawProgress.filename : "";
-    if (filename.match(/\.(mp3|m4a|opus|flac|wav)$/i)) return "Extracting audio\u2026";
-    return "Merging\u2026";
+    return item.type === "video" ? "Finalizing…" : "Extracting audio…";
   })();
 
   const downloaded =
@@ -116,10 +124,63 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
           : item.size;
 
-  const speed =
-    !isCompleted && !isPostProcessing && rawProgress?.speed
-      ? `${formatBytes(rawProgress.speed)}/s`
-      : null;
+  const speed = !isCompleted && rawProgress?.formattedSpeed ? rawProgress.formattedSpeed : null;
+  const eta = !isCompleted && rawProgress?.formattedEta ? rawProgress.formattedEta : null;
+
+  const trimLabel = formatTrimLabel(item.trimRange);
+
+  interface Phase {
+    label: string;
+    determinate: boolean;
+    percent: number | undefined;
+    bar: string;
+  }
+
+  const phase: Phase = (() => {
+    if (isError)
+      return { label: "Failed", determinate: false, percent: undefined, bar: "bg-destructive" };
+    if (isCompleted)
+      return { label: "Completed", determinate: false, percent: undefined, bar: "bg-green-500" };
+    if (isQueued)
+      return {
+        label: "Queued",
+        determinate: false,
+        percent: undefined,
+        bar: "bg-muted-foreground"
+      };
+    if (isPaused)
+      return {
+        label: "Paused",
+        determinate: clampedProgress !== undefined,
+        percent: clampedProgress,
+        bar: "bg-primary"
+      };
+    if (isCutting)
+      return {
+        label: "Cutting…",
+        determinate: clampedProgress !== undefined,
+        percent: clampedProgress,
+        bar: "bg-amber-500"
+      };
+    if (isPostProcessing)
+      return {
+        label: postProcessLabel ?? "Finalizing…",
+        determinate: false,
+        percent: undefined,
+        bar: "bg-purple-500"
+      };
+    if (clampedProgress !== undefined)
+      return {
+        label: "Downloading",
+        determinate: true,
+        percent: clampedProgress,
+        bar: "bg-blue-500"
+      };
+    return { label: "Starting…", determinate: false, percent: undefined, bar: "bg-blue-500" };
+  })();
+
+  const showBigPercent =
+    phase.determinate && phase.percent !== undefined && !isQueued && !isError && !isCompleted;
 
   const getActions = () => {
     if (isDownloading) {
@@ -248,8 +309,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
 
   const getStatusLabel = () => {
     if (isError) return "Failed";
-    if (postProcessLabel) return postProcessLabel;
-    return item.status.charAt(0).toUpperCase() + item.status.slice(1);
+    return phase.label;
   };
 
   return (
@@ -327,9 +387,9 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {clampedProgress !== undefined && !isQueued && !isError && !isPostProcessing && (
+                {showBigPercent && phase.percent !== undefined && (
                   <span className="text-[20px] leading-none font-bold text-muted-foreground">
-                    {clampedProgress.toFixed(1)}
+                    {phase.percent.toFixed(1)}
                     <span className="text-[12px]">%</span>
                   </span>
                 )}
@@ -341,13 +401,26 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
             </div>
 
             <div className="flex items-center gap-2 mt-2">
-              <StatusIcon
-                className={cn("w-3 h-3", isError ? "text-destructive" : "text-muted-foreground")}
-              />
+              {isCutting ? (
+                <Scissors className="w-3 h-3 text-amber-500" />
+              ) : (
+                <StatusIcon
+                  className={cn("w-3 h-3", isError ? "text-destructive" : "text-muted-foreground")}
+                />
+              )}
               <span className={cn("text-[11.5px]", statusColor)}>{getStatusLabel()}</span>
               {item.format && (
                 <span className="chip text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
                   {item.format}
+                </span>
+              )}
+              {trimLabel && (
+                <span
+                  className="chip flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  title="Trimmed section"
+                >
+                  <Scissors className="w-2.5 h-2.5" />
+                  {trimLabel}
                 </span>
               )}
               {isCompleted && item.addedAt && (
@@ -386,12 +459,10 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
             {(isPaused || isDownloading) && (
               <div className="mt-2">
                 <div className="relative h-1 rounded-full bg-muted overflow-hidden">
-                  {isPostProcessing ? (
-                    <div className="h-full rounded-full bg-muted-foreground w-full opacity-40 animate-pulse" />
-                  ) : clampedProgress !== undefined ? (
+                  {phase.determinate && phase.percent !== undefined ? (
                     <div
-                      className="h-full rounded-full bg-muted-foreground transition-all"
-                      style={{ width: `${clampedProgress}%` }}
+                      className={cn("h-full rounded-full transition-all", phase.bar)}
+                      style={{ width: `${phase.percent}%` }}
                     />
                   ) : (
                     <div
@@ -401,16 +472,11 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                   )}
                 </div>
                 <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
-                  <span>
-                    {isPaused
-                      ? "Paused"
-                      : isPostProcessing
-                        ? postProcessLabel
-                        : clampedProgress === undefined
-                          ? "Starting..."
-                          : "Downloading"}
+                  <span className="flex items-center gap-1">
+                    {isCutting && <Scissors className="w-3 h-3 text-amber-500" />}
+                    {phase.label}
                   </span>
-                  {!isPostProcessing && downloaded && size && (
+                  {!isPostProcessing && !isCutting && downloaded && size && (
                     <div className="flex items-center gap-3">
                       <span>
                         {downloaded} / {size}
@@ -419,6 +485,12 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                         <>
                           <span className="text-muted-foreground/30">·</span>
                           <span className="tabular-nums">{speed}</span>
+                        </>
+                      )}
+                      {eta && (
+                        <>
+                          <span className="text-muted-foreground/30">·</span>
+                          <span className="tabular-nums">{eta} left</span>
                         </>
                       )}
                     </div>

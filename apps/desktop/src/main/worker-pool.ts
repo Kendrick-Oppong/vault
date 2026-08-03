@@ -183,7 +183,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
         logger.error("Job failed:", job.id, err instanceof Error ? err.message : String(err));
         logger.debug("Error details:", err);
         job.status = "failed";
-        storedInputs.set(job.id, { job: { ...job, resume: true } });
+        storedInputs.set(job.id, { job: { ...job, resume: true }, resume: true });
         logger.debug("Job stored for retry:", job.id);
         emitter.emit("job:failed", job, err);
         processQueue();
@@ -263,7 +263,8 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
       if (queueIndex !== -1) {
         const [job] = queue.splice(queueIndex, 1);
         job.status = "paused";
-        storedInputs.set(jobId, { job: { ...job, resume: true } });
+        // Mark resume at BOTH the top level and on the job so resume() can find it.
+        storedInputs.set(jobId, { job: { ...job, resume: true }, resume: true });
         logger.debug("Job paused from queue:", jobId);
         emitter.emit("job:paused", job);
         return true;
@@ -273,7 +274,11 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     }
     intentionallyKilled.add(jobId);
     killProcessTree(activeJob.process);
-    storedInputs.set(jobId, { job: { ...activeJob.job, status: "paused", resume: true } });
+    // Mark resume at BOTH the top level and on the job so resume() can find it.
+    storedInputs.set(jobId, {
+      job: { ...activeJob.job, status: "paused", resume: true },
+      resume: true
+    });
     active.delete(jobId);
     logger.debug("Job paused from active:", jobId);
     emitter.emit("job:paused", activeJob.job);
@@ -310,8 +315,12 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     if (active.has(jobId)) active.delete(jobId);
     storedInputs.delete(jobId);
     const { job, resume } = stored;
-    logger.debug("Job details for resume:", { id: job.id, url: job.url, resume });
-    return enqueue(job, resume || false);
+    // FIX: pause() stores the flag on the job object (and now also top-level).
+    // Previously this read only `stored.resume` (undefined), so resumed jobs
+    // lost the flag and restarted from 0% instead of continuing.
+    const shouldResume = resume || job.resume || false;
+    logger.debug("Job details for resume:", { id: job.id, url: job.url, resume: shouldResume });
+    return enqueue(job, shouldResume);
   }
 
   function retry(jobId: string): string | null {
@@ -323,9 +332,10 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     }
     if (active.has(jobId)) active.delete(jobId);
     storedInputs.delete(jobId);
-    const { job } = stored;
-    logger.debug("Job details for retry:", { id: job.id, url: job.url });
-    return enqueue(job, job.resume || false);
+    const { job, resume } = stored;
+    const shouldResume = resume || job.resume || false;
+    logger.debug("Job details for retry:", { id: job.id, url: job.url, resume: shouldResume });
+    return enqueue(job, shouldResume);
   }
 
   function setMaxConcurrent(n: number): void {

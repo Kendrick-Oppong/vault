@@ -83,12 +83,23 @@ export function createProgressTracker(): ProgressTracker {
 
     const totalDownloaded = accumulatedBytes + currentStreamDownloaded;
 
+    const hasExplicitPercent =
+      typeof progress.percentComplete === "number" && !Number.isNaN(progress.percentComplete);
+    // Phase-based progress (cutting / post-processing) carries its own percent
+    // that is not derived from downloaded bytes — trust it as-is.
+    const isPhaseProgress =
+      progress.status === "cutting" ||
+      progress.status === "processing" ||
+      progress.status === "postprocessing";
+
     const percentComplete =
-      totalBytes > 0
-        ? Math.min(100, (totalDownloaded / totalBytes) * 100)
-        : typeof progress.percentComplete === "number" && !Number.isNaN(progress.percentComplete)
-          ? progress.percentComplete
-          : undefined;
+      isPhaseProgress && hasExplicitPercent
+        ? progress.percentComplete
+        : totalBytes > 0
+          ? Math.min(100, (totalDownloaded / totalBytes) * 100)
+          : hasExplicitPercent
+            ? progress.percentComplete
+            : undefined;
 
     const remainingBytes = totalBytes > 0 ? Math.max(0, totalBytes - totalDownloaded) : undefined;
 

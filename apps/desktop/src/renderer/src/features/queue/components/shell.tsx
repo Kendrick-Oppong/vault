@@ -45,7 +45,9 @@ export const QueueView = () => {
         rawProgress: job.progress,
         filePath: job.meta?.expectedPath,
         errorMessage: job.error,
-        duration: job.meta?.duration
+        duration: job.meta?.duration,
+        // Surface the trim section (if any) so the queue card can show the ✂️ chip.
+        trimRange: job.extra?.trimRange
       };
     });
   }, [activeJobs]);

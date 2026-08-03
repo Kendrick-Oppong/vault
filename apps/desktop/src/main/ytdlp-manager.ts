@@ -39,7 +39,7 @@ const THUMBNAIL_SUPPORTED_FORMATS = new Set([
 // itag codes for webm-only YouTube formats; thumbnail embedding isn't supported for webm.
 const WEBM_FORMAT_CODES = new Set([
   133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 160, 167, 168, 169, 170, 217, 218, 219,
-  222, 223, 224, 242, 243, 244, 245, 246, 247, 248, 256, 257, 258, 271, 272, 278, 298, 299, 302, 303
+  222, 223, 224, 242, 243, 244, 245, 246, 247, 248, 256, 257, 258, 271, 272, 278, 302, 303
 ]);
 
 // ---- trim helpers ------------------------------------------------------
@@ -76,6 +76,17 @@ function toYtDlpTimestamp(raw: string): string | null {
   const sec = Math.max(0, Math.round(total));
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(Math.floor(sec / 3600))}:${pad(Math.floor((sec % 3600) / 60))}:${pad(sec % 60)}`;
+}
+
+/** Parse a normalized HH:MM:SS / MM:SS / seconds string into total seconds. */
+function timestampToSeconds(raw: string): number {
+  const v = raw.trim();
+  if (!v) return 0;
+  const parts = v.split(":").map((p) => Number.parseFloat(p));
+  if (parts.some((n) => Number.isNaN(n))) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0];
 }
 // -------------------------------------------------------------------------
 
@@ -486,12 +497,16 @@ function parseEta(etaStr: string): number | undefined {
 
 function attachDownloadOutputHandlers(
   proc: ChildProcess,
+  isTrimmed: boolean,
+  trimClipSeconds: number | undefined,
   onProgress?: (progress: YtDlpProgress) => void
 ): { getStderr: () => string; getStdoutInfo: () => string } {
   let stderr = "";
   let stdoutInfo = "";
   let stdoutBuffer = "";
   let stderrBuffer = "";
+  let lastFfmpegPercent = -1;
+  let ffmpegProcessingEmitted = false;
 
   const parseProgressLine = (line: string): YtDlpProgress | null => {
     const outputLine = line.trim();
@@ -571,6 +586,40 @@ function attachDownloadOutputHandlers(
     return null;
   };
 
+  // During a trim (or any ffmpeg re-encode) yt-dlp stops emitting download
+  // progress and instead ffmpeg writes "frame=... time=HH:MM:SS ..." lines to
+  // stderr. Without handling those, the UI sits on "Starting..." until the job
+  // finishes. We convert them into real "cutting"/"processing" progress events.
+  const tryEmitFfmpegProgress = (line: string): boolean => {
+    if (!line.includes("frame=") || !line.includes("time=")) return false;
+    const m = line.match(/time=(\d+):(\d+):(\d+(?:\.\d+)?)/);
+    if (!m) return false;
+    const elapsed = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number.parseFloat(m[3]);
+    if (Number.isNaN(elapsed)) return false;
+
+    if (isTrimmed) {
+      if (trimClipSeconds && trimClipSeconds > 0) {
+        const percentComplete = Math.min(100, (elapsed / trimClipSeconds) * 100);
+        // Throttle: only forward on >=1% change (or when we hit 100) to avoid IPC spam.
+        if (percentComplete >= 100 || percentComplete - lastFfmpegPercent >= 1) {
+          lastFfmpegPercent = percentComplete;
+          const progress: YtDlpProgress = { status: "cutting", percentComplete };
+          logger.debug("Trim encode progress:", progress);
+          onProgress?.(progress);
+        }
+      } else if (!ffmpegProcessingEmitted) {
+        ffmpegProcessingEmitted = true;
+        logger.debug("Trim encode started (indeterminate)");
+        onProgress?.({ status: "cutting" });
+      }
+    } else if (!ffmpegProcessingEmitted) {
+      ffmpegProcessingEmitted = true;
+      logger.debug("FFmpeg post-processing started");
+      onProgress?.({ status: "processing" });
+    }
+    return true;
+  };
+
   const processLines = (
     chunk: Buffer,
     previousBuffer: string,
@@ -602,7 +651,10 @@ function attachDownloadOutputHandlers(
       if (progress) {
         logger.debug("Download progress:", progress);
         onProgress?.(progress);
-      } else if (line.trim()) {
+        return;
+      }
+      if (tryEmitFfmpegProgress(line)) return;
+      if (line.trim()) {
         logger.debug("yt-dlp stderr:", line.trim());
       }
     });
@@ -689,12 +741,14 @@ export function download(
 
   const trimmed = hasTrimRange(extras);
 
-  if (extras?.overwrite) {
-    args.push("--force-overwrites");
-    logger.debug("Overwrite mode enabled");
-  } else if (resume && !trimmed) {
+  // Resume must win over overwrite: a resumed job should continue the partial
+  // download (--continue), not delete it and start over (--force-overwrites).
+  if (resume && !trimmed) {
     args.push("--continue");
     logger.debug("Resume mode enabled");
+  } else if (extras?.overwrite) {
+    args.push("--force-overwrites");
+    logger.debug("Overwrite mode enabled");
   } else if (resume && trimmed) {
     // yt-dlp cannot resume a --download-sections cut; restart it instead.
     logger.debug("Trimmed download cannot resume — restarting section instead");
@@ -703,6 +757,7 @@ export function download(
   buildAuthAndNetworkArgs(args, extras);
 
   // Time-Range Cropping (timestamps normalized to HH:MM:SS for yt-dlp)
+  let trimClipSeconds: number | undefined;
   if (trimmed && extras?.trimRange) {
     const start = toYtDlpTimestamp(extras.trimRange.start || "0");
     const end = extras.trimRange.end ? toYtDlpTimestamp(extras.trimRange.end) : "inf";
@@ -710,6 +765,13 @@ export function download(
     if (start && end && start !== "inf") {
       args.push("--download-sections", `*${start}-${end}`);
       logger.debug(`Time-range cropping enabled: *${start}-${end}`);
+
+      // Track the clip length so we can report progress while ffmpeg re-encodes.
+      if (end !== "inf") {
+        const startSec = timestampToSeconds(start);
+        const endSec = timestampToSeconds(end);
+        if (endSec > startSec) trimClipSeconds = endSec - startSec;
+      }
 
       if (extras.frameAccurate) {
         args.push("--force-keyframes");
@@ -744,7 +806,12 @@ export function download(
     stdio: ["ignore", "pipe", "pipe"]
   });
 
-  const { getStderr, getStdoutInfo } = attachDownloadOutputHandlers(proc, onProgress);
+  const { getStderr, getStdoutInfo } = attachDownloadOutputHandlers(
+    proc,
+    trimmed,
+    trimClipSeconds,
+    onProgress
+  );
   const promise = createDownloadCompletionPromise(proc, url, getStderr, getStdoutInfo);
 
   return { process: proc, promise };
