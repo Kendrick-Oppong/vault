@@ -12,6 +12,22 @@ export function formatDuration(seconds: number | null | undefined): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/** Parse "HH:MM:SS", "H:MM:SS", "MM:SS", or "M:SS" into total seconds. Returns 0 on invalid input. */
+export function parseDurationToSeconds(duration?: string): number {
+  if (!duration) return 0;
+  const parts = duration.split(":").map(Number);
+  if (parts.some(Number.isNaN)) return 0;
+  if (parts.length === 3) {
+    const [h, m, s] = parts;
+    return h * 3600 + m * 60 + s;
+  }
+  if (parts.length === 2) {
+    const [m, s] = parts;
+    return m * 60 + s;
+  }
+  return parts[0] || 0;
+}
+
 /** Returns true if the value looks like a URL (http/https or youtube shorthand) */
 export function isUrl(value: string): boolean {
   return /^https?:\/\//i.test(value) || /(?:youtube\.com|youtu\.be)\//i.test(value);
