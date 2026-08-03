@@ -23,6 +23,7 @@ import { AUDIO_BITRATES, AUDIO_FORMATS, VIDEO_CONTAINERS } from "@/features/moda
 import { formatBytes } from "@/lib/utils/platform";
 import { ErrorState } from "./error-state";
 import { ModalFooter } from "./modal-footer";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@vault/ui/components/tooltip";
 
 const platformLabels: Record<string, string> = {
   twitter: "X / Twitter",
@@ -403,24 +404,33 @@ export const NonYoutubeFormatModal = ({
                   placeholder="~/Downloads"
                   className="flex-1 bg-secondary/60 border-border text-[12.5px] h-9"
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-9 h-9 shrink-0"
-                  onClick={() =>
-                    openFolderMutation.mutate(undefined, {
-                      onSuccess: (folder) => {
-                        if (folder) {
-                          setDestination(folder);
-                          updateSetting("downloadPath", folder);
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-9 h-9 shrink-0"
+                        onClick={() =>
+                          openFolderMutation.mutate(undefined, {
+                            onSuccess: (folder) => {
+                              if (folder) {
+                                setDestination(folder);
+                                updateSetting("downloadPath", folder);
+                              }
+                            }
+                          })
                         }
-                      }
-                    })
-                  }
-                  title="Browse folders"
-                >
-                  <FolderOpen className="w-4 h-4" />
-                </Button>
+                      >
+                        <FolderOpen className="w-4 h-4" />
+                      </Button>
+                    }
+                  />
+
+                  <TooltipContent side="top" sideOffset={8}>
+                    Browse folders
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
           </div>

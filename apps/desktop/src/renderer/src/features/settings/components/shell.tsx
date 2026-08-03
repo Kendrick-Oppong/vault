@@ -39,6 +39,7 @@ import { useDependenciesCheck } from "@/lib/queries/dependencies";
 import { useUpdateBinaries } from "@/lib/mutations/dependencies";
 import { cn } from "@vault/ui/lib/utils";
 import { useModalActions } from "@/stores/ui/modal.selectors";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@vault/ui/components/tooltip";
 
 export const SettingsView = () => {
   const settings = useSettingsStore(selectSettings);
@@ -108,22 +109,31 @@ export const SettingsView = () => {
                 disabled
                 placeholder="~/Downloads"
               />
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={() =>
-                  openFolderMutation.mutate(undefined, {
-                    onSuccess: (folder) => {
-                      if (folder) updateSetting("downloadPath", folder);
-                    }
-                  })
-                }
-                disabled={openFolderMutation.isPending}
-                title="Browse…"
-              >
-                <FolderOpen className="w-3.5 h-3.5" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() =>
+                        openFolderMutation.mutate(undefined, {
+                          onSuccess: (folder) => {
+                            if (folder) updateSetting("downloadPath", folder);
+                          }
+                        })
+                      }
+                      disabled={openFolderMutation.isPending}
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                    </Button>
+                  }
+                />
+
+                <TooltipContent side="top" sideOffset={8}>
+                  Browse
+                </TooltipContent>
+              </Tooltip>
             </div>
           </Row>
 
