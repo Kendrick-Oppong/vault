@@ -88,6 +88,24 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
   let maxConcurrent = opts.maxConcurrent ?? 3;
   const MAX_COMPLETED = 100;
 
+  // Transient auto-retry support (e.g. YouTube 403s on trimmed/ffmpeg-piped
+  // downloads). Capped so it can never loop forever.
+  const MAX_AUTO_RETRIES = 2;
+  const AUTO_RETRY_DELAY_MS = 2000;
+  const autoRetryCounts = new Map<string, number>();
+
+  // Errors that are worth retrying automatically (network/auth hiccups),
+  // as opposed to permanent failures (unsupported URL, no formats, etc.).
+  function isTransientError(err: unknown): boolean {
+    const message = err instanceof Error ? err.message : String(err);
+    return (
+      /403|Forbidden|429/i.test(message) ||
+      /ffmpeg exited/i.test(message) ||
+      /connection|network|socket|timed? ?out|ECONN|EHOST|ENOTFOUND|getaddrinfo/i.test(message) ||
+      /Unable to (download|extract)/i.test(message)
+    );
+  }
+
   function processQueue(): void {
     logger.debug("Processing queue:", {
       queueSize: queue.length,
@@ -129,7 +147,8 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
           job.meta.expectedPath = progress.filename.replace(/\.(part|ytdl)$/, "");
         }
         const tracked = tracker.track(progress);
-        job.progress = tracked; // ← persist so paused jobs keep their %/bytes
+        // Persist so paused/failed jobs keep their last %/bytes.
+        job.progress = tracked;
         emitter.emit("job:progress", job.id, tracked);
         if (tracker.isStalled(15000)) {
           logger.warn(`Job ${job.id} appears stalled, last progress:`, tracked);
@@ -150,6 +169,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
         }
         logger.info("Job completed:", job.id);
         job.status = "completed";
+        autoRetryCounts.delete(job.id);
 
         // Resolve the real final file (yt-dlp may rename/remux after merging)
         if (job.meta?.expectedPath) {
@@ -181,9 +201,31 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
           logger.info("Job cancelled:", job.id);
           return;
         }
+
+        // Auto-retry transient failures (403s, ffmpeg/network hiccups) a few
+        // times with backoff before surfacing the error to the user.
+        if (isTransientError(err)) {
+          const attempts = autoRetryCounts.get(job.id) ?? 0;
+          if (attempts < MAX_AUTO_RETRIES) {
+            autoRetryCounts.set(job.id, attempts + 1);
+            active.delete(job.id);
+            logger.warn(
+              `Transient failure for job ${job.id}, auto-retrying ${attempts + 1}/${MAX_AUTO_RETRIES}:`,
+              err instanceof Error ? err.message : String(err)
+            );
+            const retryJob: Job = { ...job, status: "pending" };
+            setTimeout(() => {
+              queue.push(retryJob);
+              processQueue();
+            }, AUTO_RETRY_DELAY_MS);
+            return;
+          }
+        }
+
         logger.error("Job failed:", job.id, err instanceof Error ? err.message : String(err));
         logger.debug("Error details:", err);
         job.status = "failed";
+        autoRetryCounts.delete(job.id);
         storedInputs.set(job.id, { job: { ...job, resume: true }, resume: true });
         logger.debug("Job stored for retry:", job.id);
         emitter.emit("job:failed", job, err);
@@ -219,6 +261,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
       logger.debug("Job cancelled from queue:", jobId);
       emitter.emit("job:cancelled", job);
       storedInputs.delete(jobId);
+      autoRetryCounts.delete(jobId);
       return true;
     }
     const activeJob = active.get(jobId);
@@ -229,6 +272,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
       cleanupTempFiles(activeJob.job, true);
       active.delete(jobId);
       storedInputs.delete(jobId);
+      autoRetryCounts.delete(jobId);
       logger.debug("Job cancelled from active:", jobId);
       emitter.emit("job:cancelled", activeJob.job);
       processQueue();
@@ -238,6 +282,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     if (storedInputs.has(jobId)) {
       const stored = storedInputs.get(jobId)!;
       storedInputs.delete(jobId);
+      autoRetryCounts.delete(jobId);
       cleanupTempFiles(stored.job, true);
       logger.debug("Job cancelled from stored inputs:", jobId);
       // Emit cancelled event with the stored job data
