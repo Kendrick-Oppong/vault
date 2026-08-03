@@ -13,7 +13,7 @@ import {
 } from "@vault/ui/components/select";
 import { Video, Music, Info, AudioLines, FolderOpen, Volume2 } from "lucide-react";
 import { cn } from "@vault/ui/lib/utils";
-import type { FormatModalData, FormatModalProps, MediaType, Preset } from "../types";
+import type { FormatModalProps, MediaType, Preset } from "../types";
 import { useSettingsStore } from "@/stores/settings/settings.store";
 import { selectSettings, useSettingsActions } from "@/stores/settings/settings.selectors";
 import { useModalActions } from "@/stores/ui/modal.selectors";
@@ -24,20 +24,15 @@ import { formatProbeToModalData } from "@/lib/utils/format-probe";
 import { toast } from "sonner";
 import type { VideoContainer, AudioFormat } from "@vault/types";
 import { formatBytes } from "@/lib/utils/platform";
+import { parseDurationToSeconds } from "@/lib/utils/format";
 import { VIDEO_CONTAINERS, AUDIO_FORMATS, AUDIO_BITRATES } from "@/features/modals/lib/constants";
+import { extractHeight, parseDurationSeconds } from "@/features/modals/lib/utils";
 import { ErrorState } from "./error-state";
 import { PlaylistItems } from "./playlist-items";
 import { ModalHeader } from "./modal-header";
 import { ModalFooter } from "./modal-footer";
-
-const defaultData: FormatModalData = {
-  id: "",
-  title: "Loading...",
-  channel: "",
-  type: "video",
-  videoPresets: [],
-  audioPresets: []
-};
+import { FormatTrimSection } from "./format-trim-section";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@vault/ui/components/tooltip";
 
 function formatSizeLabel(filesize: number | null): string {
   return filesize && filesize > 0 ? formatBytes(filesize) : "Size unknown";
@@ -46,7 +41,7 @@ function formatSizeLabel(filesize: number | null): string {
 export const FormatModal = ({
   open,
   onOpenChange,
-  data = defaultData,
+  data,
   isLoading = false,
   isError = false,
   error = null,
@@ -73,33 +68,6 @@ export const FormatModal = ({
   );
   const [audioFormat, setAudioFormat] = useState<AudioFormat>("mp3");
 
-  const extractHeight = (resolution: string): number => {
-    const xMatch = /(\d{1,5})x(\d{1,5})/.exec(resolution);
-    if (xMatch) return Number.parseInt(xMatch[2], 10);
-    const pMatch = /(\d{1,5})p/.exec(resolution);
-    return pMatch ? Number.parseInt(pMatch[1], 10) : 0;
-  };
-
-  const parseDurationSeconds = (duration?: string): number | null => {
-    if (!duration) return null;
-    const parts = duration.split(":").map((part) => Number.parseFloat(part));
-    if (parts.some((part) => Number.isNaN(part))) return null;
-
-    if (parts.length === 4) {
-      const [d, h, m, s] = parts;
-      return d * 86400 + h * 3600 + m * 60 + s;
-    }
-    if (parts.length === 3) {
-      const [h, m, s] = parts;
-      return h * 3600 + m * 60 + s;
-    }
-    if (parts.length === 2) {
-      const [m, s] = parts;
-      return m * 60 + s;
-    }
-    return null;
-  };
-
   const [audioBitrate, setAudioBitrate] = useState<number>(320);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const lastPlaylistId = useRef<string | null>(null);
@@ -114,6 +82,8 @@ export const FormatModal = ({
     settings.subtitleLangs || ["en"]
   );
   const [destination, setDestination] = useState(settings.downloadPath);
+  const [trimRange, setTrimRange] = useState<{ start?: string; end?: string }>({});
+  const [frameAccurate, setFrameAccurate] = useState(false);
 
   useEffect(() => {
     if (data.type !== "playlist") {
@@ -184,7 +154,7 @@ export const FormatModal = ({
   useEffect(() => {
     if (!isLoading) {
       setTimeout(() => {
-        const presets = mediaType === "video" ? data.videoPresets : data.audioPresets;
+        const presets = mediaType === "video" ? data?.videoPresets : data?.audioPresets;
         const isValidPreset = selectedPreset && presets.some((p) => p.id === selectedPreset.id);
         if (presets.length > 0 && !isValidPreset) {
           if (mediaType === "video") {
@@ -223,8 +193,38 @@ export const FormatModal = ({
     );
   };
 
+  // Returns 0..1 representing how much of the full duration the trim selects.
+  const getTrimScale = (): number => {
+    const trimActive = Boolean(trimRange.start || trimRange.end);
+    if (!trimActive) return 1;
+
+    const totalSeconds = parseDurationToSeconds(data.duration);
+    if (totalSeconds <= 0) return 1;
+
+    const startSec = parseDurationToSeconds(trimRange.start);
+    const endSec = trimRange.end ? parseDurationToSeconds(trimRange.end) : totalSeconds;
+    const clip = Math.max(0, endSec - startSec);
+    return Math.min(1, clip / totalSeconds);
+  };
+
   const handleConfirm = () => {
     if (!selectedPreset) return;
+
+    const trimActive = Boolean(trimRange.start || trimRange.end);
+
+    // Guard against an empty/invalid trim selection.
+    if (trimActive) {
+      const totalSeconds = parseDurationToSeconds(data.duration);
+      const startSec = parseDurationToSeconds(trimRange.start);
+      const endSec = trimRange.end ? parseDurationToSeconds(trimRange.end) : totalSeconds;
+      if (endSec - startSec <= 0) {
+        toast.error("Trim range is empty", {
+          description: "Move the handles so the selected clip is longer than 0 seconds."
+        });
+        return;
+      }
+    }
+
     const actualAudioFormat =
       mediaType === "audio" ? selectedPreset.audioFormat || "mp3" : audioFormat;
     onConfirm({
@@ -244,7 +244,9 @@ export const FormatModal = ({
       subtitles,
       subtitleLanguages: subtitles !== "none" ? subtitleLanguages : undefined,
       destination,
-      selectedItems: data.type === "playlist" ? [...selectedItems] : undefined
+      selectedItems: data.type === "playlist" ? [...selectedItems] : undefined,
+      trimRange: trimActive ? trimRange : undefined,
+      frameAccurate: trimActive ? frameAccurate : undefined
     });
     onOpenChange(false);
   };
@@ -267,9 +269,12 @@ export const FormatModal = ({
   const getTotalSize = () => {
     if (data.type === "playlist") return null;
 
+    const scale = getTrimScale();
+
     if (mediaType === "video") {
       const selectedFormat = getSelectedVideoFormat();
-      return selectedFormat?.filesize ? formatBytes(selectedFormat.filesize) : null;
+      if (!selectedFormat?.filesize) return null;
+      return formatBytes(Math.round(selectedFormat.filesize * scale));
     }
 
     if (audioFormat === "flac" || audioFormat === "wav") return null;
@@ -277,7 +282,7 @@ export const FormatModal = ({
     const durationSeconds = parseDurationSeconds(data.duration);
     if (!durationSeconds || !audioBitrate) return null;
 
-    return formatBytes(Math.round((audioBitrate * 1000 * durationSeconds) / 8));
+    return formatBytes(Math.round((audioBitrate * 1000 * durationSeconds * scale) / 8));
   };
 
   const isPlaylist = data.type === "playlist";
@@ -304,7 +309,7 @@ export const FormatModal = ({
         {/* Cinematic hero — the centerpiece of the modal */}
         <div className="relative w-full h-68 shrink-0 bg-background overflow-hidden">
           {isLoading ? (
-            <div className="absolute inset-0 w-full h-full bg-secondary animate-pulse" />
+            <div className="absolute inset-0 w-full h-full bg-muted animate-pulse" />
           ) : (
             <>
               {data.thumbnail ? (
@@ -314,10 +319,6 @@ export const FormatModal = ({
                     alt={data.title}
                     className="absolute inset-0 w-full h-full object-cover scale-105 transition-transform duration-700"
                   />
-                  {/* Layered scrim: darkens edges, keeps center readable, blends into panel */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-background/10" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-background/40 via-transparent to-background/40" />
-                  <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-background/60 to-transparent" />
                 </>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-secondary to-secondary/40">
@@ -584,6 +585,16 @@ export const FormatModal = ({
               </div>
             )}
 
+            {!isPlaylist && (
+              <FormatTrimSection
+                duration={data.duration}
+                trimRange={trimRange}
+                onTrimRangeChange={setTrimRange}
+                frameAccurate={frameAccurate}
+                onFrameAccurateChange={setFrameAccurate}
+              />
+            )}
+
             <div className="space-y-3 pt-2">
               <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
                 Post-processing
@@ -703,24 +714,33 @@ export const FormatModal = ({
                   placeholder="~/Downloads"
                   className="flex-1 bg-secondary/60 border-border text-[12.5px] h-9"
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-9 h-9 shrink-0"
-                  onClick={() =>
-                    openFolderMutation.mutate(undefined, {
-                      onSuccess: (folder) => {
-                        if (folder) {
-                          setDestination(folder);
-                          updateSetting("downloadPath", folder);
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-9 h-9 shrink-0"
+                        onClick={() =>
+                          openFolderMutation.mutate(undefined, {
+                            onSuccess: (folder) => {
+                              if (folder) {
+                                setDestination(folder);
+                                updateSetting("downloadPath", folder);
+                              }
+                            }
+                          })
                         }
-                      }
-                    })
-                  }
-                  title="Browse folders"
-                >
-                  <FolderOpen className="w-4 h-4" />
-                </Button>
+                      >
+                        <FolderOpen className="w-4 h-4" />
+                      </Button>
+                    }
+                  />
+
+                  <TooltipContent side="top" sideOffset={8}>
+                    Browse folders
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
 
