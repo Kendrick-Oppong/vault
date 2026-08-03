@@ -13,6 +13,11 @@ import {
 } from "@/lib/mutations/downloads";
 import { SkeletonLoader } from "@/features/ui/components/skeleton-loader";
 
+// Trimmed downloads can't be resumed, so pausing them is pointless (it would
+// just restart on resume). We skip them in pause-all / bulk-pause.
+const isTrimmedJob = (job: { extra?: { trimRange?: { start?: string; end?: string } } }) =>
+  Boolean(job.extra?.trimRange?.start || job.extra?.trimRange?.end);
+
 export const QueueView = () => {
   const [activeFilter, setActiveFilter] = useState<QueueFilter>("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -70,28 +75,34 @@ export const QueueView = () => {
     (action: "pause" | "resume" | "retry" | "cancel") => {
       const jobs = selectedIds;
       setSelectedIds([]);
-      for (const id of jobs) {
+      // Resolve selected ids to their queue items so we can skip trimmed jobs
+      // for pause/resume (they can't resume).
+      const selectedItems = items.filter((i) => jobs.includes(i.id));
+      for (const item of selectedItems) {
+        const trimmed = Boolean(item.trimRange?.start || item.trimRange?.end);
         switch (action) {
           case "pause":
-            pauseMutation.mutate(id);
+            if (!trimmed) pauseMutation.mutate(item.id);
             break;
           case "resume":
-            resumeMutation.mutate(id);
+            if (!trimmed) resumeMutation.mutate(item.id);
             break;
           case "retry":
-            retryMutation.mutate(id);
+            retryMutation.mutate(item.id);
             break;
           case "cancel":
-            cancelMutation.mutate(id);
+            cancelMutation.mutate(item.id);
             break;
         }
       }
     },
-    [selectedIds, pauseMutation, resumeMutation, retryMutation, cancelMutation]
+    [selectedIds, items, pauseMutation, resumeMutation, retryMutation, cancelMutation]
   );
 
   const handlePauseAll = useCallback(() => {
-    const activeIds = activeJobs.filter((j) => j.status === "active").map((j) => j.id);
+    const activeIds = activeJobs
+      .filter((j) => j.status === "active" && !isTrimmedJob(j))
+      .map((j) => j.id);
     for (const id of activeIds) pauseMutation.mutate(id);
   }, [activeJobs, pauseMutation]);
 
