@@ -6,6 +6,7 @@ import App from "./App";
 import { QueryProvider } from "@/providers/query-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import { useUIStore } from "@/stores/ui/ui.store";
+import { TooltipProvider } from "@vault/ui/components/tooltip";
 
 // Apply the persisted theme synchronously before React renders to avoid a
 // flash of unstyled / wrong-theme content.
@@ -22,7 +23,9 @@ mediaQuery.addEventListener("change", () => {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryProvider>
-      <App />
+      <TooltipProvider>
+        <App />
+      </TooltipProvider>
       <ToastProvider />
     </QueryProvider>
   </StrictMode>
