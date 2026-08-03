@@ -37,11 +37,15 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
   const isDownloading = item.status === "downloading";
   const isCompleted = item.status === "completed";
 
+  // Trimmed downloads stream through ffmpeg (--download-sections) and can't be
+  // resumed, so pause/resume would only cause a silent restart. Hide them.
+  const isTrimmedDownload = Boolean(item.trimRange?.start || item.trimRange?.end);
+
   const getMenuItems = () => {
     const items: React.ReactNode[] = [];
 
     // Status-specific actions
-    if (isPaused || isDownloading) {
+    if ((isPaused || isDownloading) && !isTrimmedDownload) {
       items.push(
         <ContextMenuItem
           key="resume"
@@ -54,7 +58,7 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
       );
     }
 
-    if (isPaused || isQueued || isDownloading) {
+    if ((isPaused || isQueued || isDownloading) && !isTrimmedDownload) {
       items.push(
         <ContextMenuItem
           key="pause"
