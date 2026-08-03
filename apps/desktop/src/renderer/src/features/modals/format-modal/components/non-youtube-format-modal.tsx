@@ -13,7 +13,7 @@ import {
 } from "@vault/ui/components/select";
 import { AudioLines, FolderOpen, Music, Video, Volume2 } from "lucide-react";
 import { cn } from "@vault/ui/lib/utils";
-import type { FormatModalData, FormatModalProps, MediaType, Preset } from "../types";
+import type { FormatModalProps, MediaType, Preset } from "../types";
 import { useSettingsStore } from "@/stores/settings/settings.store";
 import { selectSettings, useSettingsActions } from "@/stores/settings/settings.selectors";
 import { SkeletonLoader } from "@/features/ui/components/skeleton-loader";
@@ -23,17 +23,6 @@ import { AUDIO_BITRATES, AUDIO_FORMATS, VIDEO_CONTAINERS } from "@/features/moda
 import { formatBytes } from "@/lib/utils/platform";
 import { ErrorState } from "./error-state";
 import { ModalFooter } from "./modal-footer";
-
-const defaultData: FormatModalData = {
-  id: "",
-  title: "Loading...",
-  channel: "",
-  creatorLabel: "",
-  type: "video",
-  platform: "generic",
-  videoPresets: [],
-  audioPresets: []
-};
 
 const platformLabels: Record<string, string> = {
   twitter: "X / Twitter",
@@ -56,7 +45,7 @@ function formatSizeLabel(filesize: number | null): string {
 export const NonYoutubeFormatModal = ({
   open,
   onOpenChange,
-  data = defaultData,
+  data,
   isLoading = false,
   isError = false,
   error = null,
