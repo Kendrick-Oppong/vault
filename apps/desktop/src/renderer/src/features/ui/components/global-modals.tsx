@@ -12,7 +12,15 @@ export const GlobalModals = () => {
   const formatModal = useModalStore(selectFormatModal);
   const confirmDialog = useModalStore(selectConfirmDialog);
   const { closeFormatModal, closeConfirmDialog } = useModalActions();
-  const modalData = formatModal.data;
+  const modalData = formatModal.data ?? {
+    id: "",
+    title: "Loading...",
+    channel: "",
+    type: "video" as const,
+    platform: "youtube" as const,
+    videoPresets: [],
+    audioPresets: []
+  };
   const ModalComponent =
     !formatModal.isLoading && modalData?.platform && modalData.platform !== "youtube"
       ? NonYoutubeFormatModal
@@ -24,7 +32,7 @@ export const GlobalModals = () => {
         <ModalComponent
           open={formatModal.isOpen}
           onOpenChange={(open) => !open && closeFormatModal()}
-          data={modalData!}
+          data={modalData}
           isLoading={formatModal.isLoading}
           isError={formatModal.isError}
           error={formatModal.error}
