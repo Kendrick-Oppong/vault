@@ -46,8 +46,8 @@ export function parsePercentage(value: unknown): number | undefined {
   if (typeof value === "string") {
     const match = value.match(/[\d.]+/);
     if (match) {
-      const num = parseFloat(match[0]);
-      return isNaN(num) ? undefined : num;
+      const num = Number.parseFloat(match[0]);
+      return Number.isNaN(num) ? undefined : num;
     }
   }
   return undefined;
