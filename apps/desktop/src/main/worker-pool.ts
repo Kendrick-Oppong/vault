@@ -129,6 +129,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
           job.meta.expectedPath = progress.filename.replace(/\.(part|ytdl)$/, "");
         }
         const tracked = tracker.track(progress);
+        job.progress = tracked; // ← persist so paused jobs keep their %/bytes
         emitter.emit("job:progress", job.id, tracked);
         if (tracker.isStalled(15000)) {
           logger.warn(`Job ${job.id} appears stalled, last progress:`, tracked);
