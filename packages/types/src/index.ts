@@ -54,6 +54,8 @@ export interface DownloadExtras {
   audioBitrate?: number; // e.g., 320, 256, 192, 128, 96 (kbps)
   useDownloadArchive?: boolean;
   overwrite?: boolean;
+  trimRange?: { start?: string; end?: string };
+  frameAccurate?: boolean;
 }
 
 export interface YtDlpProgress {
