@@ -85,7 +85,7 @@ export const useSetConcurrency = () => {
     mutationFn: (n: number) => downloadsApi.setConcurrency(n),
     onSuccess: (_, n) => {
       toast.success("Concurrency updated", {
-        description: `Now running ${n} concurrent download${n !== 1 ? "s" : ""}`
+        description: `Now running ${n} concurrent download${n === 1 ? "" : "s"}`
       });
     },
     onError: (error: Error) => {
