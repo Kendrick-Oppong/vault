@@ -8,6 +8,8 @@
 @source "../../../../../../packages/ui/src";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant data-horizontal (&[data-orientation="horizontal"]);
+@custom-variant data-vertical (&[data-orientation="vertical"]);
 
 /* ─────────────────────────────────────────
    LIGHT MODE  (clean white + amber brand)
