@@ -11,6 +11,7 @@ import { PlayerWindowButtons } from "./player-window-buttons";
 import { PlayerErrorState } from "./player-error-state";
 import { PlayerControls } from "./player-controls";
 import { useAutoHidePlayerControls } from "../hooks/use-auto-hide-player-controls";
+import { clampPositionToViewport } from "../lib/utils";
 
 const EASE = "ease-[cubic-bezier(0.16,1,0.3,1)]";
 
@@ -21,6 +22,7 @@ export const GlobalPlayer = () => {
     usePlayerActions();
 
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
   const [mediaSrc, setMediaSrc] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -36,6 +38,7 @@ export const GlobalPlayer = () => {
   const [pointerActive, setPointerActive] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
   const dragStartMouse = useRef({ x: 0, y: 0 });
+  const dragStartRect = useRef({ left: 0, top: 0 });
   const draggingRef = useRef(false);
   const dragMoved = useRef(false);
   const suppressClick = useRef(false);
@@ -124,10 +127,32 @@ export const GlobalPlayer = () => {
       }
 
       if (draggingRef.current) {
-        setPosition({
-          x: dragStartPos.current.x + dx,
-          y: dragStartPos.current.y + dy
-        });
+        const el = playerRef.current;
+        if (!el) {
+          setPosition({ x: dragStartPos.current.x + dx, y: dragStartPos.current.y + dy });
+          return;
+        }
+
+        const width = el.offsetWidth;
+        const height = el.offsetHeight;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        // Where the top-left corner would land without clamping.
+        const desiredLeft = dragStartRect.current.left + dx;
+        const desiredTop = dragStartRect.current.top + dy;
+
+        const maxLeft = Math.max(0, vw - width);
+        const maxTop = Math.max(0, vh - height);
+
+        const clampedLeft = Math.min(Math.max(desiredLeft, 0), maxLeft);
+        const clampedTop = Math.min(Math.max(desiredTop, 0), maxTop);
+
+        // Convert the clamped top-left back into a translate offset.
+        const naturalLeft = dragStartRect.current.left - dragStartPos.current.x;
+        const naturalTop = dragStartRect.current.top - dragStartPos.current.y;
+
+        setPosition({ x: clampedLeft - naturalLeft, y: clampedTop - naturalTop });
       }
     };
 
@@ -153,6 +178,24 @@ export const GlobalPlayer = () => {
       globalThis.removeEventListener("mouseup", onUp);
     };
   }, [pointerActive]);
+
+  // Keep the player on screen if the window is resized or the width changes.
+  useEffect(() => {
+    const onResize = () => {
+      const el = playerRef.current;
+      if (!el || usePlayerStore.getState().isExpanded) return;
+      setPosition((prev) => clampPositionToViewport(el, prev));
+    };
+
+    globalThis.addEventListener("resize", onResize);
+    return () => globalThis.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    const el = playerRef.current;
+    if (!el || isExpanded) return;
+    setPosition((prev) => clampPositionToViewport(el, prev));
+  }, [isPiP, isExpanded]);
 
   const handleTimeUpdate = () => {
     const el = mediaRef.current;
@@ -231,6 +274,13 @@ export const GlobalPlayer = () => {
 
     if ((e.target as HTMLElement).closest("button, [role=slider], input, a, .js-no-drag")) {
       return;
+    }
+
+    const el = playerRef.current;
+    if (el) {
+      // Captured while scale === 1 so it's an accurate anchor for clamping.
+      const rect = el.getBoundingClientRect();
+      dragStartRect.current = { left: rect.left, top: rect.top };
     }
 
     dragStartMouse.current = { x: e.clientX, y: e.clientY };
@@ -426,6 +476,7 @@ export const GlobalPlayer = () => {
 
   return (
     <div
+      ref={playerRef}
       className={cn(
         `flex select-none flex-col overflow-hidden border border-border bg-card transition-shadow duration-500 ${EASE}`,
         isExpanded
