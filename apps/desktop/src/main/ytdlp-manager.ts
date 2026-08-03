@@ -36,7 +36,7 @@ const THUMBNAIL_SUPPORTED_FORMATS = new Set([
   "mov"
 ]);
 
-// tag codes for webm-only YouTube formats; thumbnail embedding isn't supported for webm.
+// itag codes for webm-only YouTube formats; thumbnail embedding isn't supported for webm.
 const WEBM_FORMAT_CODES = new Set([
   133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 160, 167, 168, 169, 170, 217, 218, 219,
   222, 223, 224, 242, 243, 244, 245, 246, 247, 248, 256, 257, 258, 271, 272, 278, 302, 303
