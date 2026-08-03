@@ -4,6 +4,7 @@ import { formatDuration } from "@/lib/utils/format";
 import { PlayerSlider } from "./player-slider";
 import { EqualizerBars } from "./equalizer-bars";
 import { LoopToggle } from "./loop-toggle";
+import { VolumeControl } from "./volume-control";
 
 const EASE = "ease-[cubic-bezier(0.16,1,0.3,1)]";
 
@@ -18,8 +19,10 @@ interface PlayerControlsProps {
   onSeek: (value: number | readonly number[]) => void;
   onTogglePlay: () => void;
   onToggleLoop: (value: boolean) => void;
-  muteButton: React.ReactNode;
-  volumeReveal: React.ReactNode;
+  volume: number;
+  isMuted: boolean;
+  onVolumeChange: (value: number) => void;
+  onToggleMute: () => void;
   isExpanded: boolean;
 }
 
@@ -131,10 +134,13 @@ export const PlayerControls = (props: PlayerControlsProps) => {
           className={`${props.isExpanded && "text-background! dark:text-foreground!"}`}
         />
 
-        <div className="group/vol relative flex items-center">
-          {props.muteButton}
-          {props.volumeReveal}
-        </div>
+        <VolumeControl
+          volume={props.volume}
+          isMuted={props.isMuted}
+          isExpanded={props.isExpanded}
+          onVolumeChange={props.onVolumeChange}
+          onToggleMute={props.onToggleMute}
+        />
       </div>
     </>
   );
