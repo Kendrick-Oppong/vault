@@ -1,6 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { isAbsolute } from "node:path";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import type { YtDlpProgress, DownloadExtras } from "@vault/types";
 import { validateMediaUrl, validateYouTubeUrl } from "./validators";
 import { logger } from "./logger";
@@ -42,6 +41,43 @@ const WEBM_FORMAT_CODES = new Set([
   133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 160, 167, 168, 169, 170, 217, 218, 219,
   222, 223, 224, 242, 243, 244, 245, 246, 247, 248, 256, 257, 258, 271, 272, 278, 298, 299, 302, 303
 ]);
+
+// ---- trim helpers ------------------------------------------------------
+const TRIM_HMS_RE = /^(\d+):(\d{1,2}):(\d{1,2})$/;
+const TRIM_MS_RE = /^(\d{1,2}):(\d{1,2})$/;
+const TRIM_SECONDS_RE = /^\d+(?:\.\d+)?$/;
+
+function hasTrimRange(extras: DownloadExtras | undefined): boolean {
+  return Boolean(extras?.trimRange?.start || extras?.trimRange?.end);
+}
+
+/**
+ * Normalize any UI-provided timestamp ("0", "90", "1:30", "1:05:30") into the
+ * canonical HH:MM:SS form yt-dlp expects for --download-sections. Returns "inf"
+ * for infinity, or null when the input can't be parsed.
+ */
+function toYtDlpTimestamp(raw: string): string | null {
+  const v = raw.trim().toLowerCase();
+  if (!v || v === "inf" || v === "infinity") return "inf";
+
+  let total: number;
+  if (TRIM_SECONDS_RE.test(v)) {
+    total = Number.parseFloat(v);
+  } else if (TRIM_MS_RE.test(v)) {
+    const m = v.match(TRIM_MS_RE)!;
+    total = Number(m[1]) * 60 + Number(m[2]);
+  } else if (TRIM_HMS_RE.test(v)) {
+    const m = v.match(TRIM_HMS_RE)!;
+    total = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+  } else {
+    return null;
+  }
+
+  const sec = Math.max(0, Math.round(total));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(Math.floor(sec / 3600))}:${pad(Math.floor((sec % 3600) / 60))}:${pad(sec % 60)}`;
+}
+// -------------------------------------------------------------------------
 
 function parseYtDlpError(stderr: string): string {
   if (!stderr) return "";
@@ -413,7 +449,10 @@ function buildSubtitleAndArchiveArgs(
       logger.debug("External subtitles enabled (all languages)");
     }
   }
-  if (extras?.useDownloadArchive && !extras?.overwrite) {
+
+  const trimmed = hasTrimRange(extras);
+
+  if (extras?.useDownloadArchive && !extras?.overwrite && !trimmed) {
     // Create format-specific archive file to track different quality downloads separately
     const formatKey = formatSelector ? formatSelector.replace(/[^a-zA-Z0-9]/g, "_") : "best";
     const archiveFile = join(opts.userDataPath, `archive-${formatKey}.txt`);
@@ -421,6 +460,8 @@ function buildSubtitleAndArchiveArgs(
     logger.debug("Download archive enabled for format:", formatKey, "file:", archiveFile);
   } else if (extras?.useDownloadArchive && extras?.overwrite) {
     logger.debug("Download archive disabled because overwrite mode is active");
+  } else if (extras?.useDownloadArchive && trimmed) {
+    logger.debug("Download archive skipped for trimmed download");
   }
 }
 
@@ -646,15 +687,38 @@ export function download(
 
   buildMediaArgs(args, extras);
 
+  const trimmed = hasTrimRange(extras);
+
   if (extras?.overwrite) {
     args.push("--force-overwrites");
     logger.debug("Overwrite mode enabled");
-  } else if (resume) {
+  } else if (resume && !trimmed) {
     args.push("--continue");
     logger.debug("Resume mode enabled");
+  } else if (resume && trimmed) {
+    // yt-dlp cannot resume a --download-sections cut; restart it instead.
+    logger.debug("Trimmed download cannot resume — restarting section instead");
   }
 
   buildAuthAndNetworkArgs(args, extras);
+
+  // Time-Range Cropping (timestamps normalized to HH:MM:SS for yt-dlp)
+  if (trimmed && extras?.trimRange) {
+    const start = toYtDlpTimestamp(extras.trimRange.start || "0");
+    const end = extras.trimRange.end ? toYtDlpTimestamp(extras.trimRange.end) : "inf";
+
+    if (start && end && start !== "inf") {
+      args.push("--download-sections", `*${start}-${end}`);
+      logger.debug(`Time-range cropping enabled: *${start}-${end}`);
+
+      if (extras.frameAccurate) {
+        args.push("--force-keyframes");
+        logger.debug("Frame-accurate cutting enabled (re-encode)");
+      }
+    } else {
+      logger.warn("Skipping invalid trim range:", extras.trimRange);
+    }
+  }
 
   const isAudio = formatSelector.includes("bestaudio") || formatSelector.includes("audio");
   const audioFormat = resolveAudioFormat(formatSelector, isAudio, extras?.audioFormat);
