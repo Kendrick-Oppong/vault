@@ -116,7 +116,7 @@ export const FormatTrimSection = ({
           <span className="font-medium">
             Frame-accurate cut{" "}
             <span className="text-muted-foreground">
-              (precise start/end, but takes longer to process, CPU intensive)
+              (precise start/end, but slower & CPU-intensive)
             </span>
           </span>
         </label>
