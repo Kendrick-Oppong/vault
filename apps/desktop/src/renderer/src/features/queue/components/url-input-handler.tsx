@@ -88,6 +88,8 @@ export const UrlInputHandler = ({
                     rateLimit: settings.bandwidthLimit || undefined,
                     geoBypass: settings.geoBypass,
                     useDownloadArchive: settings.useDownloadArchive,
+                    trimRange: options.trimRange,
+                    frameAccurate: options.frameAccurate,
                     cookiesFromBrowser: (settings.cookiesFromBrowser ||
                       undefined) as DownloadExtras["cookiesFromBrowser"]
                   } satisfies DownloadExtras
