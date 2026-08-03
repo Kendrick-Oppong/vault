@@ -131,7 +131,7 @@ export const FormatTrimSection = ({
 
       <p className="text-center text-[11px] font-medium text-muted-foreground">
         {!isTrimming
-          ? "Drag the handles to crop a section — leave them at the ends to download the full video."
+          ? "Drag the handles to crop a section — leave them at the ends for the full download"
           : frameAccurate
             ? "Precise cuts, but the clip is re-encoded — processing takes longer."
             : "Fast cuts that snap to the nearest keyframe — may start/end 1-3s off. Enable frame-accurate for exact cuts."}
