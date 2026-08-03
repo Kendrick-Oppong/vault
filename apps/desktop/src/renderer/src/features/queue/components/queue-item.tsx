@@ -16,10 +16,13 @@ import {
   AudioLines,
   CheckCircle2,
   Scissors,
+  Download,
+  Loader2,
+  Settings2,
   type LucideIcon
 } from "lucide-react";
 import { QueueContextMenu } from "./queue-context-menu";
-import type { QueueItem as QueueItemType, QueueFilter } from "../types";
+import type { QueueItem as QueueItemType } from "../types";
 import { useJobProgress } from "@/lib/queries/jobs";
 import {
   useCancelDownload,
@@ -35,45 +38,47 @@ interface QueueItemProps {
   onSelect: (id: string) => void;
 }
 
-const statusColorMap: Record<QueueFilter, string> = {
-  all: "text-muted-foreground",
-  downloading: "text-blue-500",
-  paused: "text-primary",
-  queued: "text-muted-foreground",
-  error: "text-destructive",
-  completed: "text-green-500"
-};
+interface Phase {
+  label: string;
+  icon: LucideIcon;
+  iconClass: string;
+  spin?: boolean;
+  barClass: string;
+  railClass: string;
+  determinate: boolean;
+  percent?: number;
+  showStats: boolean;
+  showRate: boolean;
+}
 
-// Complete Record so every possible status resolves to a real icon component.
-const statusIconMap: Record<QueueFilter, LucideIcon> = {
-  all: Clock,
-  downloading: Pause,
-  paused: Play,
-  queued: Clock,
-  error: CircleAlert,
-  completed: CheckCircle2
-};
-
-/** Format a trim range into a compact "0:00–1:04" label. */
 function formatTrimLabel(trimRange?: { start?: string; end?: string }): string | null {
   if (!trimRange) return null;
-  const hasStart = Boolean(trimRange.start);
-  const hasEnd = Boolean(trimRange.end);
-  if (!hasStart && !hasEnd) return null;
-  const start = trimRange.start || "0:00";
-  const end = trimRange.end || "end";
-  return `${start}–${end}`;
+  if (!trimRange.start && !trimRange.end) return null;
+  return `${trimRange.start || "0:00"}–${trimRange.end || "end"}`;
 }
 
 export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
-  const StatusIcon = statusIconMap[item.status];
-  const statusColor = statusColorMap[item.status];
   const isPaused = item.status === "paused";
   const isQueued = item.status === "queued";
   const isError = item.status === "error";
   const isDownloading = item.status === "downloading";
   const isCompleted = item.status === "completed";
   const [imgError, setImgError] = useState(false);
+
+  const [resumeRequested, setResumeRequested] = useState(false);
+  const [lastSeenStatus, setLastSeenStatus] = useState(item.status);
+
+  if (item.status !== lastSeenStatus) {
+    setLastSeenStatus(item.status);
+    if (
+      resumeRequested &&
+      (item.status === "downloading" || item.status === "error" || item.status === "completed")
+    ) {
+      setResumeRequested(false);
+    }
+  }
+
+  const isResuming = resumeRequested && (isPaused || isQueued);
 
   const { openConfirmDialog } = useModalStore();
   const { data: queriedProgress } = useJobProgress(item.id);
@@ -97,24 +102,21 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
       : !isCompleted && rawProgress?.downloaded_bytes != null && progressTotalBytes
         ? (rawProgress.downloaded_bytes / progressTotalBytes) * 100
         : item.progress;
-  const hasProgressPercent = typeof progress === "number" && !Number.isNaN(progress);
-  const clampedProgress = hasProgressPercent ? Math.max(0, Math.min(100, progress)) : undefined;
+  const clampedProgress =
+    typeof progress === "number" && !Number.isNaN(progress)
+      ? Math.max(0, Math.min(100, progress))
+      : undefined;
+  const hasPercent = clampedProgress !== undefined;
 
   const progressStatus = rawProgress?.status;
   const isCutting = isDownloading && progressStatus === "cutting";
   const isPostProcessing =
     isDownloading && (progressStatus === "processing" || progressStatus === "postprocessing");
 
-  const postProcessLabel = (() => {
-    if (!isPostProcessing) return null;
-    return item.type === "video" ? "Finalizing…" : "Extracting audio…";
-  })();
-
   const downloaded =
     !isCompleted && rawProgress?.downloaded_bytes
       ? formatBytes(rawProgress.downloaded_bytes)
       : item.downloaded;
-
   const size =
     item.size && item.size !== "Unknown"
       ? item.size
@@ -123,60 +125,133 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
         : !isCompleted && rawProgress?.total_bytes_estimate
           ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
           : item.size;
-
   const speed = !isCompleted && rawProgress?.formattedSpeed ? rawProgress.formattedSpeed : null;
   const eta = !isCompleted && rawProgress?.formattedEta ? rawProgress.formattedEta : null;
-
   const trimLabel = formatTrimLabel(item.trimRange);
 
-  const phase = (() => {
+  // ---- Single source of truth for the visual phase ----
+  const phase: Phase = (() => {
     if (isError)
-      return { label: "Failed", determinate: false, percent: undefined, bar: "bg-destructive" };
+      return {
+        label: "Failed",
+        icon: CircleAlert,
+        iconClass: "text-destructive",
+        barClass: "bg-destructive",
+        railClass: "bg-destructive",
+        determinate: false,
+        showStats: false,
+        showRate: false
+      };
     if (isCompleted)
-      return { label: "Completed", determinate: false, percent: undefined, bar: "bg-green-500" };
+      return {
+        label: "Completed",
+        icon: CheckCircle2,
+        iconClass: "text-green-500",
+        barClass: "bg-green-500",
+        railClass: "bg-green-500",
+        determinate: false,
+        showStats: false,
+        showRate: false
+      };
+    if (isResuming)
+      return {
+        label: "Resuming…",
+        icon: Loader2,
+        iconClass: "text-primary",
+        spin: true,
+        barClass: "bg-primary",
+        railClass: "bg-primary",
+        determinate: hasPercent,
+        percent: clampedProgress,
+        showStats: true,
+        showRate: false
+      };
     if (isQueued)
       return {
         label: "Queued",
+        icon: Clock,
+        iconClass: "text-muted-foreground",
+        barClass: "bg-muted-foreground",
+        railClass: "bg-muted-foreground",
         determinate: false,
-        percent: undefined,
-        bar: "bg-muted-foreground"
+        showStats: false,
+        showRate: false
       };
     if (isPaused)
       return {
         label: "Paused",
-        determinate: clampedProgress !== undefined,
+        icon: Pause,
+        iconClass: "text-primary",
+        barClass: "bg-primary",
+        railClass: "bg-primary",
+        determinate: hasPercent,
         percent: clampedProgress,
-        bar: "bg-primary"
+        showStats: true,
+        showRate: false
       };
     if (isCutting)
       return {
         label: "Cutting…",
-        determinate: clampedProgress !== undefined,
+        icon: Scissors,
+        iconClass: "text-amber-500",
+        barClass: "bg-amber-500",
+        railClass: "bg-amber-500",
+        determinate: hasPercent,
         percent: clampedProgress,
-        bar: "bg-amber-500"
+        showStats: false,
+        showRate: false
       };
     if (isPostProcessing)
       return {
-        label: postProcessLabel ?? "Finalizing…",
+        label: item.type === "video" ? "Finalizing…" : "Extracting audio…",
+        icon: Settings2,
+        iconClass: "text-violet-500",
+        spin: true,
+        barClass: "bg-violet-500",
+        railClass: "bg-violet-500",
         determinate: false,
-        percent: undefined,
-        bar: "bg-purple-500"
+        showStats: false,
+        showRate: false
       };
-    if (clampedProgress !== undefined)
+    if (hasPercent)
       return {
         label: "Downloading",
+        icon: Download,
+        iconClass: "text-blue-500",
+        barClass: "bg-blue-500",
+        railClass: "bg-blue-500",
         determinate: true,
         percent: clampedProgress,
-        bar: "bg-blue-500"
+        showStats: true,
+        showRate: true
       };
-    return { label: "Starting…", determinate: false, percent: undefined, bar: "bg-blue-500" };
+    return {
+      label: "Starting…",
+      icon: Loader2,
+      iconClass: "text-blue-500",
+      spin: true,
+      barClass: "bg-blue-500",
+      railClass: "bg-blue-500",
+      determinate: false,
+      showStats: true,
+      showRate: false
+    };
   })();
 
-  const showBigPercent =
-    phase.determinate && phase.percent !== undefined && !isQueued && !isError && !isCompleted;
+  const showBigPercent = phase.determinate && phase.percent !== undefined;
+  const showProgressBlock = isDownloading || isPaused || isResuming;
+
+  const confirmCancel = () =>
+    openConfirmDialog({
+      title: "Cancel download?",
+      description: "Are you sure you want to cancel this download? Partial files may be deleted.",
+      confirmText: "Cancel Download",
+      variant: "danger",
+      onConfirm: () => cancelDownload(item.id)
+    });
 
   const getActions = () => {
-    if (isDownloading) {
+    if (isDownloading)
       return (
         <>
           <Button
@@ -191,16 +266,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => {
-              openConfirmDialog({
-                title: "Cancel download?",
-                description:
-                  "Are you sure you want to cancel this download? Partial files may be deleted.",
-                confirmText: "Cancel Download",
-                variant: "danger",
-                onConfirm: () => cancelDownload(item.id)
-              });
-            }}
+            onClick={confirmCancel}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Cancel"
           >
@@ -208,15 +274,16 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           </Button>
         </>
       );
-    }
-
-    if (isPaused) {
+    if (isPaused || isResuming)
       return (
         <>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => resumeDownload(item.id)}
+            onClick={() => {
+              setResumeRequested(true);
+              resumeDownload(item.id);
+            }}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Resume"
           >
@@ -225,16 +292,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => {
-              openConfirmDialog({
-                title: "Cancel download?",
-                description:
-                  "Are you sure you want to cancel this download? Partial files may be deleted.",
-                confirmText: "Cancel Download",
-                variant: "danger",
-                onConfirm: () => cancelDownload(item.id)
-              });
-            }}
+            onClick={confirmCancel}
             className="h-7 w-7 rounded hover:bg-accent transition-colors"
             title="Cancel"
           >
@@ -242,9 +300,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           </Button>
         </>
       );
-    }
-
-    if (isQueued) {
+    if (isQueued)
       return (
         <Button
           variant="ghost"
@@ -256,9 +312,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <X className="w-3.5 h-3.5" />
         </Button>
       );
-    }
-
-    if (isError) {
+    if (isError)
       return (
         <>
           <Button
@@ -281,9 +335,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           </Button>
         </>
       );
-    }
-
-    if (isCompleted) {
+    if (isCompleted)
       return (
         <Button
           variant="ghost"
@@ -295,15 +347,17 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <X className="w-3.5 h-3.5" />
         </Button>
       );
-    }
-
     return null;
   };
 
-  const getStatusLabel = () => {
-    if (isError) return "Failed";
-    return phase.label;
-  };
+  const PhaseIcon = phase.icon;
+  const thumbBadge = isPaused ? (
+    <Pause className="w-3.5 h-3.5" />
+  ) : isCompleted ? (
+    <CheckCircle2 className="w-3.5 h-3.5" />
+  ) : isError ? (
+    <CircleAlert className="w-3.5 h-3.5" />
+  ) : null;
 
   return (
     <QueueContextMenu item={item}>
@@ -314,16 +368,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
         )}
         data-job-id={item.id}
       >
-        <div
-          className={cn(
-            "w-1 shrink-0",
-            isError && "bg-destructive",
-            isPaused && "bg-primary",
-            isQueued && "bg-muted-foreground",
-            isDownloading && "bg-blue-500",
-            isCompleted && "bg-green-500"
-          )}
-        />
+        <div className={cn("w-1 shrink-0", phase.railClass)} />
 
         <div className="flex gap-3 p-3 flex-1 min-w-0">
           <Checkbox
@@ -333,6 +378,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
             onClick={(e) => e.stopPropagation()}
           />
 
+          {/* Thumbnail with per-phase badge */}
           <div className="relative w-24 h-14 rounded-lg shrink-0 overflow-hidden bg-secondary">
             {item.thumbnail && !imgError ? (
               <img
@@ -353,7 +399,6 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                 </div>
               </>
             )}
-
             <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-80" />
             <span className="absolute bottom-1 right-1 z-10 opacity-90 drop-shadow-md">
               {item.type === "video" ? (
@@ -362,6 +407,20 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                 <Music className="w-3 h-3 text-white" />
               )}
             </span>
+            {thumbBadge && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
+                <div
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-full text-white",
+                    isPaused && "bg-primary",
+                    isCompleted && "bg-green-500",
+                    isError && "bg-destructive"
+                  )}
+                >
+                  {thumbBadge}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="min-w-0 flex-1">
@@ -380,28 +439,27 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {showBigPercent && phase.percent !== undefined && (
-                  <span className="text-[20px] leading-none font-bold text-muted-foreground">
-                    {phase.percent.toFixed(1)}
+                {showBigPercent && (
+                  <span
+                    className={cn(
+                      "text-[20px] leading-none font-bold",
+                      isPaused ? "text-primary" : "text-muted-foreground"
+                    )}
+                  >
+                    {phase.percent!.toFixed(1)}
                     <span className="text-[12px]">%</span>
                   </span>
                 )}
-
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                   {getActions()}
                 </div>
               </div>
             </div>
 
+            {/* Status row */}
             <div className="flex items-center gap-2 mt-2">
-              {isCutting ? (
-                <Scissors className="w-3 h-3 text-amber-500" />
-              ) : (
-                <StatusIcon
-                  className={cn("w-3 h-3", isError ? "text-destructive" : "text-muted-foreground")}
-                />
-              )}
-              <span className={cn("text-[11.5px]", statusColor)}>{getStatusLabel()}</span>
+              <PhaseIcon className={cn("w-3 h-3", phase.iconClass, phase.spin && "animate-spin")} />
+              <span className={cn("text-[11.5px]", phase.iconClass)}>{phase.label}</span>
               {item.format && (
                 <span className="chip text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
                   {item.format}
@@ -426,7 +484,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
               )}
             </div>
 
-            {isQueued && (
+            {isQueued && !isResuming && (
               <p className="text-[11.5px] text-muted-foreground mt-1.5">
                 Waiting for a free download slot
               </p>
@@ -449,12 +507,17 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
               </div>
             )}
 
-            {(isPaused || isDownloading) && (
+            {/* Progress block: downloading / cutting / paused / resuming */}
+            {showProgressBlock && (
               <div className="mt-2">
                 <div className="relative h-1 rounded-full bg-muted overflow-hidden">
                   {phase.determinate && phase.percent !== undefined ? (
                     <div
-                      className={cn("h-full rounded-full transition-all", phase.bar)}
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        phase.barClass,
+                        isPaused && "opacity-80"
+                      )}
                       style={{ width: `${phase.percent}%` }}
                     />
                   ) : (
@@ -468,19 +531,24 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                   <span className="flex items-center gap-1">
                     {isCutting && <Scissors className="w-3 h-3 text-amber-500" />}
                     {phase.label}
+                    {isPaused && hasPercent && (
+                      <span className="text-muted-foreground/70">
+                        at {phase.percent!.toFixed(1)}%
+                      </span>
+                    )}
                   </span>
-                  {!isPostProcessing && !isCutting && downloaded && size && (
+                  {phase.showStats && downloaded && size && (
                     <div className="flex items-center gap-3">
                       <span>
                         {downloaded} / {size}
                       </span>
-                      {speed && (
+                      {phase.showRate && speed && (
                         <>
                           <span className="text-muted-foreground/30">·</span>
                           <span className="tabular-nums">{speed}</span>
                         </>
                       )}
-                      {eta && (
+                      {phase.showRate && eta && (
                         <>
                           <span className="text-muted-foreground/30">·</span>
                           <span className="tabular-nums">{eta} left</span>
