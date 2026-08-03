@@ -129,14 +129,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
 
   const trimLabel = formatTrimLabel(item.trimRange);
 
-  interface Phase {
-    label: string;
-    determinate: boolean;
-    percent: number | undefined;
-    bar: string;
-  }
-
-  const phase: Phase = (() => {
+  const phase = (() => {
     if (isError)
       return { label: "Failed", determinate: false, percent: undefined, bar: "bg-destructive" };
     if (isCompleted)
