@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { Play, Volume2, VolumeX, Music } from "lucide-react";
-import { Button } from "@vault/ui/components/button";
+import { Play, Music } from "lucide-react";
 import { usePlayerStore } from "@/stores/player/player.store";
 import { usePlayerState, usePlayerActions } from "@/stores/player/player.selectors";
 import { cn } from "@vault/ui/lib/utils";
-import { PlayerSlider } from "./player-slider";
 import { EqualizerBars } from "./equalizer-bars";
 import { PlayerWindowButtons } from "./player-window-buttons";
 import { PlayerErrorState } from "./player-error-state";
@@ -185,42 +183,6 @@ export const GlobalPlayer = () => {
 
   const thumb = currentMedia.thumbnail;
 
-  const volumeReveal = (
-    <div
-      className={cn(
-        `h-4 items-center opacity-0 transition-all duration-300 ${EASE}`,
-        "pointer-events-none w-0 group-hover/vol:pointer-events-auto group-hover/vol:w-24 group-hover/vol:opacity-100",
-        "group-focus-within/vol:pointer-events-auto group-focus-within/vol:w-24 group-focus-within/vol:opacity-100 ",
-        "left-full ml-2"
-      )}
-    >
-      <PlayerSlider
-        className={`w-full ${isExpanded && "bg-background/20! dark:bg-foreground/20!"}`}
-        step={0.01}
-        value={[isMuted ? 0 : volume]}
-        max={1}
-        onValueChange={(v) => {
-          setVolume(v[0]);
-          if (v[0] > 0 && isMuted) toggleMute();
-        }}
-      />
-    </div>
-  );
-
-  const muteButton = (
-    <Button
-      variant="ghost"
-      size="icon"
-      className={`h-8 w-8 rounded-full text-muted-foreground transition-all duration-300 ${EASE} hover:scale-110 hover:text-foreground active:scale-95 ${
-        isExpanded &&
-        "text-background! dark:text-foreground! hover:bg-foreground/20! dark:hover:bg-foreground/20!"
-      }`}
-      onClick={toggleMute}
-    >
-      {isMuted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-    </Button>
-  );
-
   // ── Visibility Classes ─────────────────────────────────────────────────
   const controlsVisibility = cn(
     "transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
@@ -346,7 +308,7 @@ export const GlobalPlayer = () => {
       {/* AUDIO ELEMENT */}
       {isAudio && mediaSrc && (
         <audio
-          ref={mediaRef as unknown as RefObject<HTMLAudioElement>}
+          ref={mediaRef}
           src={mediaSrc}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
@@ -423,8 +385,10 @@ export const GlobalPlayer = () => {
               onSeek={handleSeek}
               onTogglePlay={handleTogglePlay}
               onToggleLoop={toggleLoop}
-              muteButton={muteButton}
-              volumeReveal={volumeReveal}
+              volume={volume}
+              isMuted={isMuted}
+              onVolumeChange={setVolume}
+              onToggleMute={toggleMute}
             />
           )}
         </div>
