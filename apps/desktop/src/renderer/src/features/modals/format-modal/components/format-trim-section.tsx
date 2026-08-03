@@ -32,6 +32,7 @@ export const FormatTrimSection = ({
   const currentEndSec = trimRange.end ? parseDurationToSeconds(trimRange.end) : totalSeconds;
   const clipLength = currentEndSec - currentStartSec;
   const isEmptyClip = clipLength <= 0;
+  const isTrimming = currentStartSec > 0 || currentEndSec < totalSeconds;
 
   const handleSliderChange = (value: number | readonly number[]) => {
     const [startSec, endSec] = value as number[];
@@ -107,10 +108,16 @@ export const FormatTrimSection = ({
           <span className="font-medium">{formatDuration(currentEndSec) || "0:00"}</span>
         </div>
 
-        <label className="flex cursor-pointer items-start gap-2 pt-1 text-[12px] text-muted-foreground">
+        <label
+          className={cn(
+            "flex items-start gap-2 pt-1 text-[12px] text-muted-foreground",
+            isTrimming ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+          )}
+        >
           <Checkbox
             checked={frameAccurate}
             onCheckedChange={(checked) => onFrameAccurateChange(!!checked)}
+            disabled={!isTrimming}
             className="mt-0.5 h-3.5 w-3.5"
           />
           <span className="font-medium">
@@ -123,9 +130,11 @@ export const FormatTrimSection = ({
       </div>
 
       <p className="text-center text-[11px] font-medium text-muted-foreground">
-        {frameAccurate
-          ? "Precise cuts, but the clip is re-encoded — processing takes longer."
-          : "Fast cuts that snap to the nearest keyframe — may start/end 1-3s off. Enable frame-accurate for exact cuts."}
+        {!isTrimming
+          ? "Drag the handles to crop a section — leave them at the ends to download the full video."
+          : frameAccurate
+            ? "Precise cuts, but the clip is re-encoded — processing takes longer."
+            : "Fast cuts that snap to the nearest keyframe — may start/end 1-3s off. Enable frame-accurate for exact cuts."}
       </p>
     </div>
   );
