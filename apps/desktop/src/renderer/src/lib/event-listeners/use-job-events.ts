@@ -13,12 +13,6 @@ export function useJobEvents() {
 
     const unsubscribes: Array<() => void> = [];
 
-    const updateJobStatus = (jobId: string, status: Job["status"]) => {
-      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
-        old.map((j) => (j.id === jobId ? { ...j, status } : j))
-      );
-    };
-
     const upsertJob = (job: Job) => {
       queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) => {
         const existing = old.some((j) => j.id === job.id);
@@ -67,8 +61,17 @@ export function useJobEvents() {
     };
 
     const handleJobPaused = (job: Job) => {
-      updateJobStatus(job.id, "paused");
-      queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
+      // Keep the last known progress (do NOT clear it) so the paused card can
+      // still render its % / downloaded bytes. Merge any fresher progress the
+      // worker-pool attached to the event.
+      if (job.progress) {
+        queryClient.setQueryData(QueryKeys.jobs.progress(job.id), job.progress);
+      }
+      queryClient.setQueryData<Job[]>(QueryKeys.jobs.active(), (old = []) =>
+        old.map((j) =>
+          j.id === job.id ? { ...j, status: "paused", progress: job.progress ?? j.progress } : j
+        )
+      );
     };
 
     // Subscribe to all job events
