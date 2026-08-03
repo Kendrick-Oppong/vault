@@ -35,6 +35,7 @@ export interface FormatModalData {
   totalCount?: number;
   duplicate?: boolean;
   videoPresets: Preset[];
+
   audioPresets: Preset[];
   // Raw video formats for manual selection
   videoFormats?: VideoFormat[];
@@ -56,6 +57,8 @@ export interface FormatOptions {
   subtitleLanguages?: string[];
   destination: string;
   selectedItems?: string[];
+  trimRange?: { start?: string; end?: string };
+  frameAccurate?: boolean;
 }
 
 export interface FormatModalProps {
