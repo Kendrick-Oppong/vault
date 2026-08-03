@@ -67,6 +67,8 @@ export interface YtDlpProgress {
   speed?: number;
   eta?: number;
   filename?: string;
+  formattedSpeed?: string;
+  formattedEta?: string;
   [key: string]: unknown;
 }
 
