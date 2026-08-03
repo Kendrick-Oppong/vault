@@ -1,5 +1,5 @@
 export interface SkeletonLoaderProps {
-  type: string;
+  type: "format-modal-header" | "format-modal" | "queue";
 }
 
 export const SkeletonLoader = ({ type }: SkeletonLoaderProps) => {
