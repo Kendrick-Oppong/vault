@@ -65,6 +65,8 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const isCompleted = item.status === "completed";
   const [imgError, setImgError] = useState(false);
 
+  const isTrimmedDownload = Boolean(item.trimRange?.start || item.trimRange?.end);
+
   const [resumeRequested, setResumeRequested] = useState(false);
   const [lastSeenStatus, setLastSeenStatus] = useState(item.status);
 
@@ -251,18 +253,21 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
     });
 
   const getActions = () => {
-    if (isDownloading)
+    if (isDownloading) {
       return (
         <>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => pauseDownload(item.id)}
-            className="h-7 w-7 rounded hover:bg-accent transition-colors"
-            title="Pause"
-          >
-            <Pause className="w-3.5 h-3.5" />
-          </Button>
+          {/* Trimmed downloads can't be resumed, so don't offer Pause for them. */}
+          {!isTrimmedDownload && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => pauseDownload(item.id)}
+              className="h-7 w-7 rounded hover:bg-accent transition-colors"
+              title="Pause"
+            >
+              <Pause className="w-3.5 h-3.5" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -274,7 +279,8 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           </Button>
         </>
       );
-    if (isPaused || isResuming)
+    }
+    if (isPaused || isResuming) {
       return (
         <>
           <Button
@@ -300,7 +306,8 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           </Button>
         </>
       );
-    if (isQueued)
+    }
+    if (isQueued) {
       return (
         <Button
           variant="ghost"
@@ -312,7 +319,8 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <X className="w-3.5 h-3.5" />
         </Button>
       );
-    if (isError)
+    }
+    if (isError) {
       return (
         <>
           <Button
@@ -335,7 +343,8 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           </Button>
         </>
       );
-    if (isCompleted)
+    }
+    if (isCompleted) {
       return (
         <Button
           variant="ghost"
@@ -347,6 +356,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
           <X className="w-3.5 h-3.5" />
         </Button>
       );
+    }
     return null;
   };
 
