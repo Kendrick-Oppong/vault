@@ -36,9 +36,9 @@ export const ModalFooter = ({
   return (
     <DialogFooter className="flex items-center justify-between m-0 p-3 border-t border-border shrink-0 bg-card">
       {showSizeStatus ? (
-        <p className="text-[12px] text-muted-foreground">
-        {getSizeStatusText()}
-        {!isLoading && isPlaylist && ` · ${getItemCount()} items`}
+        <p className="text-[12px] font-semibold text-muted-foreground">
+          {getSizeStatusText()}
+          {!isLoading && isPlaylist && ` · ${getItemCount()} items`}
         </p>
       ) : (
         <div />
