@@ -107,7 +107,9 @@ function mapProbeToFormatModalData(
   const title = str(entry["title"], "Unknown title");
   const channel = str(entry["channel"], str(entry["uploader"], "Unknown channel"));
   const creatorLabel =
-    platform === "youtube" ? channel : str(entry["uploader"], str(entry["channel"], "Unknown creator"));
+    platform === "youtube"
+      ? channel
+      : str(entry["uploader"], str(entry["channel"], "Unknown creator"));
   const thumbnail =
     (entry["thumbnail"] as string | undefined) ??
     (entry["thumbnails"] as Array<{ url: string }> | undefined)?.[0]?.url;
