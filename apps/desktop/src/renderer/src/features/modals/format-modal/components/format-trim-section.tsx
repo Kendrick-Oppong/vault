@@ -115,15 +115,17 @@ export const FormatTrimSection = ({
           />
           <span className="font-medium">
             Frame-accurate cut{" "}
-            <span className="text-muted-foreground">(slower — re-encodes the clip)</span>
+            <span className="text-muted-foreground">
+              (precise start/end, but takes longer to process, CPU intensive)
+            </span>
           </span>
         </label>
       </div>
 
       <p className="text-center text-[11px] font-medium text-muted-foreground">
         {frameAccurate
-          ? "Frame-accurate mode re-encodes the clip for precise start/end points."
-          : "Trimming is fast (no re-encode). Cuts snap to the nearest keyframe — may be 1-3s off."}
+          ? "Precise cuts, but the clip is re-encoded — processing takes longer."
+          : "Fast cuts that snap to the nearest keyframe — may start/end 1-3s off. Enable frame-accurate for exact cuts."}
       </p>
     </div>
   );
