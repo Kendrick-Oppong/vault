@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🗄️ Vault
+# Vault
 
 **A fast, modern desktop YouTube downloader — powered by yt-dlp & FFmpeg**
 
