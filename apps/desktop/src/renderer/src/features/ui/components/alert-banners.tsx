@@ -28,8 +28,7 @@ const alertConfig = {
     borderColor: "border-destructive/20",
     textColor: "text-destructive",
     iconColor: "text-destructive",
-    defaultMessage:
-      "Connection lost. Active downloads are paused and will resume automatically when connection is restored.",
+    defaultMessage: "Connection lost. Active downloads will pause.",
     defaultActionText: "Retry"
   },
   disk: {
