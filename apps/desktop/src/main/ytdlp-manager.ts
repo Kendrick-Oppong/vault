@@ -22,7 +22,9 @@ const DEFAULT_RETRIES = 2;
 // Lossless formats where a target bitrate doesn't apply.
 const LOSSLESS_AUDIO_FORMATS = new Set(["flac", "wav"]);
 
-// yt-dlp supports thumbnail embedding in these containers only.
+// Formats yt-dlp/ffmpeg can embed a thumbnail into. This is checked against the
+// OUTPUT container/format (never webm here, since we always remux/extract to an
+// explicit container), not the source format's itag.
 const THUMBNAIL_SUPPORTED_FORMATS = new Set([
   "mp3",
   "m4a",
@@ -34,12 +36,6 @@ const THUMBNAIL_SUPPORTED_FORMATS = new Set([
   "mp4",
   "m4v",
   "mov"
-]);
-
-// itag codes for webm-only YouTube formats; thumbnail embedding isn't supported for webm.
-const WEBM_FORMAT_CODES = new Set([
-  133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 160, 167, 168, 169, 170, 217, 218, 219,
-  222, 223, 224, 242, 243, 244, 245, 246, 247, 248, 256, 257, 258, 271, 272, 278, 302, 303
 ]);
 
 // ---- trim helpers ------------------------------------------------------
@@ -219,7 +215,8 @@ export async function probeFormats(
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await probeInternal(opts, url, extras, timeout, extras?.playlistLimit);
+      const result = await probeInternal(opts, url, extras, timeout, extras?.playlistLimit);
+      return result;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < retries) {
@@ -379,15 +376,6 @@ function buildAuthAndNetworkArgs(args: string[], extras: DownloadExtras | undefi
   }
 }
 
-function containsWebmFormatCode(formatSelector: string): boolean {
-  const numericTokens = formatSelector.match(/\d+/g) ?? [];
-  return numericTokens.some((token) => WEBM_FORMAT_CODES.has(Number(token)));
-}
-
-function isWebmFormatSelector(formatSelector: string): boolean {
-  return formatSelector.includes("webm") || containsWebmFormatCode(formatSelector);
-}
-
 function resolveAudioFormat(
   formatSelector: string,
   isAudio: boolean,
@@ -398,25 +386,30 @@ function resolveAudioFormat(
   return (/mp3|m4a|opus|flac|wav/i.exec(formatSelector)?.[0] ?? "mp3").toLowerCase();
 }
 
+/**
+ * Whether a thumbnail can be embedded, judged by the OUTPUT format only.
+ * We always remux video to `videoContainer` (mp4/mkv) or extract audio to
+ * `audioFormat`, so the source format's container/itag is irrelevant. This
+ * avoids the old false positive where a webm source remuxed to mp4 was wrongly
+ * denied thumbnails.
+ */
 function canEmbedThumbnail(
-  formatSelector: string,
   audioFormat: string,
-  videoContainer: string
+  videoContainer: string,
+  isAudioOnly: boolean
 ): boolean {
-  if (isWebmFormatSelector(formatSelector)) return false;
-  return (
-    THUMBNAIL_SUPPORTED_FORMATS.has(audioFormat) || THUMBNAIL_SUPPORTED_FORMATS.has(videoContainer)
-  );
+  const outputFormat = isAudioOnly ? audioFormat : videoContainer;
+  return THUMBNAIL_SUPPORTED_FORMATS.has(outputFormat);
 }
 
 function buildThumbnailAndMetadataArgs(
   args: string[],
   extras: DownloadExtras | undefined,
-  formatSelector: string,
   audioFormat: string,
   videoContainer: string
 ): void {
-  const embeddable = canEmbedThumbnail(formatSelector, audioFormat, videoContainer);
+  const isAudioOnly = Boolean(extras?.audioFormat);
+  const embeddable = canEmbedThumbnail(audioFormat, videoContainer, isAudioOnly);
 
   if (extras?.audioBitrate && !LOSSLESS_AUDIO_FORMATS.has(audioFormat)) {
     args.push("--audio-quality", `${extras.audioBitrate}K`);
@@ -427,9 +420,7 @@ function buildThumbnailAndMetadataArgs(
     args.push("--embed-thumbnail", "--ppa", "EmbedThumbnail:-c copy");
     logger.debug("Thumbnail embedding enabled");
   } else if (extras?.embedThumbnail && !embeddable) {
-    logger.debug(
-      "Thumbnail embedding disabled: unsupported format (webm or other unsupported container)"
-    );
+    logger.debug("Thumbnail embedding disabled: unsupported output format");
   }
   if (extras?.embedMetadata) {
     args.push("--embed-metadata");
@@ -783,18 +774,20 @@ export function download(
   }
 
   const isAudio = formatSelector.includes("bestaudio") || formatSelector.includes("audio");
+  // True only for actual audio extraction (not a video download that includes bestaudio).
+  const isAudioOnly = Boolean(extras?.audioFormat);
   const audioFormat = resolveAudioFormat(formatSelector, isAudio, extras?.audioFormat);
   const videoContainer = extras?.videoContainer || "mp4";
 
   logger.debug("Media type detection:", {
     isAudio,
+    isAudioOnly,
     audioFormat,
     videoContainer,
-    isWebmFormat: isWebmFormatSelector(formatSelector),
-    canEmbedThumbnail: canEmbedThumbnail(formatSelector, audioFormat, videoContainer)
+    canEmbedThumbnail: canEmbedThumbnail(audioFormat, videoContainer, isAudioOnly)
   });
 
-  buildThumbnailAndMetadataArgs(args, extras, formatSelector, audioFormat, videoContainer);
+  buildThumbnailAndMetadataArgs(args, extras, audioFormat, videoContainer);
   buildSubtitleAndArchiveArgs(args, opts, extras, formatSelector);
 
   args.push(url);
