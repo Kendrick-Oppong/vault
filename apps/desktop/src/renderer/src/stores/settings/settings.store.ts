@@ -57,7 +57,8 @@ const baseDefaults: Settings = {
   ytDlpVersion: UNSET,
   autoUpdateApp: true,
   autoUpdateBinaries: false,
-  notifications: true
+  notifications: true,
+  clipboardDetection: true
 };
 
 export const useSettingsStore = create<SettingsStore>()(
