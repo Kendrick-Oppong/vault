@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
+import { logger } from "./logger";
 
 const VIDEO_EXTS = new Set(["mp4", "mkv", "webm", "mov", "m4v", "avi", "flv", "ts"]);
 const AUDIO_EXTS = new Set(["mp3", "m4a", "flac", "wav", "opus", "ogg", "aac", "weba"]);
@@ -13,35 +14,28 @@ export interface Candidate {
 }
 
 /**
- * Strip yt-dlp temp suffixes, one-or-more format-id suffixes
- * (.f137 / .f137.mp4 / .fhls-943.mp4 / .f298.f251.mp4) and the extension.
+ * Strip yt-dlp temp suffixes, format-id suffixes (.f137 / .f137.mp4) and the
+ * file extension to produce a "title stem".
+ *
+ * IMPORTANT: The final extension strip only removes short alphanumeric suffixes
+ * (real file extensions like .mp4, .webm, .mp3). This prevents titles that
+ * contain periods from being truncated.
  */
 export function toStem(fileName: string): string {
   return fileName
     .replace(/\.(part|ytdl)$/i, "")
-    .replace(/(\.f[\w-]+)+(\.[^.]+)?$/i, "")
-    .replace(/\.[^.]+$/, "");
+    .replace(/\.f\d+(?:\.[^.]+)?$/i, "")
+    .replace(/\.[a-zA-Z0-9]{1,10}$/, "");
 }
 
-/**
- * Normalise a stem for fuzzy comparison.
- * Decomposes accented characters (Café -> Cafe), strips diacritics, lowercases,
- * then keeps only alphanumerics. Emoji / symbols / punctuation are dropped, so
- * sanitisation differences between the reported name and the on-disk name don't
- * break the match.
- */
+/** Normalise a stem for fuzzy comparison: lowercase, alphanumerics only. */
 export function normalizeStem(stem: string): string {
-  return stem
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+  return stem.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 /**
  * Read a directory once and group every real media file by its title stem.
- * Part files (`.f137.mp4`, `.fhls-943.mp4`, `.part`, …) and non-media sidecars
- * are ignored.
+ * Part files (`.f137.mp4`, `.part`, …) and non-media sidecars are ignored.
  */
 export function buildStemIndex(dir: string): Map<string, Candidate[]> {
   const index = new Map<string, Candidate[]>();
@@ -55,7 +49,7 @@ export function buildStemIndex(dir: string): Map<string, Candidate[]> {
   for (const name of entries) {
     const ext = extname(name).slice(1).toLowerCase();
     if (!MEDIA_EXTS.has(ext)) continue;
-    if (/(\.f[\w-]+)+\.[^.]+$/i.test(name)) continue;
+    if (/\.f\d+\.[^.]+$/i.test(name)) continue;
     const stem = toStem(name);
     if (!stem) continue;
 
@@ -94,19 +88,29 @@ function sortCandidates(candidates: Candidate[], mediaType?: string | null): Can
 
 /**
  * Pick the best candidate for a stem.
+ *
+ * Match order:
  *  1. Exact stem hit.
- *  2. Fuzzy — normalised stem comparison (case / punctuation / emoji / accent insensitive).
+ *  2. Fuzzy — normalised stem comparison (case / punctuation insensitive).
  */
 export function pickCandidate(
   index: Map<string, Candidate[]>,
   stem: string,
   mediaType?: string | null
 ): Candidate | null {
+  // 1) Exact stem
   const exact = index.get(stem);
-  if (exact && exact.length > 0) return sortCandidates(exact, mediaType)[0];
+  if (exact && exact.length > 0) {
+    logger.debug(`[resolve-output] Exact stem match for "${stem}" → ${exact.length} candidate(s)`);
+    return sortCandidates(exact, mediaType)[0];
+  }
 
+  // 2) Fuzzy normalised stem scan
   const target = normalizeStem(stem);
-  if (!target) return null;
+  if (!target) {
+    logger.debug(`[resolve-output] Empty normalised stem for "${stem}", skipping fuzzy match`);
+    return null;
+  }
 
   let fuzzy: Candidate[] = [];
   for (const [candidateStem, candidates] of index) {
@@ -115,8 +119,12 @@ export function pickCandidate(
       break;
     }
   }
-  if (fuzzy.length > 0) return sortCandidates(fuzzy, mediaType)[0];
+  if (fuzzy.length > 0) {
+    logger.debug(`[resolve-output] Fuzzy stem match for "${stem}" → ${fuzzy.length} candidate(s)`);
+    return sortCandidates(fuzzy, mediaType)[0];
+  }
 
+  logger.debug(`[resolve-output] No match found for stem "${stem}" (normalised: "${target}")`);
   return null;
 }
 
@@ -130,17 +138,38 @@ export function resolveActualOutputPath(
   mediaType?: string | null,
   opts: ResolveOptions = {}
 ): string {
-  if (!expectedPath) return expectedPath;
+  if (!expectedPath) {
+    logger.debug("[resolve-output] Empty expectedPath, returning as-is");
+    return expectedPath;
+  }
 
   const currentExt = extname(expectedPath).slice(1).toLowerCase();
   if (opts.preferExisting && existsSync(expectedPath) && MEDIA_EXTS.has(currentExt)) {
+    logger.debug(`[resolve-output] preferExisting hit: "${expectedPath}" exists, returning as-is`);
     return expectedPath;
   }
 
   const dir = dirname(expectedPath);
   const stem = toStem(basename(expectedPath));
-  if (!stem) return expectedPath;
+  if (!stem) {
+    logger.debug(`[resolve-output] Empty stem from "${basename(expectedPath)}", returning as-is`);
+    return expectedPath;
+  }
 
-  const pick = pickCandidate(buildStemIndex(dir), stem, mediaType);
-  return pick ? pick.full : expectedPath;
+  logger.debug(
+    `[resolve-output] Resolving: input="${expectedPath}" dir="${dir}" stem="${stem}" mediaType=${mediaType ?? "null"}`
+  );
+
+  const index = buildStemIndex(dir);
+  logger.debug(`[resolve-output] Stem index built: ${index.size} unique stem(s) in "${dir}"`);
+
+  const pick = pickCandidate(index, stem, mediaType);
+
+  if (pick) {
+    logger.debug(`[resolve-output] Resolved "${basename(expectedPath)}" → "${pick.full}"`);
+    return pick.full;
+  }
+
+  logger.warn(`[resolve-output] Could NOT resolve "${expectedPath}" — returning original path`);
+  return expectedPath;
 }
