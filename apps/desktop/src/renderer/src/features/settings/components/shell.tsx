@@ -196,7 +196,10 @@ export const SettingsView = () => {
           >
             <Switch
               checked={settings.clipboardDetection}
-              onCheckedChange={(checked) => updateSetting("clipboardDetection", checked)}
+              onCheckedChange={(checked) => {
+                updateSetting("clipboardDetection", checked);
+                globalThis.api.settingsSync({ clipboardDetection: checked });
+              }}
             />
           </Row>
         </Section>
