@@ -2,7 +2,6 @@ import { contextBridge, ipcRenderer } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
 import type { JobInput, Job, YtDlpProgress, HistoryEntry } from "@vault/types";
 
-// Extend globalThis for renderer to access api directly
 declare global {
   var api: VaultApi;
 }
@@ -60,7 +59,6 @@ const vaultApi = {
 
   openFolderDialog: (): Promise<string | null> => ipcRenderer.invoke("dialog:openFolder"),
 
-  // Cookie management (browser-based)
   getCookieInfo: (
     browserSetting: string | null
   ): Promise<{
@@ -116,7 +114,6 @@ const vaultApi = {
     defaultDownloadPath: string;
   }> => ipcRenderer.invoke("app:info"),
 
-  // Dependencies check
   dependenciesCheck: (): Promise<{
     ready: boolean;
     ytDlp: { name: string; installed: boolean; version?: string; path?: string; error?: string };
@@ -149,6 +146,9 @@ const vaultApi = {
   settingsGetNotifications: (): Promise<boolean> => ipcRenderer.invoke("settings:getNotifications"),
   settingsSetNotifications: (value: boolean): Promise<boolean> =>
     ipcRenderer.invoke("settings:setNotifications", value),
+  settingsSync: (settings: { minimizeToTray?: boolean; clipboardDetection?: boolean }): void => {
+    ipcRenderer.send("settings:sync", settings);
+  },
 
   onDependencyDownloadProgress: (
     cb: (progress: {
@@ -171,7 +171,6 @@ const vaultApi = {
     return () => ipcRenderer.removeListener("dependency:download:progress", handler);
   },
 
-  // YouTube search via yt-dlp
   searchYoutube: (
     query: string,
     page?: number
@@ -186,7 +185,6 @@ const vaultApi = {
     }[]
   > => ipcRenderer.invoke("search:youtube", query, page),
 
-  // List available subtitles for a video
   listSubtitles: (
     url: string
   ): Promise<
@@ -198,7 +196,6 @@ const vaultApi = {
     }[]
   > => ipcRenderer.invoke("subtitles:list", url),
 
-  // App update management
   checkForUpdates: (): Promise<{ updateAvailable: boolean; version?: string }> =>
     ipcRenderer.invoke("app:checkUpdate"),
 
@@ -211,17 +208,21 @@ const vaultApi = {
   checkDiskSpace: (path: string): Promise<{ available: number; total: number }> =>
     ipcRenderer.invoke("system:checkDiskSpace", path),
 
-  // Logger
   getLogsHistory: (): Promise<{ level: string; message: string; timestamp: number }[]> =>
     ipcRenderer.invoke("logs:history"),
 
-  // Media streaming
   getMediaUrl: (
     filePath: string
   ): Promise<{ url: string | null; resolvedPath: string; exists: boolean }> =>
     ipcRenderer.invoke("media:getUrl", filePath),
 
   // --- Event listeners (return cleanup) ---
+  onClipboardUrlDetected: (cb: (url: string) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, url: string) => cb(url);
+    ipcRenderer.on("clipboard:url-detected", handler);
+    return () => ipcRenderer.removeListener("clipboard:url-detected", handler);
+  },
+
   onJobQueued: (cb: (job: Job) => void): (() => void) => {
     const handler = (_e: Electron.IpcRendererEvent, job: Job) => cb(job);
     ipcRenderer.on("job:queued", handler);
@@ -336,7 +337,6 @@ const vaultApi = {
     return () => ipcRenderer.removeListener("media:prev-track", handler);
   },
 
-  // Window controls (used by CustomTitlebar)
   minimizeWindow: (): void => {
     void ipcRenderer.invoke("window:minimize");
   },
@@ -362,7 +362,6 @@ const vaultApi = {
 
 export type VaultApi = typeof vaultApi;
 
-// Context isolation is always enabled in production Electron apps
 try {
   contextBridge.exposeInMainWorld("electron", electronAPI);
   contextBridge.exposeInMainWorld("api", vaultApi);
