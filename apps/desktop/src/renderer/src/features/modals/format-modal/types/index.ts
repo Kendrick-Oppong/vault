@@ -1,4 +1,5 @@
 import type { Preset, MediaType, VideoContainer, AudioFormat, MediaPlatform } from "@vault/types";
+import type { NormalizedSource } from "../lib/source-model";
 
 export type { MediaType, Preset, VideoContainer, AudioFormat };
 export type LinkType = "video" | "playlist";
@@ -21,7 +22,7 @@ export interface PlaylistItem {
 }
 
 export interface FormatModalData {
-  id: string; // Unique identifier for the video/playlist (used for playlist tracking)
+  id: string;
   title: string;
   channel: string;
   creatorLabel?: string;
@@ -35,20 +36,19 @@ export interface FormatModalData {
   totalCount?: number;
   duplicate?: boolean;
   videoPresets: Preset[];
-
   audioPresets: Preset[];
-  // Raw video formats for manual selection
   videoFormats?: VideoFormat[];
-  url?: string; // Original URL for re-probing with different limits
+  url?: string;
+  source?: NormalizedSource;
 }
 
 export interface FormatOptions {
   mediaType: MediaType;
   preset: Preset;
-  formatId?: string; // Optional manual format override
+  formatId?: string;
   videoContainer: VideoContainer;
   audioFormat: AudioFormat;
-  audioBitrate?: number; // For non-lossless audio formats
+  audioBitrate?: number;
   embedThumbnail: boolean;
   embedMetadata: boolean;
   embedChapters: boolean;
