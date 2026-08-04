@@ -49,6 +49,7 @@ interface MainSettings {
   autoUpdateApp: boolean;
   notifications: boolean;
   historyRepairedV1: boolean;
+  clipboardDetection: boolean;
 }
 
 const mainSettingsPath = join(app.getPath("userData"), "main-settings.json");
@@ -61,13 +62,20 @@ function loadMainSettings(): MainSettings {
         autoUpdateApp: typeof data.autoUpdateApp === "boolean" ? data.autoUpdateApp : true,
         notifications: typeof data.notifications === "boolean" ? data.notifications : true,
         historyRepairedV1:
-          typeof data.historyRepairedV1 === "boolean" ? data.historyRepairedV1 : false
+          typeof data.historyRepairedV1 === "boolean" ? data.historyRepairedV1 : false,
+        clipboardDetection:
+          typeof data.clipboardDetection === "boolean" ? data.clipboardDetection : true
       };
     }
   } catch {
     /* ignore */
   }
-  return { autoUpdateApp: true, notifications: true, historyRepairedV1: false };
+  return {
+    autoUpdateApp: true,
+    notifications: true,
+    historyRepairedV1: false,
+    clipboardDetection: true
+  };
 }
 
 function saveMainSettings(settings: MainSettings): void {
@@ -664,8 +672,11 @@ function registerIpcHandlers(): void {
   ipcMain.on("settings:sync", (_e, settings) => {
     if (typeof settings.minimizeToTray === "boolean")
       minimizeToTraySetting = settings.minimizeToTray;
-    if (typeof settings.clipboardDetection === "boolean")
+    if (typeof settings.clipboardDetection === "boolean") {
       setClipboardMonitorEnabled(settings.clipboardDetection);
+      mainSettings.clipboardDetection = settings.clipboardDetection;
+      saveMainSettings(mainSettings);
+    }
   });
 }
 
@@ -794,7 +805,7 @@ app.whenReady().then(async () => {
 
   // Start clipboard monitor after window is ready
   startClipboardMonitor(sendToRenderer);
-  setClipboardMonitorEnabled(true);
+  setClipboardMonitorEnabled(mainSettings.clipboardDetection);
 
   tray = new Tray(icon);
   tray.setToolTip("Vault");
