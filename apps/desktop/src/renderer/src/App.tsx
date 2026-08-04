@@ -10,6 +10,8 @@ import { useJobEvents } from "@/lib/event-listeners/use-job-events";
 import { OnboardingScreen } from "@/features/onboarding/components/onboarding-screen";
 import { useOnboardingState } from "@/stores/onboarding/onboarding.selectors";
 import { Titlebar } from "@/features/ui/components/titlebar";
+import { useClipboardDetection } from "@/features/queue/hooks/use-clipboard-detection";
+import { useSettingsSync } from "@/features/settings/hooks/use-settings-sync";
 
 import { HistoryView } from "@/features/history/components/shell";
 import { SettingsView } from "@/features/settings/components/shell";
@@ -24,6 +26,8 @@ function App(): React.JSX.Element {
   useUpdateEvents();
   useSystemEvents();
   useJobEvents();
+  useClipboardDetection();
+  useSettingsSync();
 
   if (!onboardingCompleted) {
     return <OnboardingScreen />;
