@@ -44,6 +44,7 @@ interface MainSettings {
   autoUpdateApp: boolean;
   notifications: boolean;
   historyRepairedV1: boolean;
+  historyRepairedV2: boolean;
 }
 
 const mainSettingsPath = join(app.getPath("userData"), "main-settings.json");
@@ -56,13 +57,20 @@ function loadMainSettings(): MainSettings {
         autoUpdateApp: typeof data.autoUpdateApp === "boolean" ? data.autoUpdateApp : true,
         notifications: typeof data.notifications === "boolean" ? data.notifications : true,
         historyRepairedV1:
-          typeof data.historyRepairedV1 === "boolean" ? data.historyRepairedV1 : false
+          typeof data.historyRepairedV1 === "boolean" ? data.historyRepairedV1 : false,
+        historyRepairedV2:
+          typeof data.historyRepairedV2 === "boolean" ? data.historyRepairedV2 : false
       };
     }
   } catch {
     /* ignore */
   }
-  return { autoUpdateApp: true, notifications: true, historyRepairedV1: false };
+  return {
+    autoUpdateApp: true,
+    notifications: true,
+    historyRepairedV1: false,
+    historyRepairedV2: false
+  };
 }
 
 function saveMainSettings(settings: MainSettings): void {
@@ -757,6 +765,19 @@ app.whenReady().then(async () => {
       saveMainSettings(mainSettings);
     } catch (err) {
       logger.error("History path repair failed (will retry next launch):", err);
+    }
+  }
+
+  // V2: re-heal using the improved toStem/normalizeStem so non-YouTube (HLS/DASH
+  // format-id) and accented/emoji titles resolve to their real merged files.
+  if (!mainSettings.historyRepairedV2) {
+    try {
+      const result = repairHistoryPaths(db.raw);
+      logger.info("History path repair (v2) complete:", result);
+      mainSettings.historyRepairedV2 = true;
+      saveMainSettings(mainSettings);
+    } catch (err) {
+      logger.error("History path repair (v2) failed (will retry next launch):", err);
     }
   }
 

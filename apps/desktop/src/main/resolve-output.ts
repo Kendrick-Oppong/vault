@@ -12,22 +12,36 @@ export interface Candidate {
   size: number;
 }
 
-/** Strip yt-dlp temp suffixes, format-id suffixes (.f137 / .f137.mp4 / .fhls-943.mp4) and the extension. */
+/**
+ * Strip yt-dlp temp suffixes, one-or-more format-id suffixes
+ * (.f137 / .f137.mp4 / .fhls-943.mp4 / .f298.f251.mp4) and the extension.
+ */
 export function toStem(fileName: string): string {
   return fileName
     .replace(/\.(part|ytdl)$/i, "")
-    .replace(/\.f[\w-]+(?:\.[^.]+)?$/i, "")
+    .replace(/(\.f[\w-]+)+(\.[^.]+)?$/i, "")
     .replace(/\.[^.]+$/, "");
 }
 
-/** Normalise a stem for fuzzy comparison: lowercase, alphanumerics only. */
+/**
+ * Normalise a stem for fuzzy comparison.
+ * Decomposes accented characters (Café -> Cafe), strips diacritics, lowercases,
+ * then keeps only alphanumerics. Emoji / symbols / punctuation are dropped, so
+ * sanitisation differences between the reported name and the on-disk name don't
+ * break the match.
+ */
 export function normalizeStem(stem: string): string {
-  return stem.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return stem
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 /**
  * Read a directory once and group every real media file by its title stem.
- * Part files (`.f137.mp4`, `.part`, …) and non-media sidecars are ignored.
+ * Part files (`.f137.mp4`, `.fhls-943.mp4`, `.part`, …) and non-media sidecars
+ * are ignored.
  */
 export function buildStemIndex(dir: string): Map<string, Candidate[]> {
   const index = new Map<string, Candidate[]>();
@@ -41,7 +55,7 @@ export function buildStemIndex(dir: string): Map<string, Candidate[]> {
   for (const name of entries) {
     const ext = extname(name).slice(1).toLowerCase();
     if (!MEDIA_EXTS.has(ext)) continue;
-    if (/\.f[\w-]+\.[^.]+$/i.test(name)) continue;
+    if (/(\.f[\w-]+)+\.[^.]+$/i.test(name)) continue;
     const stem = toStem(name);
     if (!stem) continue;
 
@@ -80,21 +94,17 @@ function sortCandidates(candidates: Candidate[], mediaType?: string | null): Can
 
 /**
  * Pick the best candidate for a stem.
- *
- * Match order:
  *  1. Exact stem hit.
- *  2. Fuzzy — normalised stem comparison (case / punctuation / emoji insensitive).
+ *  2. Fuzzy — normalised stem comparison (case / punctuation / emoji / accent insensitive).
  */
 export function pickCandidate(
   index: Map<string, Candidate[]>,
   stem: string,
   mediaType?: string | null
 ): Candidate | null {
-  // 1) Exact stem
   const exact = index.get(stem);
   if (exact && exact.length > 0) return sortCandidates(exact, mediaType)[0];
 
-  // 2) Fuzzy normalised stem scan
   const target = normalizeStem(stem);
   if (!target) return null;
 
