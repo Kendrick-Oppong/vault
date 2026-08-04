@@ -24,6 +24,7 @@ export interface Settings {
   autoUpdateApp: boolean;
   autoUpdateBinaries: boolean;
   notifications: boolean;
+  clipboardDetection: boolean;
 }
 
 export interface DetectedBrowser {
