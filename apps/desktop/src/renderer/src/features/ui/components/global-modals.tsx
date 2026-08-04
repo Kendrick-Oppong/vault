@@ -4,8 +4,7 @@ import {
   selectFormatModal,
   useModalActions
 } from "@/stores/ui/modal.selectors";
-import { FormatModal } from "@/features/modals/format-modal/components/format-modal";
-import { NonYoutubeFormatModal } from "@/features/modals/format-modal/components/non-youtube-format-modal";
+import { UnifiedFormatModal } from "@/features/modals/unified-format-modal";
 import { ConfirmationDialog } from "@/features/ui/components/confirmation-dialog";
 
 export const GlobalModals = () => {
@@ -21,15 +20,11 @@ export const GlobalModals = () => {
     videoPresets: [],
     audioPresets: []
   };
-  const ModalComponent =
-    !formatModal.isLoading && modalData?.platform && modalData.platform !== "youtube"
-      ? NonYoutubeFormatModal
-      : FormatModal;
 
   return (
     <>
       {formatModal.isOpen && (
-        <ModalComponent
+        <UnifiedFormatModal
           open={formatModal.isOpen}
           onOpenChange={(open) => !open && closeFormatModal()}
           data={modalData}
