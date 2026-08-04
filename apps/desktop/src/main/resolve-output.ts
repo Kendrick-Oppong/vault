@@ -12,11 +12,11 @@ export interface Candidate {
   size: number;
 }
 
-/** Strip yt-dlp temp suffixes, format-id suffixes (.f137 / .f137.mp4) and the extension. */
+/** Strip yt-dlp temp suffixes, format-id suffixes (.f137 / .f137.mp4 / .fhls-943.mp4) and the extension. */
 export function toStem(fileName: string): string {
   return fileName
     .replace(/\.(part|ytdl)$/i, "")
-    .replace(/\.f\d+(?:\.[^.]+)?$/i, "")
+    .replace(/\.f[\w-]+(?:\.[^.]+)?$/i, "")
     .replace(/\.[^.]+$/, "");
 }
 
@@ -41,7 +41,7 @@ export function buildStemIndex(dir: string): Map<string, Candidate[]> {
   for (const name of entries) {
     const ext = extname(name).slice(1).toLowerCase();
     if (!MEDIA_EXTS.has(ext)) continue;
-    if (/\.f\d+\.[^.]+$/i.test(name)) continue;
+    if (/\.f[\w-]+\.[^.]+$/i.test(name)) continue;
     const stem = toStem(name);
     if (!stem) continue;
 
@@ -83,10 +83,7 @@ function sortCandidates(candidates: Candidate[], mediaType?: string | null): Can
  *
  * Match order:
  *  1. Exact stem hit.
- *  2. Audio/video pair — if the expected stem only has a VIDEO candidate but the job is
- *     "music" (or vice-versa), look for a sibling stem that differs only by the audio
- *     extraction step (yt-dlp often renames `Title.f251.webm` → `Title.opus`).
- *  3. Fuzzy — normalised stem comparison (case / punctuation insensitive).
+ *  2. Fuzzy — normalised stem comparison (case / punctuation / emoji insensitive).
  */
 export function pickCandidate(
   index: Map<string, Candidate[]>,
