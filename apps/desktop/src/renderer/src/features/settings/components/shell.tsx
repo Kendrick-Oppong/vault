@@ -190,6 +190,15 @@ export const SettingsView = () => {
               onCheckedChange={(checked) => updateSetting("notifications", checked)}
             />
           </Row>
+          <Row
+            label="Clipboard detection"
+            description="Automatically detect copied links and suggest downloading"
+          >
+            <Switch
+              checked={settings.clipboardDetection}
+              onCheckedChange={(checked) => updateSetting("clipboardDetection", checked)}
+            />
+          </Row>
         </Section>
 
         {/* Metadata */}
