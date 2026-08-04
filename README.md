@@ -21,31 +21,32 @@ Download videos, playlists, and audio from YouTube and 1000+ sites, entirely on 
 
 ## 📸 Screenshots
 
-<div align="center">
-
-<a href="screenshots/queue.png"><img src="screenshots/queue.png" alt="Queue view with live download progress" width="860"></a>
-
-<sub><b>Queue</b> — paste a link or search, then track live progress across the download queue</sub>
-
-<br/><br/>
-
-<a href="screenshots/format-modal.png"><img src="screenshots/format-modal.png" alt="Format modal with presets and post-processing" width="860"></a>
-
-<sub><b>Format modal</b> — one-click presets, container choice, and post-processing options</sub>
-
-<br/><br/>
-
-<a href="screenshots/player-fullscreen.png"><img src="screenshots/player-fullscreen.png" alt="Fullscreen video player" width="860"></a>
-
-<sub><b>Player</b> — distraction-free media playback for your downloaded content</sub>
-
-<br/><br/>
-
-<a href="screenshots/player-miniscreen.png"><img src="screenshots/player-miniscreen.png" alt="Mini-player overlay" width="860"></a>
-
-<sub><b>Mini Player</b> — picture-in-picture player overlay for multitasking</sub>
-
-</div>
+<table align="center">
+  <tr>
+    <td align="center" width="50%">
+      <a href="screenshots/queue.png"><img src="screenshots/queue.png" alt="Queue view with live download progress"></a>
+      <br/>
+      <sub><b>Queue</b> — paste a link or search, then track live progress</sub>
+    </td>
+    <td align="center" width="50%">
+      <a href="screenshots/format-modal.png"><img src="screenshots/format-modal.png" alt="Format modal with presets and post-processing"></a>
+      <br/>
+      <sub><b>Format modal</b> — one-click presets, container choice, and post-processing</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <a href="screenshots/player-fullscreen.png"><img src="screenshots/player-fullscreen.png" alt="Fullscreen video player"></a>
+      <br/>
+      <sub><b>Player</b> — distraction-free media playback for your downloaded content</sub>
+    </td>
+    <td align="center" width="50%">
+      <a href="screenshots/player-miniscreen.png"><img src="screenshots/player-miniscreen.png" alt="Mini-player overlay"></a>
+      <br/>
+      <sub><b>Mini Player</b> — picture-in-picture player overlay for multitasking</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
