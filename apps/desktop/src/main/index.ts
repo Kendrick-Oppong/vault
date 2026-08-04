@@ -149,7 +149,9 @@ function forwardPoolEventsToRenderer(): void {
     try {
       let file_size: number | null = null;
       const actualPath: string | null = job.meta?.expectedPath
-        ? resolveActualOutputPath(job.meta.expectedPath, job.meta?.mediaType)
+        ? resolveActualOutputPath(job.meta.expectedPath, job.meta?.mediaType, {
+            preferExisting: true
+          })
         : null;
 
       logger.info(
