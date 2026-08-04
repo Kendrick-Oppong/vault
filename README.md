@@ -72,6 +72,12 @@ Download videos, playlists, and audio from YouTube and 1000+ sites, entirely on 
 - **Subtitles** and **SponsorBlock** segment removal
 - **Browser cookies** — import cookies from your installed browser for age-gated, private, or members-only content
 
+### Media Player
+
+- **Built-in playback** — distraction-free media player for your downloaded audio and video
+- **Mini Player** — picture-in-picture overlay mode for multitasking while watching
+- **Local streaming** — watch your downloads immediately without opening external media players
+
 ### Experience
 
 - **Zero setup** — yt-dlp and FFmpeg are **auto-downloaded** on first run for your platform
