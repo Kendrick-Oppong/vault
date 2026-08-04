@@ -30,7 +30,10 @@ export function parseDurationToSeconds(duration?: string): number {
 
 /** Returns true if the value looks like a URL (http/https or youtube shorthand) */
 export function isUrl(value: string): boolean {
-  return /^https?:\/\//i.test(value) || /(?:youtube\.com|youtu\.be)\//i.test(value);
+  return (
+    /^https?:\/\/[a-zA-Z0-9][\w.-]*\.[a-zA-Z]{2,}(\/[^\s]*)?$/i.test(value) ||
+    /(?:youtube\.com|youtu\.be)\/\S+/i.test(value)
+  );
 }
 
 /** Map codec names to valid yt-dlp audio formats */
