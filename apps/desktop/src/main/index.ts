@@ -44,7 +44,6 @@ interface MainSettings {
   autoUpdateApp: boolean;
   notifications: boolean;
   historyRepairedV1: boolean;
-  historyRepairedV2: boolean;
 }
 
 const mainSettingsPath = join(app.getPath("userData"), "main-settings.json");
@@ -57,20 +56,13 @@ function loadMainSettings(): MainSettings {
         autoUpdateApp: typeof data.autoUpdateApp === "boolean" ? data.autoUpdateApp : true,
         notifications: typeof data.notifications === "boolean" ? data.notifications : true,
         historyRepairedV1:
-          typeof data.historyRepairedV1 === "boolean" ? data.historyRepairedV1 : false,
-        historyRepairedV2:
-          typeof data.historyRepairedV2 === "boolean" ? data.historyRepairedV2 : false
+          typeof data.historyRepairedV1 === "boolean" ? data.historyRepairedV1 : false
       };
     }
   } catch {
     /* ignore */
   }
-  return {
-    autoUpdateApp: true,
-    notifications: true,
-    historyRepairedV1: false,
-    historyRepairedV2: false
-  };
+  return { autoUpdateApp: true, notifications: true, historyRepairedV1: false };
 }
 
 function saveMainSettings(settings: MainSettings): void {
@@ -159,6 +151,10 @@ function forwardPoolEventsToRenderer(): void {
       const actualPath: string | null = job.meta?.expectedPath
         ? resolveActualOutputPath(job.meta.expectedPath, job.meta?.mediaType)
         : null;
+
+      logger.info(
+        `[job:completed] job=${job.id} expectedPath="${job.meta?.expectedPath}" resolvedPath="${actualPath}" exists=${actualPath ? existsSync(actualPath) : false}`
+      );
 
       if (actualPath && existsSync(actualPath)) {
         try {
@@ -283,16 +279,29 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle("fs:reveal", (_e, filePath: string) => {
     const resolved = resolveActualOutputPath(filePath, undefined, { preferExisting: true });
+    logger.info(
+      `[fs:reveal] input="${filePath}" resolved="${resolved}" exists=${existsSync(resolved)}`
+    );
     shell.showItemInFolder(resolved);
   });
 
   ipcMain.handle("fs:open", async (_e, filePath: string) => {
     const resolved = resolveActualOutputPath(filePath, undefined, { preferExisting: true });
+    logger.info(
+      `[fs:open] input="${filePath}" resolved="${resolved}" exists=${existsSync(resolved)}`
+    );
     const error = await shell.openPath(resolved);
+    if (error) logger.warn(`[fs:open] shell.openPath error: "${error}"`);
     return error || null;
   });
 
-  ipcMain.handle("fs:fileExists", async (_e, filePath: string) => fs.existsSync(filePath));
+  ipcMain.handle("fs:fileExists", async (_e, filePath: string) => {
+    const resolved = resolveActualOutputPath(filePath, undefined, { preferExisting: true });
+    const exists = fs.existsSync(resolved);
+    logger.debug(`[fs:fileExists] input="${filePath}" resolved="${resolved}" exists=${exists}`);
+    return exists;
+  });
+
   ipcMain.handle("fs:scanDir", async (_e, dirPath: string) => {
     try {
       if (!fs.existsSync(dirPath)) return [];
@@ -632,15 +641,19 @@ function registerIpcHandlers(): void {
   ipcMain.handle("window:close", () => mainWindow?.close());
 
   ipcMain.handle("media:getUrl", (_e, filePath: string) => {
+    logger.info(`[media:getUrl] input="${filePath}"`);
     const resolved = resolveActualOutputPath(filePath, undefined, { preferExisting: true });
 
     if (!existsSync(resolved)) {
-      // Return null so the renderer can show a clear "file missing" message
+      logger.warn(`[media:getUrl] Resolved file NOT found: "${resolved}"`);
       return { url: null, resolvedPath: resolved, exists: false };
     }
 
-    return { url: buildMediaUrl(resolved), resolvedPath: resolved, exists: true };
+    const url = buildMediaUrl(resolved);
+    logger.info(`[media:getUrl] Resolved OK: "${resolved}" → ${url}`);
+    return { url, resolvedPath: resolved, exists: true };
   });
+
   ipcMain.on("settings:sync", (_e, settings) => {
     if (typeof settings.minimizeToTray === "boolean")
       minimizeToTraySetting = settings.minimizeToTray;
@@ -654,7 +667,7 @@ async function setupAutoUpdater() {
     autoUpdaterInstance = autoUpdater;
 
     autoUpdater.autoDownload = mainSettings.autoUpdateApp;
-    autoUpdater.autoInstallOnAppQuit = false; // We handle installation manually via UI
+    autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.allowDowngrade = false;
 
     if (!app.isPackaged) {
@@ -695,7 +708,6 @@ async function setupAutoUpdater() {
       sendToRenderer("update:error", { message: err.message });
     });
 
-    // Initial check on startup
     setTimeout(() => {
       if (mainSettings.autoUpdateApp) {
         autoUpdater
@@ -704,7 +716,6 @@ async function setupAutoUpdater() {
       }
     }, 4000);
 
-    // Periodic background check every 30 minutes
     updateCheckInterval = setInterval(() => {
       if (mainSettings.autoUpdateApp) {
         logger.debug("Running periodic update check");
@@ -754,9 +765,6 @@ app.whenReady().then(async () => {
   pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
   db = initDb(join(app.getPath("userData"), "library.db"));
 
-  // One-time heal of history rows whose stored file_path is a stale yt-dlp
-  // intermediate name. Runs before the window shows so the first history paint
-  // is correct. Guarded by a flag so it only ever runs once.
   if (!mainSettings.historyRepairedV1) {
     try {
       const result = repairHistoryPaths(db.raw);
@@ -765,19 +773,6 @@ app.whenReady().then(async () => {
       saveMainSettings(mainSettings);
     } catch (err) {
       logger.error("History path repair failed (will retry next launch):", err);
-    }
-  }
-
-  // V2: re-heal using the improved toStem/normalizeStem so non-YouTube (HLS/DASH
-  // format-id) and accented/emoji titles resolve to their real merged files.
-  if (!mainSettings.historyRepairedV2) {
-    try {
-      const result = repairHistoryPaths(db.raw);
-      logger.info("History path repair (v2) complete:", result);
-      mainSettings.historyRepairedV2 = true;
-      saveMainSettings(mainSettings);
-    } catch (err) {
-      logger.error("History path repair (v2) failed (will retry next launch):", err);
     }
   }
 
@@ -810,7 +805,6 @@ app.whenReady().then(async () => {
 
   await setupAutoUpdater();
 
-  // Register Global Media Keys
   globalShortcut.register("MediaPlayPause", () => {
     sendToRenderer("media:play-pause");
   });
