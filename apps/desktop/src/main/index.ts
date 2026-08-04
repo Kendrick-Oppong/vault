@@ -274,12 +274,16 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("fs:reveal", (_e, filePath: string) => {
-    shell.showItemInFolder(filePath);
+    const resolved = resolveActualOutputPath(filePath, undefined, { preferExisting: true });
+    shell.showItemInFolder(resolved);
   });
+
   ipcMain.handle("fs:open", async (_e, filePath: string) => {
-    const error = await shell.openPath(filePath);
+    const resolved = resolveActualOutputPath(filePath, undefined, { preferExisting: true });
+    const error = await shell.openPath(resolved);
     return error || null;
   });
+
   ipcMain.handle("fs:fileExists", async (_e, filePath: string) => fs.existsSync(filePath));
   ipcMain.handle("fs:scanDir", async (_e, dirPath: string) => {
     try {
