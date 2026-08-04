@@ -4,7 +4,7 @@ import {
   selectFormatModal,
   useModalActions
 } from "@/stores/ui/modal.selectors";
-import { UnifiedFormatModal } from "@/features/modals/unified-format-modal";
+import { UnifiedFormatModal } from "@renderer/features/modals/format-modal/components/unified-format-modal";
 import { ConfirmationDialog } from "@/features/ui/components/confirmation-dialog";
 
 export const GlobalModals = () => {
