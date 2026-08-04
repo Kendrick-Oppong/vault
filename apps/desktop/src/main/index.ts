@@ -24,6 +24,11 @@ import { notifyDownloadComplete } from "./notifications";
 import { startMediaServer, stopMediaServer, buildMediaUrl } from "./media-server";
 import { resolveActualOutputPath } from "./resolve-output";
 import { repairHistoryPaths } from "./repair-history";
+import {
+  startClipboardMonitor,
+  stopClipboardMonitor,
+  setClipboardMonitorEnabled
+} from "./clipboard-monitor";
 
 app.commandLine.appendSwitch("disable-blink-features", "AutomationControlled");
 
@@ -659,12 +664,13 @@ function registerIpcHandlers(): void {
   ipcMain.on("settings:sync", (_e, settings) => {
     if (typeof settings.minimizeToTray === "boolean")
       minimizeToTraySetting = settings.minimizeToTray;
+    if (typeof settings.clipboardDetection === "boolean")
+      setClipboardMonitorEnabled(settings.clipboardDetection);
   });
 }
 
 /* ── Auto-updater ── */
 async function setupAutoUpdater() {
-  // Skip entirely in dev — auto-updates only work in packaged builds
   if (!app.isPackaged) {
     logger.info("Dev mode — auto-updates disabled (only active in packaged builds)");
     return;
@@ -711,7 +717,6 @@ async function setupAutoUpdater() {
       sendToRenderer("update:error", { message: err.message });
     });
 
-    // Initial check 4s after launch
     setTimeout(() => {
       if (mainSettings.autoUpdateApp) {
         autoUpdater
@@ -720,7 +725,6 @@ async function setupAutoUpdater() {
       }
     }, 4000);
 
-    // Periodic check every 30 minutes
     updateCheckInterval = setInterval(() => {
       if (mainSettings.autoUpdateApp) {
         logger.debug("Running periodic update check");
@@ -788,6 +792,10 @@ app.whenReady().then(async () => {
   createWindow();
   forwardPoolEventsToRenderer();
 
+  // Start clipboard monitor after window is ready
+  startClipboardMonitor(sendToRenderer);
+  setClipboardMonitorEnabled(true);
+
   tray = new Tray(icon);
   tray.setToolTip("Vault");
   const contextMenu = Menu.buildFromTemplate([
@@ -838,4 +846,5 @@ app.on("before-quit", () => {
   if (db?.raw) db.raw.close();
   globalShortcut.unregisterAll();
   stopMediaServer();
+  stopClipboardMonitor();
 });
