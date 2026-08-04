@@ -55,6 +55,7 @@ Download videos, playlists, and audio from YouTube and 1000+ sites, entirely on 
 ### Download & Formats
 
 - **Paste or search** — drop a YouTube link _or_ search by keyword right from the URL bar
+- **Clipboard detection** — automatically detects copied media URLs and prompts you to queue them for download
 - **Videos, playlists & audio** — download single videos, whole playlists (with a configurable fetch limit), or extract audio
 - **Quick presets** — one click for **Best**, **1080p**, **720p**, **Audio MP3**, or **Audio FLAC**
 - **Manual control** — hand-pick a specific format, container (**MP4 / MKV**), audio codec, and bitrate
