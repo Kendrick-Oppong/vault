@@ -664,6 +664,12 @@ function registerIpcHandlers(): void {
 
 /* ── Auto-updater ── */
 async function setupAutoUpdater() {
+  // Skip entirely in dev — auto-updates only work in packaged builds
+  if (!app.isPackaged) {
+    logger.info("Dev mode — auto-updates disabled (only active in packaged builds)");
+    return;
+  }
+
   try {
     const { autoUpdater } = await import("electron-updater");
     autoUpdaterInstance = autoUpdater;
@@ -671,11 +677,6 @@ async function setupAutoUpdater() {
     autoUpdater.autoDownload = mainSettings.autoUpdateApp;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.allowDowngrade = false;
-
-    if (!app.isPackaged) {
-      autoUpdater.forceDevUpdateConfig = true;
-      logger.info("Dev mode — forcing update config via dev-app-update.yml");
-    }
 
     autoUpdater.on("checking-for-update", () => {
       logger.info("Checking for app updates…");
@@ -710,6 +711,7 @@ async function setupAutoUpdater() {
       sendToRenderer("update:error", { message: err.message });
     });
 
+    // Initial check 4s after launch
     setTimeout(() => {
       if (mainSettings.autoUpdateApp) {
         autoUpdater
@@ -718,6 +720,7 @@ async function setupAutoUpdater() {
       }
     }, 4000);
 
+    // Periodic check every 30 minutes
     updateCheckInterval = setInterval(() => {
       if (mainSettings.autoUpdateApp) {
         logger.debug("Running periodic update check");
@@ -727,7 +730,10 @@ async function setupAutoUpdater() {
       }
     }, UPDATE_CHECK_INTERVAL_MS);
   } catch (err) {
-    logger.warn("electron-updater not configured — skipping auto-updates", err);
+    logger.warn(
+      "electron-updater not configured — skipping auto-updates:",
+      err instanceof Error ? err.message : String(err)
+    );
   }
 }
 
