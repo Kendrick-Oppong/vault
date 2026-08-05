@@ -1,10 +1,8 @@
 /**
  * Browser cookie detection, cached export, and yt-dlp flag helpers.
- *
- *
  */
 import { app } from "electron";
-import { existsSync, statSync, unlinkSync } from "node:fs";
+import { existsSync, statSync, unlinkSync, renameSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
@@ -87,6 +85,21 @@ const LABELS: Record<string, string> = {
 /** Refresh the cached cookies file once it is older than this (7 days). */
 const COOKIES_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
+/* ── Configured-browser tracking ─────────────────────────────────────────
+ * The concrete browser cookies should be pulled from. Resolved once when the
+ * user picks/refreshes a browser, then reused for background refreshes so the
+ * download path never needs to know about the raw user setting.            */
+let configuredBrowser: string | null = null;
+
+export function setConfiguredBrowser(browserSetting: string | null): void {
+  configuredBrowser = effectiveBrowser(browserSetting);
+  logger.debug("Configured cookie browser resolved to:", configuredBrowser);
+}
+
+export function getConfiguredBrowser(): string | null {
+  return configuredBrowser;
+}
+
 /** Return the browsers actually installed on this machine, in probe order. */
 export function getInstalledBrowsers(): DetectedBrowser[] {
   logger.debug("Scanning for installed browsers on platform:", process.platform);
@@ -130,7 +143,7 @@ function effectiveBrowser(browserSetting: string | null): string | null {
   return browserSetting;
 }
 
-/**friendly label for a yt-dlp browser id, e.g. 'chrome' → 'Google Chrome'. */
+/** Friendly label for a yt-dlp browser id, e.g. 'chrome' → 'Google Chrome'. */
 export function browserLabel(name: string | null): string | null {
   if (!name) return null;
   return LABELS[name] ?? name;
@@ -154,7 +167,13 @@ let exportInFlight: Promise<boolean> | null = null;
 const EXPORT_COOLDOWN_MS = 60_000;
 let lastExportAttempt = 0;
 
-/** Export cookies from a browser into the cached cookies file. */
+/**
+ * Export cookies from a browser into the cached cookies file.
+ *
+ * ATOMIC: writes to a temp file first and only renames onto the live file once
+ * a non-empty result is confirmed. A failed export NEVER destroys a previously
+ * working cookies file.
+ */
 async function exportCookies(
   browser: string,
   ytdlpPath: string,
@@ -163,18 +182,19 @@ async function exportCookies(
   if (exportInFlight) return exportInFlight;
 
   logger.info("Exporting cookies from browser:", browser);
-  const file = cookiesFilePath();
+  const finalPath = cookiesFilePath();
+  const tmpPath = `${finalPath}.tmp`;
   const ext = process.platform === "win32" ? ".exe" : "";
   const ytdlpBinary = ytdlpPath.endsWith(ext) ? ytdlpPath : `${ytdlpPath}${ext}`;
 
   exportInFlight = execFileAsync(
     ytdlpBinary,
     [
-      "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+      "https://www.youtube.com/watch?v=jNQXAC9IVRw", // positional URL argument to run
       "--cookies-from-browser",
       browser,
       "--cookies",
-      file,
+      tmpPath, // ← write to temp, not the live file
       "--skip-download",
       "--no-warnings",
       "--no-check-certificates",
@@ -184,14 +204,30 @@ async function exportCookies(
     { timeout: 30000 }
   )
     .then(() => {
-      logger.info("Exported cookies from", browser);
-      return true;
+      if (existsSync(tmpPath) && statSync(tmpPath).size > 0) {
+        renameSync(tmpPath, finalPath); // atomic swap
+        logger.info("Exported cookies from", browser);
+        return true;
+      }
+      logger.warn("Cookie export produced an empty file");
+      try {
+        unlinkSync(tmpPath);
+      } catch {
+        /* ignore */
+      }
+      return false;
     })
     .catch((err: unknown) => {
       // yt-dlp sometimes writes a usable file even while reporting a warning.
-      if (existsSync(file) && statSync(file).size > 0) {
+      if (existsSync(tmpPath) && statSync(tmpPath).size > 0) {
+        renameSync(tmpPath, finalPath);
         logger.info("Cookie export succeeded despite error");
         return true;
+      }
+      try {
+        unlinkSync(tmpPath);
+      } catch {
+        /* ignore */
       }
       logger.warn("Cookie export failed:", err instanceof Error ? err.message : String(err));
       return false;
@@ -206,8 +242,7 @@ async function exportCookies(
 /** Kick a background refresh without blocking the caller. */
 function refreshInBackground(browser: string, ytdlpPath: string, ffmpegPath: string): void {
   // Throttle: a locked browser makes the export fail, and without a cooldown
-  // every cookie-free download would re-trigger a doomed attempt. Wait before
-  // retrying so we don't spam yt-dlp processes or the log.
+  // every cookie-free download would re-trigger a doomed attempt.
   if (Date.now() - lastExportAttempt < EXPORT_COOLDOWN_MS) {
     logger.debug("Cookie export cooldown active, skipping refresh");
     return;
@@ -219,8 +254,8 @@ function refreshInBackground(browser: string, ytdlpPath: string, ffmpegPath: str
 
 /**
  * Whether a yt-dlp failure indicates the content actually requires an
- * authenticated session (private, age-restricted, members-only) or that YouTube
- * is rate-limiting/bot-flagging this client.
+ * authenticated session (private, age-restricted, members-only) or that the
+ * site is rate-limiting/bot-flagging this client.
  */
 export function isAuthRequiredError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
@@ -243,20 +278,33 @@ export function cookiesEnabled(browserSetting: string | null): boolean {
   return effectiveBrowser(browserSetting) != null;
 }
 
-export function cookieArgs(
-  browserSetting: string | null,
-  ytdlpPath: string,
-  ffmpegPath: string
-): string[] {
-  const browser = effectiveBrowser(browserSetting);
-  if (!browser) return [];
+/**
+ * Main entry point for the download/probe path.
+ *
+ * Returns the cookies file path when usable, and triggers a background refresh
+ * when the cache is missing or stale. Never blocks the caller.
+ */
+export function ensureFreshCookies(ytdlpPath: string, ffmpegPath: string): string | null {
+  const path = cookiesFilePath();
+  const browser = getConfiguredBrowser();
   const age = cacheAgeMs();
+
+  // No browser configured → only use cookies if a file already exists.
+  if (!browser) {
+    return existsSync(path) ? path : null;
+  }
+
+  // Browser configured but no cache yet → start an export; nothing usable now.
   if (age == null) {
     refreshInBackground(browser, ytdlpPath, ffmpegPath);
-    return [];
+    return null;
   }
-  if (age > COOKIES_MAX_AGE_MS) refreshInBackground(browser, ytdlpPath, ffmpegPath);
-  return ["--cookies", cookiesFilePath()];
+
+  // Stale → refresh in the background, but keep using the existing file for now.
+  if (age > COOKIES_MAX_AGE_MS) {
+    refreshInBackground(browser, ytdlpPath, ffmpegPath);
+  }
+  return path;
 }
 
 /** Current cookie cache state for the Settings UI. */
@@ -273,7 +321,10 @@ export function getCookieInfo(browserSetting: string | null): CookieInfo {
   };
 }
 
-/** Force a fresh export from the effective browser. */
+/**
+ * Force a fresh export from the effective browser.
+ * Atomic: a failed export keeps the previous cookies intact.
+ */
 export async function refreshCookies(
   browserSetting: string | null,
   ytdlpPath: string,
@@ -281,12 +332,10 @@ export async function refreshCookies(
 ): Promise<CookieInfo> {
   const browser = effectiveBrowser(browserSetting);
   if (browser) {
-    try {
-      unlinkSync(cookiesFilePath());
-    } catch {
-      // no cache yet
-    }
+    setConfiguredBrowser(browserSetting); // future background refreshes
     await exportCookies(browser, ytdlpPath, ffmpegPath);
+  } else {
+    setConfiguredBrowser(null);
   }
   return getCookieInfo(browserSetting);
 }
