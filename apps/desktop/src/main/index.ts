@@ -317,6 +317,14 @@ function registerIpcHandlers(): void {
     return exists;
   });
 
+  ipcMain.handle("fs:readFile", async (_e, filePath: string) => {
+    try {
+      return fs.readFileSync(filePath, "utf-8");
+    } catch {
+      return null;
+    }
+  });
+
   ipcMain.handle("fs:scanDir", async (_e, dirPath: string) => {
     try {
       if (!fs.existsSync(dirPath)) return [];
