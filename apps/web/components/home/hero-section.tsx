@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { Button } from "@vault/ui/components/button";
 import { Download, Github } from "lucide-react";
+import { VERSION } from "./download-section";
 
 const STATS = [
   { value: "1000+", label: "Sites supported" },
@@ -52,7 +53,7 @@ export function HeroSection() {
               transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
             />
             <span className="font-mono font-medium text-primary text-sm tracking-wide">
-              v0.1.0 · now available
+              v{VERSION} · now available
             </span>
           </motion.div>
 
