@@ -1,3 +1,5 @@
+import type { HistoryFilters } from "@/features/history/types";
+
 export const QueryKeys = {
   formats: {
     probe: (url: string) => ["formats", "probe", url] as const
@@ -5,7 +7,8 @@ export const QueryKeys = {
   history: {
     base: () => ["history"] as const,
     all: (limit?: number, offset?: number) => ["history", { limit, offset }] as const,
-    infinite: (limit: number) => ["history", "infinite", { limit }] as const
+    infinite: (limit: number, filters?: HistoryFilters) =>
+      ["history", "infinite", { limit, ...(filters || {}) }] as const
   },
   jobs: {
     active: () => ["jobs", "active"] as const,
