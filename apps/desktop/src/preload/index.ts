@@ -6,6 +6,12 @@ declare global {
   var api: VaultApi;
 }
 
+interface HistoryFilters {
+  search?: string;
+  sortBy?: "title" | "date" | "size";
+  sortOrder?: "asc" | "desc";
+}
+
 const vaultApi = {
   // --- Invoke methods ---
   probeFormats: (url: string, playlistLimit?: number): Promise<Record<string, unknown>[]> =>
@@ -36,8 +42,11 @@ const vaultApi = {
 
   setConcurrency: (n: number): Promise<boolean> => ipcRenderer.invoke("queue:setConcurrency", n),
 
-  getHistory: (limit?: number, offset?: number): Promise<HistoryEntry[]> =>
-    ipcRenderer.invoke("history:list", limit, offset),
+  getHistory: (
+    limit?: number,
+    offset?: number,
+    filters?: HistoryFilters
+  ): Promise<HistoryEntry[]> => ipcRenderer.invoke("history:list", limit, offset, filters),
 
   deleteHistory: (jobId: string): Promise<boolean> => ipcRenderer.invoke("history:delete", jobId),
 
