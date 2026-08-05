@@ -44,6 +44,8 @@ Download videos, playlists, and audio from YouTube and 1000+ sites, entirely on 
       <a href="screenshots/player-miniscreen.png"><img src="screenshots/player-miniscreen.png" alt="Mini-player overlay"></a>
       <br/>
       <sub><b>Mini Player</b> — picture-in-picture player overlay for multitasking</sub>
+    </td>
+  </tr>
   <tr>
     <td align="center" width="50%" colspan="2">
       <a href="screenshots/bulk-import.png"><img src="screenshots/bulk-import.png" alt="Batch import modal"></a>
