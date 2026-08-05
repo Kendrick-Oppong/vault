@@ -15,7 +15,7 @@ interface Platform {
   href?: string;
 }
 
-const VERSION = "0.1.4";
+const VERSION = "0.1.5";
 const RELEASE_TAG = `v${VERSION}`;
 
 const PLATFORMS: Platform[] = [
