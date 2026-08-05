@@ -12,16 +12,9 @@ interface Stage {
   detail: string;
   title: string;
   tag: string;
-  x: number;
-  y: number;
 }
 
-// ─── Layout ────────────────────────────────────────────────────────────────────
-
-const CARD_W = 200;
-const CARD_H = 124;
-const CANVAS_W = 960;
-const CANVAS_H = 250;
+// ─── Data ──────────────────────────────────────────────────────────────────────
 
 const STAGES: Stage[] = [
   {
@@ -29,162 +22,111 @@ const STAGES: Stage[] = [
     index: "01",
     detail: "Paste a link or search — clipboard URLs are detected automatically.",
     title: "Paste or Search",
-    tag: "source",
-    x: 15,
-    y: 70
+    tag: "source"
   },
   {
     icon: SlidersHorizontal,
     index: "02",
     detail: "One-click presets, or fine-tune container, codec, and bitrate.",
     title: "Choose Format",
-    tag: "config",
-    x: 260,
-    y: 15
+    tag: "config"
   },
   {
     icon: Cpu,
     index: "03",
     detail: "Downloads run concurrently while metadata, subs, and SponsorBlock apply.",
     title: "Queue & Process",
-    tag: "live progress",
-    x: 505,
-    y: 70
+    tag: "live progress"
   },
   {
     icon: FolderCheck,
     index: "04",
     detail: "Lands in your library, ready to stream in the built-in player.",
     title: "Save & Play",
-    tag: "output",
-    x: 750,
-    y: 15
+    tag: "output"
   }
 ];
 
-function rightCenter(s: Stage) {
-  return { x: s.x + CARD_W, y: s.y + CARD_H / 2 };
-}
-function leftCenter(s: Stage) {
-  return { x: s.x, y: s.y + CARD_H / 2 };
-}
-function buildArrow(from: { x: number; y: number }, to: { x: number; y: number }) {
-  const dx = (to.x - from.x) / 2;
-  return `M ${from.x} ${from.y} C ${from.x + dx} ${from.y}, ${to.x - dx} ${to.y}, ${to.x} ${to.y}`;
-}
+// ─── Node (circle on the spine) ────────────────────────────────────────────────
 
-const EDGES = STAGES.slice(0, -1).map((s, i) =>
-  buildArrow(rightCenter(s), leftCenter(STAGES[i + 1] as Stage))
-);
-
-// ─── Stage card ───────────────────────────────────────────────────────────────
-
-function StageCard({ stage, index }: Readonly<{ stage: Stage; index: number }>) {
+function StageNode({ stage }: Readonly<{ stage: Stage }>) {
   const Icon = stage.icon;
-
   return (
-    <motion.div
-      className="absolute flex flex-col overflow-hidden rounded-2xl border border-border bg-card/70 px-4 pt-3.5 pb-3 backdrop-blur-sm transition-colors hover:border-primary/30"
-      initial={{ opacity: 0, y: 12 }}
-      style={{ left: stage.x, top: stage.y, width: CARD_W, height: CARD_H }}
-      transition={{ delay: index * 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      viewport={{ once: true, margin: "-60px" }}
-      whileInView={{ opacity: 1, y: 0 }}
-    >
-      <div className="flex items-start justify-between">
-        <span className="flex size-9 items-center justify-center rounded-xl border border-primary/25 bg-primary/8">
-          <Icon className="size-4 text-primary" strokeWidth={1.75} />
-        </span>
-        <div className="flex flex-col items-end gap-1">
-          <span className="font-mono text-[9px] text-muted-foreground/60 tracking-widest">
-            {stage.index}
-          </span>
-          <span className="font-mono text-[9px] text-primary/60">{stage.tag}</span>
-        </div>
-      </div>
-
-      <h3 className="mt-2.5 font-semibold text-[13.5px] text-foreground leading-tight">
-        {stage.title}
-      </h3>
-      <p className="mt-1 text-[11px] text-muted-foreground leading-snug">{stage.detail}</p>
-
-      <div className="mt-auto h-px w-full bg-gradient-to-r from-primary/40 via-primary/10 to-transparent" />
-    </motion.div>
+    <span className="relative flex size-11 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-background shadow-sm">
+      <span className="absolute inset-0 rounded-full bg-primary/8" />
+      <Icon className="relative size-4.5 text-primary" strokeWidth={1.75} />
+    </span>
   );
 }
 
-// ─── Canvas ───────────────────────────────────────────────────────────────────
+// ─── Card ──────────────────────────────────────────────────────────────────────
 
-function FlowCanvas() {
+function StageCard({ stage, align }: Readonly<{ stage: Stage; align: "left" | "right" }>) {
   return (
-    <div className="w-full overflow-x-auto">
-      <div className="flex justify-center px-4 py-8">
-        <div
-          className="relative shrink-0 rounded-xl"
-          style={{
-            width: CANVAS_W,
-            height: CANVAS_H,
-            backgroundImage:
-              "radial-gradient(color-mix(in srgb, var(--color-border) 55%, transparent) 1px, transparent 1px)",
-            backgroundSize: "18px 18px"
-          }}
-        >
-          <svg
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-            focusable="false"
-            viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}
-          >
-            <defs>
-              <marker
-                id="flowArrow"
-                markerHeight="7"
-                markerWidth="7"
-                orient="auto-start-reverse"
-                refX="7"
-                refY="4"
-                viewBox="0 0 8 8"
-              >
-                <path className="fill-primary/70" d="M0,0 L8,4 L0,8 Z" />
-              </marker>
-            </defs>
+    <div
+      className={`flex flex-col overflow-hidden rounded-2xl border border-border bg-card/70 p-5 backdrop-blur-sm transition-colors hover:border-primary/30 ${
+        align === "right" ? "md:text-right" : ""
+      }`}
+    >
+      <div className={`flex items-center gap-2 ${align === "right" ? "md:flex-row-reverse" : ""}`}>
+        <span className="font-mono text-[9px] text-muted-foreground/60 tracking-widest">
+          {stage.index}
+        </span>
+        <span className="h-px flex-1 bg-border" />
+        <span className="font-mono text-[9px] text-primary/60">{stage.tag}</span>
+      </div>
+      <h3 className="mt-3 font-semibold text-foreground text-base">{stage.title}</h3>
+      <p className="mt-1.5 text-[13px] text-muted-foreground leading-relaxed">{stage.detail}</p>
+    </div>
+  );
+}
 
-            {EDGES.map((d, i) => (
-              <g key={`edge-${i}`}>
-                <path
-                  className="stroke-border"
-                  d={d}
-                  fill="none"
-                  strokeDasharray="4 4"
-                  strokeWidth="1.25"
-                />
-                <path
-                  className="stroke-primary/60"
-                  d={d}
-                  fill="none"
-                  markerEnd="url(#flowArrow)"
-                  strokeWidth="1.25"
-                />
-                <motion.circle
-                  animate={{ offsetDistance: ["0%", "100%"] }}
-                  className="fill-primary"
-                  r="3"
-                  style={{ offsetPath: `path("${d}")` }}
-                  transition={{
-                    duration: 2.2,
-                    ease: "linear",
-                    repeat: Number.POSITIVE_INFINITY,
-                    delay: i * 0.5
-                  }}
-                />
-              </g>
-            ))}
-          </svg>
+// ─── Timeline ──────────────────────────────────────────────────────────────────
 
-          {STAGES.map((stage, i) => (
-            <StageCard index={i} key={stage.index} stage={stage} />
-          ))}
-        </div>
+function FlowTimeline() {
+  return (
+    <div className="relative py-4">
+      {/* Spine */}
+      <div className="absolute top-0 bottom-0 left-6 w-px bg-border md:left-1/2" />
+
+      {/* Traveling pulse along the spine */}
+      <motion.div
+        animate={{ top: ["2%", "98%"] }}
+        className="-translate-x-1/2 absolute left-6 size-2 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)] md:left-1/2"
+        transition={{ duration: 5, ease: "linear", repeat: Number.POSITIVE_INFINITY }}
+      />
+
+      <div className="flex flex-col gap-10 md:gap-6">
+        {STAGES.map((stage, i) => {
+          const align = i % 2 === 0 ? "left" : "right";
+          return (
+            <motion.div
+              className={`relative flex items-start gap-5 md:items-center ${
+                align === "right" ? "md:flex-row-reverse" : ""
+              }`}
+              initial={{ opacity: 0, y: 24 }}
+              key={stage.index}
+              transition={{ duration: 0.5, delay: i * 0.12, ease: [0.16, 1, 0.3, 1] }}
+              viewport={{ once: true, margin: "-60px" }}
+              whileInView={{ opacity: 1, y: 0 }}
+            >
+              {/* Node — pinned to spine */}
+              <div className="z-10 md:absolute md:left-1/2 md:-translate-x-1/2">
+                <StageNode stage={stage} />
+              </div>
+
+              {/* Card */}
+              <div className="min-w-0 flex-1 pl-1 md:w-1/2 md:flex-none md:pl-0">
+                <div className={align === "right" ? "md:pl-10" : "md:pr-10"}>
+                  <StageCard align={align} stage={stage} />
+                </div>
+              </div>
+
+              {/* Spacer for the opposite column on desktop */}
+              <div className="hidden md:block md:w-1/2" />
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );
@@ -213,8 +155,8 @@ export function FlowDiagram() {
           </p>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-border bg-card/60 shadow-lg backdrop-blur-sm">
-          <FlowCanvas />
+        <div className="mx-auto max-w-3xl">
+          <FlowTimeline />
         </div>
 
         <motion.div
