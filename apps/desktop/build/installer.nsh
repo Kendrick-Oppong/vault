@@ -2,25 +2,12 @@
 ; This script adds cleanup of user data on uninstall
 
 !macro customUnInstall
-  ; Clean up binaries directory
-  Delete "$APPDATA\Vault\bin\*.*"
-  RMDir "$APPDATA\Vault\bin"
+  ; Recursively remove the entire AppData folder for Vault
+  ; This ensures all databases, binaries, logs, and Electron storage (Cache, Local Storage, etc.) are completely wiped.
+  RMDir /r "$APPDATA\Vault"
 
-  ; Clean up database files
-  Delete "$APPDATA\Vault\*.db"
-  Delete "$APPDATA\Vault\*.db-shm"
-  Delete "$APPDATA\Vault\*.db-wal"
-
-  ; Clean up log files
-  Delete "$APPDATA\Vault\*.log"
-
-  ; Clean up any remaining files
-  Delete "$APPDATA\Vault\*.*"
-
-  ; Remove directory if empty
-  RMDir "$APPDATA\Vault"
-
-  ; Clean up cache directory
-  Delete "$LOCALAPPDATA\Vault-cache\*.*"
-  RMDir "$LOCALAPPDATA\Vault-cache"
+  ; Clean up Local AppData caches and electron-updater artifacts
+  RMDir /r "$LOCALAPPDATA\Vault"
+  RMDir /r "$LOCALAPPDATA\Vault-updater"
+  RMDir /r "$LOCALAPPDATA\vault-updater"
 !macroend
