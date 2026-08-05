@@ -8,6 +8,7 @@ import { CommandMenu } from "@/features/ui/components/command-menu";
 import { UrlInputHandler } from "./url-input-handler";
 import { SearchResultsDisplay } from "./search-results-display";
 import { BatchImportModal } from "./batch-import-modal";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@vault/ui/components/tooltip";
 
 export const QueueInput = () => {
   const [commandOpen, setCommandOpen] = useState(false);
@@ -47,15 +48,24 @@ export const QueueInput = () => {
         />
 
         {/* Batch import trigger */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-10 w-10 shrink-0"
-          onClick={() => setBatchOpen(true)}
-          title="Batch import links"
-        >
-          <ListPlus className="h-4 w-4" />
-        </Button>
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0"
+                onClick={() => setBatchOpen(true)}
+              >
+                <ListPlus className="h-4 w-4" />
+              </Button>
+            }
+          />
+          <TooltipContent side="bottom" sideOffset={8}>
+            Batch import
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Search results */}
