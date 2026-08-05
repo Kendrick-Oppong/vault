@@ -8,7 +8,7 @@ import icon from "../../resources/icon.png?asset";
 import { createYtDlpManager, type YtDlpManager } from "./ytdlp-manager";
 import { probePlaylistPage } from "./ytdlp-manager";
 import { createWorkerPool, type WorkerPool } from "./worker-pool";
-import { initDb, type VaultDb } from "./db";
+import { type HistoryFilters, initDb, type VaultDb } from "./db";
 import { JobInput } from "@vault/types";
 import { validateMediaUrl, validateOutputTemplate, validateFormatSelector } from "./validators";
 import {
@@ -280,8 +280,8 @@ function registerIpcHandlers(): void {
     return true;
   });
 
-  ipcMain.handle("history:list", (_e, limit?: number, offset?: number) =>
-    db.listHistory(limit, offset)
+  ipcMain.handle("history:list", (_e, limit?: number, offset?: number, filters?: HistoryFilters) =>
+    db.listHistory(limit, offset, filters)
   );
   ipcMain.handle("history:delete", (_e, jobId: string) => {
     db.deleteHistory(jobId);
