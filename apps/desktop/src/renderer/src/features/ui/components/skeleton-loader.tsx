@@ -1,5 +1,5 @@
 export interface SkeletonLoaderProps {
-  type: "format-modal-header" | "format-modal" | "queue";
+  type: "format-modal-header" | "format-modal" | "queue" | "history";
 }
 
 export const SkeletonLoader = ({ type }: SkeletonLoaderProps) => {
@@ -97,6 +97,35 @@ export const SkeletonLoader = ({ type }: SkeletonLoaderProps) => {
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (type === "history") {
+    return (
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div
+            key={`history-skeleton-${i.toString()}`}
+            className="rounded-xl overflow-hidden border border-border bg-card animate-pulse"
+          >
+            {/* Thumbnail Skeleton */}
+            <div className="relative aspect-video bg-secondary">
+              {/* Type icon placeholder */}
+              <div className="absolute top-1.5 left-1.5 w-4 h-4 bg-background/20 rounded-sm" />
+            </div>
+
+            {/* Content Skeleton */}
+            <div className="p-3 space-y-2.5">
+              <div className="h-3.5 w-11/12 bg-secondary rounded" />
+              <div className="h-3 w-2/3 bg-secondary rounded" />
+              <div className="flex items-center justify-between pt-1">
+                <div className="h-2.5 w-16 bg-secondary rounded" />
+                <div className="h-2.5 w-10 bg-secondary rounded" />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
