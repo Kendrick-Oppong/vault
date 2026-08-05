@@ -2,9 +2,7 @@
 
 import { motion } from "motion/react";
 import { Reveal } from "../shared/reveal";
-import { Zap, ShieldCheck, Globe, Layers, Cpu, Play } from "lucide-react";
-
-// ─── Types ───────────────────────────────────────────────────────────────────
+import { Zap, ShieldCheck, Globe, Cpu, Play, History, ListChecks } from "lucide-react";
 
 interface Feature {
   icon: typeof Zap;
@@ -13,7 +11,6 @@ interface Feature {
   tag: string;
   span: string;
 }
-
 
 const FEATURES: Feature[] = [
   {
@@ -25,9 +22,32 @@ const FEATURES: Feature[] = [
     span: "lg:col-span-2 lg:row-span-2"
   },
   {
+    icon: Play,
+    title: "Built-in Media Player",
+    description:
+      "Watch and listen to your downloads without leaving the app, with a mini-player overlay for multitasking.",
+    tag: "instant playback",
+    span: "lg:col-span-2"
+  },
+  {
+    icon: ListChecks,
+    title: "Live Queue",
+    description: "Concurrent downloads with pause, resume, retry, real-time speed and ETA.",
+    tag: "live progress",
+    span: "lg:col-span-1"
+  },
+  {
+    icon: History,
+    title: "Searchable History",
+    description: "SQLite-backed history with filters, missing-file detection skip-on-repeat.",
+    tag: "zero re-downloads",
+    span: "lg:col-span-1"
+  },
+  {
     icon: Cpu,
     title: "FFmpeg Processing",
-    description: "Format conversion, metadata embedding, and subtitle extraction, built in.",
+    description:
+      "Format conversion, metadata embedding, subtitle extraction, and SponsorBlock, built in.",
     tag: "all-in-one",
     span: "lg:col-span-2"
   },
@@ -44,20 +64,6 @@ const FEATURES: Feature[] = [
     description: "No telemetry, no account. Everything stays on your machine.",
     tag: "zero tracking",
     span: "lg:col-span-1"
-  },
-  {
-    icon: Play,
-    title: "Playlist Support",
-    description: "Queue entire playlists with configurable batch limits.",
-    tag: "batch downloads",
-    span: "lg:col-span-2"
-  },
-  {
-    icon: Layers,
-    title: "Modern Experience",
-    description: "Dark mode, keyboard shortcuts, and library organization out of the box.",
-    tag: "beautiful UI",
-    span: "lg:col-span-2"
   }
 ];
 
@@ -95,7 +101,6 @@ function SiteMarquee() {
     </div>
   );
 }
-
 
 function FeatureCard({ feature, index }: Readonly<{ feature: Feature; index: number }>) {
   const Icon = feature.icon;
@@ -146,7 +151,6 @@ function FeatureCard({ feature, index }: Readonly<{ feature: Feature; index: num
     </motion.div>
   );
 }
-
 
 export function FeaturesBento() {
   return (

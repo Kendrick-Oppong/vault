@@ -9,7 +9,7 @@ import { Link2, SlidersHorizontal, Cpu, FolderCheck, Download } from "lucide-rea
 interface Stage {
   icon: typeof Link2;
   index: string;
-  command: string;
+  detail: string;
   title: string;
   tag: string;
   x: number;
@@ -27,8 +27,8 @@ const STAGES: Stage[] = [
   {
     icon: Link2,
     index: "01",
-    command: "vault fetch <url>",
-    title: "Paste URL",
+    detail: "Paste a link or search — clipboard URLs are detected automatically.",
+    title: "Paste or Search",
     tag: "source",
     x: 15,
     y: 70
@@ -36,7 +36,7 @@ const STAGES: Stage[] = [
   {
     icon: SlidersHorizontal,
     index: "02",
-    command: "vault --format mp4",
+    detail: "One-click presets, or fine-tune container, codec, and bitrate.",
     title: "Choose Format",
     tag: "config",
     x: 260,
@@ -45,17 +45,17 @@ const STAGES: Stage[] = [
   {
     icon: Cpu,
     index: "03",
-    command: "vault run",
-    title: "Process",
-    tag: "encode",
+    detail: "Downloads run concurrently while metadata, subs, and SponsorBlock apply.",
+    title: "Queue & Process",
+    tag: "live progress",
     x: 505,
     y: 70
   },
   {
     icon: FolderCheck,
     index: "04",
-    command: "vault save",
-    title: "Save",
+    detail: "Lands in your library, ready to stream in the built-in player.",
+    title: "Save & Play",
     tag: "output",
     x: 750,
     y: 15
@@ -106,10 +106,7 @@ function StageCard({ stage, index }: Readonly<{ stage: Stage; index: number }>) 
       <h3 className="mt-2.5 font-semibold text-[13.5px] text-foreground leading-tight">
         {stage.title}
       </h3>
-      <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">
-        <span className="text-muted-foreground/50">$ </span>
-        {stage.command}
-      </p>
+      <p className="mt-1 text-[11px] text-muted-foreground leading-snug">{stage.detail}</p>
 
       <div className="mt-auto h-px w-full bg-gradient-to-r from-primary/40 via-primary/10 to-transparent" />
     </motion.div>
@@ -212,7 +209,7 @@ export function FlowDiagram() {
             </span>
           </h2>
           <p className="mx-auto max-w-2xl text-muted-foreground text-xl">
-            No config screens, no command line to learn. Vault runs the pipeline for you.
+            No command line to learn. Vault runs the pipeline for you.
           </p>
         </div>
 
