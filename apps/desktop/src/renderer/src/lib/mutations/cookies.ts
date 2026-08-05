@@ -5,6 +5,8 @@ import { QueryKeys } from "@/lib/constants/query-keys";
 import { formatError } from "@/lib/utils/format-error";
 import { useSettingsActions } from "@/stores/settings/settings.selectors";
 
+import { useSettingsStore } from "@/stores/settings/settings.store";
+
 export const useSetCookieBrowser = () => {
   const queryClient = useQueryClient();
   const { updateSetting } = useSettingsActions();
@@ -12,12 +14,12 @@ export const useSetCookieBrowser = () => {
   return useMutation({
     mutationFn: (browser: string) => cookiesApi.setBrowser(browser),
     onMutate: async (browser: string) => {
+      const prev = useSettingsStore.getState().settings.cookiesFromBrowser;
       updateSetting("cookiesFromBrowser", browser.length > 0 ? browser : null);
+      return { prev };
     },
     onSuccess: (cookieInfo) => {
-      // Invalidate and refetch cookie info
       queryClient.setQueryData(QueryKeys.cookies.info(cookieInfo.browser || null), cookieInfo);
-
       if (cookieInfo.cached) {
         toast.success("Cookies exported successfully!");
       } else if (cookieInfo.effectiveBrowser) {
@@ -26,12 +28,15 @@ export const useSetCookieBrowser = () => {
         });
       }
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _browser, context) => {
+      // Roll back the optimistic setting update
+      if (context?.prev !== undefined) {
+        updateSetting("cookiesFromBrowser", context.prev);
+      }
       toast.error("Failed to set browser", { description: formatError(error) });
     }
   });
 };
-
 export const useRefreshCookies = () => {
   const queryClient = useQueryClient();
 
