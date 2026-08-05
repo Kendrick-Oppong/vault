@@ -16,6 +16,7 @@ import { presetToFormatSelector } from "@vault/types";
 import { FileOverwriteDialog } from "./file-overwrite-dialog";
 import { useFileExistenceCheck } from "../hooks/use-file-existence-check";
 import { useSearchActions } from "@/stores/search/search.selectors";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@vault/ui/components/tooltip";
 
 interface UrlInputHandlerProps {
   inputValue: string;
@@ -237,15 +238,24 @@ export const UrlInputHandler = ({
             <X className="w-3.5 h-3.5" />
           </Button>
         ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setCommandOpen(true)}
-            className="flex items-center p-1 h-5 bg-foreground/10 rounded-sm gap-0 hover:text-foreground"
-          >
-            <Kbd className="bg-transparent">{getModifierKey()}</Kbd>
-            <Kbd className="bg-transparent">K</Kbd>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setCommandOpen(true)}
+                  className="flex items-center p-1 h-5 bg-foreground/10 rounded-sm gap-0 hover:text-foreground"
+                >
+                  <Kbd className="bg-transparent">{getModifierKey()}</Kbd>
+                  <Kbd className="bg-transparent">K</Kbd>
+                </Button>
+              }
+            />
+            <TooltipContent side="bottom" sideOffset={8}>
+              Command Menu
+            </TooltipContent>
+          </Tooltip>
         )}
         {isUrl(inputValue.trim()) && (
           <Button
