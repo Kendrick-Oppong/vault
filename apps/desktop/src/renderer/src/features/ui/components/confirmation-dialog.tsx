@@ -73,7 +73,7 @@ export const ConfirmationDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md! rounded-2xl border-border p-0 overflow-hidden">
         {/* Header with icon */}
-        <DialogHeader className="flex flex-row items-start gap-4 p-6 pb-0">
+        <DialogHeader className="flex flex-row items-start gap-4 p-6 pb-4">
           <div
             className={cn(
               "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
@@ -84,10 +84,11 @@ export const ConfirmationDialog = ({
               {icon || config.icon}
             </div>
           </div>
-          <div className="flex-1 space-y-1.5">
+          <div className="flex-1 min-w-0 space-y-1.5">
+            {" "}
             <DialogTitle className="text-base font-semibold tracking-tight">{title}</DialogTitle>
             {description && (
-              <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              <DialogDescription className="text-sm text-muted-foreground leading-relaxed break-words">
                 {description}
               </DialogDescription>
             )}
@@ -95,7 +96,7 @@ export const ConfirmationDialog = ({
           </div>
         </DialogHeader>
 
-        {/* Footer with top border */}
+        {/* Footer */}
         <DialogFooter className="flex flex-row items-center justify-end m-0 p-3 gap-2 border-t border-border px-6">
           <Button
             variant="ghost"
