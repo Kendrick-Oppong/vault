@@ -44,6 +44,11 @@ Download videos, playlists, and audio from YouTube and 1000+ sites, entirely on 
       <a href="screenshots/player-miniscreen.png"><img src="screenshots/player-miniscreen.png" alt="Mini-player overlay"></a>
       <br/>
       <sub><b>Mini Player</b> — picture-in-picture player overlay for multitasking</sub>
+  <tr>
+    <td align="center" width="50%" colspan="2">
+      <a href="screenshots/bulk-import.png"><img src="screenshots/bulk-import.png" alt="Batch import modal"></a>
+      <br/>
+      <sub><b>Batch Import</b> — queue multiple links at once from text or files</sub>
     </td>
   </tr>
 </table>
@@ -56,6 +61,7 @@ Download videos, playlists, and audio from YouTube and 1000+ sites, entirely on 
 
 - **Paste or search** — drop a YouTube link _or_ search by keyword right from the URL bar
 - **Clipboard detection** — automatically detects copied media URLs and prompts you to queue them for download
+- **Batch import** — paste a list of URLs or import a `.txt` file to queue multiple downloads at once
 - **Videos, playlists & audio** — download single videos, whole playlists (with a configurable fetch limit), or extract audio
 - **Quick presets** — one click for **Best**, **1080p**, **720p**, **Audio MP3**, or **Audio FLAC**
 - **Manual control** — hand-pick a specific format, container (**MP4 / MKV**), audio codec, and bitrate
