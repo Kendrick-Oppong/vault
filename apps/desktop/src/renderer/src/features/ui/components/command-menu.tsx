@@ -315,22 +315,22 @@ export const CommandMenu = ({ open, onOpenChange }: CommandMenuProps) => {
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
-              <Kbd>↑</Kbd>
-              <Kbd>↓</Kbd>
+              <Kbd className="bg-primary/20 font-bold">↑</Kbd>
+              <Kbd className="bg-primary/20 font-bold">↓</Kbd>
               <span className="mx-1">Navigate</span>
             </div>
             <div className="flex items-center gap-1">
-              <Kbd>Enter</Kbd>
+              <Kbd className="bg-primary/20 font-bold">Enter</Kbd>
               <span>Select</span>
             </div>
             <div className="flex items-center gap-1">
-              <Kbd>ESC</Kbd>
+              <Kbd className="bg-primary/20 font-bold">ESC</Kbd>
               <span>Close</span>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Kbd>{getModifierKey()}</Kbd>
-            <Kbd>K</Kbd>
+            <Kbd className="bg-primary/20 font-bold">{getModifierKey()}</Kbd>
+            <Kbd className="bg-primary/20 font-bold">K</Kbd>
             <span className="ml-1">Open</span>
           </div>
         </div>
