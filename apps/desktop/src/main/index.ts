@@ -714,7 +714,10 @@ async function setupAutoUpdater() {
   }
 
   try {
-    const { autoUpdater } = await import("electron-updater");
+    const updaterModule = await import("electron-updater");
+    const autoUpdater = updaterModule.autoUpdater || updaterModule.default?.autoUpdater;
+    if (!autoUpdater) throw new Error("Failed to load autoUpdater");
+
     autoUpdaterInstance = autoUpdater;
 
     autoUpdater.autoDownload = mainSettings.autoUpdateApp;
