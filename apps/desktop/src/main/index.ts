@@ -50,6 +50,7 @@ interface MainSettings {
   notifications: boolean;
   historyRepairedV1: boolean;
   clipboardDetection: boolean;
+  cookiesBrowser: string;
 }
 
 const mainSettingsPath = join(app.getPath("userData"), "main-settings.json");
@@ -64,7 +65,8 @@ function loadMainSettings(): MainSettings {
         historyRepairedV1:
           typeof data.historyRepairedV1 === "boolean" ? data.historyRepairedV1 : false,
         clipboardDetection:
-          typeof data.clipboardDetection === "boolean" ? data.clipboardDetection : true
+          typeof data.clipboardDetection === "boolean" ? data.clipboardDetection : true,
+        cookiesBrowser: typeof data.cookiesBrowser === "string" ? data.cookiesBrowser : ""
       };
     }
   } catch {
@@ -74,7 +76,8 @@ function loadMainSettings(): MainSettings {
     autoUpdateApp: true,
     notifications: true,
     historyRepairedV1: false,
-    clipboardDetection: true
+    clipboardDetection: true,
+    cookiesBrowser: ""
   };
 }
 
@@ -87,6 +90,9 @@ function saveMainSettings(settings: MainSettings): void {
 }
 
 const mainSettings = loadMainSettings();
+// Restore the configured cookie browser so background refreshes survive restarts.
+cookies.setConfiguredBrowser(mainSettings.cookiesBrowser);
+
 let autoUpdaterInstance: import("electron-updater").AppUpdater | null = null;
 let updateCheckInterval: NodeJS.Timeout | null = null;
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
@@ -201,6 +207,16 @@ function forwardPoolEventsToRenderer(): void {
 
   pool.on("job:failed", (job, err) => {
     sendToRenderer("job:failed", job, err);
+
+    // Reactive cookie refresh: if the failure looks auth-related and cookies are
+    // configured, refresh them in the background so the next retry / download
+    // uses a fresh session instead of the stale one that just failed.
+    if (cookies.isAuthRequiredError(err) && cookies.getConfiguredBrowser()) {
+      const { binaryPath, ffmpegPath } = resolveBinaryPaths();
+      logger.info("Auth-related failure detected — refreshing cookies in background");
+      void cookies.refreshCookies(cookies.getConfiguredBrowser(), binaryPath, ffmpegPath);
+    }
+
     try {
       db.addHistoryEntry({
         job_id: job.id,
@@ -230,7 +246,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle("formats:probe", async (_e, url: string, playlistLimit?: number) => {
     const cached = db.getCachedFormats(url);
     if (cached && !playlistLimit) return cached;
-    const cookieFile = cookies.getCookiesPath();
+    const cookieFile = cookies.ensureFreshCookies(ytdlp.binaryPath, ytdlp.ffmpegPath); // ← CHANGED
     const probeExtras = cookieFile ? { cookiesFile: cookieFile, playlistLimit } : { playlistLimit };
     const formats = await ytdlp.probeFormats(url, probeExtras);
     if (!playlistLimit) db.setCachedFormats(url, formats);
@@ -238,7 +254,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("formats:playlistPage", async (_e, url: string, start: number, end: number) => {
-    const cookieFile = cookies.getCookiesPath();
+    const cookieFile = cookies.ensureFreshCookies(ytdlp.binaryPath, ytdlp.ffmpegPath); // ← CHANGED
     const probeExtras = cookieFile ? { cookiesFile: cookieFile } : {};
     const binaryPaths = {
       binaryPath: ytdlp.binaryPath,
@@ -259,7 +275,7 @@ function registerIpcHandlers(): void {
     if (!formatValidation.valid)
       throw new Error(`Invalid format selector: ${formatValidation.error}`);
 
-    const cookieFile = cookies.getCookiesPath();
+    const cookieFile = cookies.ensureFreshCookies(ytdlp.binaryPath, ytdlp.ffmpegPath); // ← CHANGED
     if (cookieFile) {
       jobInput = {
         ...jobInput,
@@ -362,6 +378,8 @@ function registerIpcHandlers(): void {
   );
   ipcMain.handle("cookies:set", async (_e, browserSetting: string) => {
     const { binaryPath, ffmpegPath } = resolveBinaryPaths();
+    mainSettings.cookiesBrowser = browserSetting;
+    saveMainSettings(mainSettings);
     return cookies.refreshCookies(browserSetting, binaryPath, ffmpegPath);
   });
   ipcMain.handle("cookies:refresh", async (_e, browserSetting: string | null) => {
@@ -502,7 +520,7 @@ function registerIpcHandlers(): void {
     const safePage = Math.max(0, page);
     const requestedCount = count * (safePage + 1);
     const searchQuery = `ytsearch${requestedCount}:${query}`;
-    const cookieFile = cookies.getCookiesPath();
+    const cookieFile = cookies.ensureFreshCookies(binaryPath, ytdlp.ffmpegPath); // ← CHANGED
     const args = ["--dump-json", "--flat-playlist", "--no-playlist"];
     if (cookieFile) args.push("--cookies", cookieFile);
     args.push(searchQuery);
@@ -537,7 +555,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle("subtitles:list", async (_e, url: string) => {
     const binaryPath = ytdlp.binaryPath;
-    const cookieFile = cookies.getCookiesPath();
+    const cookieFile = cookies.ensureFreshCookies(binaryPath, ytdlp.ffmpegPath); // ← CHANGED
     const args = ["--dump-json", "--no-playlist"];
     if (cookieFile) args.push("--cookies", cookieFile);
     args.push(url);
