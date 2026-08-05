@@ -1,10 +1,16 @@
 import Database from "better-sqlite3";
 import type { HistoryEntry } from "@vault/types";
 
+export interface HistoryFilters {
+  search?: string;
+  sortBy?: "title" | "date" | "size";
+  sortOrder?: "asc" | "desc";
+}
+
 export interface VaultDb {
   raw: Database.Database;
   addHistoryEntry: (entry: HistoryEntry) => void;
-  listHistory: (limit?: number, offset?: number) => HistoryEntry[];
+  listHistory: (limit?: number, offset?: number, filters?: HistoryFilters) => HistoryEntry[];
   deleteHistory: (jobId: string) => void;
   bulkDeleteHistory: (jobIds: string[]) => void;
   isArchived: (destinationFolder: string, videoId: string) => boolean;
@@ -69,10 +75,42 @@ export function initDb(dbPath: string): VaultDb {
       ).run(entry);
     },
 
-    listHistory(limit = 200, offset = 0) {
-      return db
-        .prepare("SELECT * FROM history ORDER BY created_at DESC LIMIT ? OFFSET ?")
-        .all(limit, offset) as HistoryEntry[];
+    listHistory(limit = 200, offset = 0, filters?: HistoryFilters) {
+      const params: (string | number)[] = [];
+      let query = "SELECT * FROM history";
+
+      // 1. Apply Search Filter
+      if (filters?.search) {
+        query += " WHERE (title LIKE ? OR channel LIKE ?)";
+        const searchTerm = `%${filters.search}%`;
+        params.push(searchTerm, searchTerm);
+      }
+
+      // 2. Apply Sorting
+      let orderBy = "created_at DESC"; // Default sort
+      if (filters?.sortBy) {
+        const direction = filters.sortOrder === "asc" ? "ASC" : "DESC";
+        switch (filters.sortBy) {
+          case "title":
+            // COLLATE NOCASE makes sorting case-insensitive
+            orderBy = `title COLLATE NOCASE ${direction}`;
+            break;
+          case "date":
+            // Matches client-side logic: prefers completed_at, falls back to created_at
+            orderBy = `COALESCE(completed_at, created_at) ${direction}`;
+            break;
+          case "size":
+            orderBy = `file_size ${direction}`;
+            break;
+          default:
+            orderBy = `created_at DESC`;
+        }
+      }
+
+      query += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
+      params.push(limit, offset);
+
+      return db.prepare(query).all(...params) as HistoryEntry[];
     },
 
     deleteHistory(jobId) {
