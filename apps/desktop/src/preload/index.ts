@@ -48,6 +48,9 @@ const vaultApi = {
 
   openFile: (filePath: string): Promise<string | null> => ipcRenderer.invoke("fs:open", filePath),
 
+  readFile: (filePath: string): Promise<string | null> =>
+    ipcRenderer.invoke("fs:readFile", filePath),
+
   fileExists: (filePath: string): Promise<boolean> => ipcRenderer.invoke("fs:fileExists", filePath),
 
   scanDir: (dirPath: string): Promise<string[]> => ipcRenderer.invoke("fs:scanDir", dirPath),
