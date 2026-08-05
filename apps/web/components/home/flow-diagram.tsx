@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Reveal } from "../shared/reveal";
-import { Link2, SlidersHorizontal, Cpu, FolderCheck, Download } from "lucide-react";
+import { Link2, SlidersHorizontal, Cpu, FolderCheck, Download, Check } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,8 @@ interface Stage {
   title: string;
   tag: string;
 }
+
+type Status = "pending" | "active" | "done";
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
 
@@ -47,36 +50,111 @@ const STAGES: Stage[] = [
   }
 ];
 
+const CYCLE_MS = 2400;
+
+const STATUS_LABEL: Record<Status, string> = {
+  pending: "Queued",
+  active: "Running",
+  done: "Done"
+};
+
 // ─── Node (circle on the spine) ────────────────────────────────────────────────
 
-function StageNode({ stage }: Readonly<{ stage: Stage }>) {
+function StageNode({ stage, status }: Readonly<{ stage: Stage; status: Status }>) {
   const Icon = stage.icon;
   return (
-    <span className="relative flex size-11 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-background shadow-sm">
-      <span className="absolute inset-0 rounded-full bg-primary/8" />
-      <Icon className="relative size-4.5 text-primary" strokeWidth={1.75} />
+    <span
+      className={`relative flex size-11 shrink-0 items-center justify-center rounded-full border bg-background shadow-sm transition-colors duration-300 ${
+        status === "pending" ? "border-border" : "border-primary/40"
+      }`}
+    >
+      {status === "active" && (
+        <motion.span
+          animate={{ scale: [1, 1.55], opacity: [0.5, 0] }}
+          className="absolute inset-0 rounded-full bg-primary/30"
+          transition={{ duration: 1.4, repeat: Number.POSITIVE_INFINITY, ease: "easeOut" }}
+        />
+      )}
+      <span
+        className={`absolute inset-0 rounded-full transition-opacity duration-300 ${
+          status === "pending" ? "bg-transparent" : "bg-primary/8"
+        }`}
+      />
+      {status === "done" ? (
+        <Check className="relative size-4.5 text-primary" strokeWidth={2} />
+      ) : (
+        <Icon
+          className={`relative size-4.5 transition-colors duration-300 ${
+            status === "pending" ? "text-muted-foreground/50" : "text-primary"
+          }`}
+          strokeWidth={1.75}
+        />
+      )}
     </span>
   );
 }
 
 // ─── Card ──────────────────────────────────────────────────────────────────────
 
-function StageCard({ stage, align }: Readonly<{ stage: Stage; align: "left" | "right" }>) {
+function StageCard({
+  stage,
+  align,
+  status,
+  cycleKey
+}: Readonly<{ stage: Stage; align: "left" | "right"; status: Status; cycleKey: number }>) {
   return (
     <div
-      className={`flex flex-col overflow-hidden rounded-2xl border border-border bg-card/70 p-5 backdrop-blur-sm transition-colors hover:border-primary/30 ${
-        align === "right" ? "md:text-right" : ""
-      }`}
+      className={`flex flex-col overflow-hidden rounded-2xl border p-5 backdrop-blur-sm transition-colors duration-300 ${
+        status === "pending" ? "border-border bg-card/40" : "border-primary/25 bg-card/70"
+      } ${align === "right" ? "md:text-right" : ""}`}
     >
       <div className={`flex items-center gap-2 ${align === "right" ? "md:flex-row-reverse" : ""}`}>
         <span className="font-mono text-[9px] text-muted-foreground/60 tracking-widest">
           {stage.index}
         </span>
         <span className="h-px flex-1 bg-border" />
-        <span className="font-mono text-[9px] text-primary/60">{stage.tag}</span>
+        <span
+          className={`flex items-center gap-1.5 font-mono text-[9px] ${
+            align === "right" ? "md:flex-row-reverse" : ""
+          } ${status === "pending" ? "text-muted-foreground/50" : "text-primary/70"}`}
+        >
+          {status === "active" && (
+            <motion.span
+              animate={{ opacity: [1, 0.25, 1] }}
+              className="size-1.5 rounded-full bg-primary"
+              transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY }}
+            />
+          )}
+          {status !== "active" && (
+            <span
+              className={`size-1.5 rounded-full ${status === "done" ? "bg-primary" : "bg-muted-foreground/40"}`}
+            />
+          )}
+          {STATUS_LABEL[status]}
+        </span>
       </div>
+
       <h3 className="mt-3 font-semibold text-foreground text-base">{stage.title}</h3>
       <p className="mt-1.5 text-[13px] text-muted-foreground leading-relaxed">{stage.detail}</p>
+
+      {/* Progress bar */}
+      <div className="mt-4 h-[3px] w-full overflow-hidden rounded-full bg-border/60">
+        {status === "done" && <div className="h-full w-full rounded-full bg-primary/70" />}
+        {status === "active" && (
+          <motion.div
+            animate={{ width: "100%" }}
+            className="h-full rounded-full bg-primary"
+            initial={{ width: "0%" }}
+            key={cycleKey}
+            transition={{ duration: CYCLE_MS / 1000, ease: "linear" }}
+          />
+        )}
+        {status === "pending" && <div className="h-full w-0 rounded-full bg-primary" />}
+      </div>
+
+      <span className="mt-2 self-end font-mono text-[9px] text-muted-foreground/50">
+        {stage.tag}
+      </span>
     </div>
   );
 }
@@ -84,21 +162,30 @@ function StageCard({ stage, align }: Readonly<{ stage: Stage; align: "left" | "r
 // ─── Timeline ──────────────────────────────────────────────────────────────────
 
 function FlowTimeline() {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setActiveIndex((i) => (i + 1) % STAGES.length);
+    }, CYCLE_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  const statusFor = (i: number): Status => {
+    if (i === activeIndex) return "active";
+    if (i < activeIndex) return "done";
+    return "pending";
+  };
+
   return (
     <div className="relative py-4">
       {/* Spine */}
       <div className="absolute top-0 bottom-0 left-6 w-px bg-border md:left-1/2" />
 
-      {/* Traveling pulse along the spine */}
-      <motion.div
-        animate={{ top: ["2%", "98%"] }}
-        className="-translate-x-1/2 absolute left-6 size-2 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)] md:left-1/2"
-        transition={{ duration: 5, ease: "linear", repeat: Number.POSITIVE_INFINITY }}
-      />
-
       <div className="flex flex-col gap-10 md:gap-6">
         {STAGES.map((stage, i) => {
           const align = i % 2 === 0 ? "left" : "right";
+          const status = statusFor(i);
           return (
             <motion.div
               className={`relative flex items-start gap-5 md:items-center ${
@@ -112,13 +199,13 @@ function FlowTimeline() {
             >
               {/* Node — pinned to spine */}
               <div className="z-10 md:absolute md:left-1/2 md:-translate-x-1/2">
-                <StageNode stage={stage} />
+                <StageNode stage={stage} status={status} />
               </div>
 
               {/* Card */}
               <div className="min-w-0 flex-1 pl-1 md:w-1/2 md:flex-none md:pl-0">
                 <div className={align === "right" ? "md:pl-10" : "md:pr-10"}>
-                  <StageCard align={align} stage={stage} />
+                  <StageCard align={align} cycleKey={activeIndex} stage={stage} status={status} />
                 </div>
               </div>
 
