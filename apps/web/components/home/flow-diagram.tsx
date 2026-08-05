@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Reveal } from "../shared/reveal";
 import { Link2, SlidersHorizontal, Cpu, FolderCheck, Download, Check } from "lucide-react";
@@ -51,6 +51,12 @@ const STAGES: Stage[] = [
 ];
 
 const CYCLE_MS = 2400;
+const HEAD_H = 72; // height of the flowing glow segment, in px
+
+// The flow travels through every node position once per full lap.
+// Total lap time is spaced so it reaches node i exactly when node i goes active.
+const TOTAL_S = ((STAGES.length - 1) * CYCLE_MS) / 1000;
+const TIMES = STAGES.map((_, i) => i / (STAGES.length - 1));
 
 const STATUS_LABEL: Record<Status, string> = {
   pending: "Queued",
@@ -60,21 +66,30 @@ const STATUS_LABEL: Record<Status, string> = {
 
 // ─── Node (circle on the spine) ────────────────────────────────────────────────
 
-function StageNode({ stage, status }: Readonly<{ stage: Stage; status: Status }>) {
+function StageNode({
+  stage,
+  status,
+  nodeRef
+}: Readonly<{ stage: Stage; status: Status; nodeRef: (el: HTMLSpanElement | null) => void }>) {
   const Icon = stage.icon;
   return (
     <span
       className={`relative flex size-11 shrink-0 items-center justify-center rounded-full border bg-background shadow-sm transition-colors duration-300 ${
         status === "pending" ? "border-border" : "border-primary/40"
       }`}
+      ref={nodeRef}
     >
+      {/* One-off impact ring — fires the instant the flow reaches this checkpoint */}
       {status === "active" && (
         <motion.span
-          animate={{ scale: [1, 1.55], opacity: [0.5, 0] }}
-          className="absolute inset-0 rounded-full bg-primary/30"
-          transition={{ duration: 1.4, repeat: Number.POSITIVE_INFINITY, ease: "easeOut" }}
+          animate={{ scale: 2.3, opacity: 0 }}
+          className="absolute inset-0 rounded-full border border-primary/70"
+          initial={{ scale: 0.7, opacity: 0.9 }}
+          key={`impact-${stage.index}`}
+          transition={{ duration: 0.5, ease: "easeOut" }}
         />
       )}
+
       <span
         className={`absolute inset-0 rounded-full transition-opacity duration-300 ${
           status === "pending" ? "bg-transparent" : "bg-primary/8"
@@ -159,16 +174,79 @@ function StageCard({
   );
 }
 
+// ─── Flowing spine ──────────────────────────────────────────────────────────────
+// The line itself is "alive": a lit fill trails down behind a glowing head that
+// slides continuously from checkpoint to checkpoint, never pausing.
+
+function FlowingSpine({ positions }: Readonly<{ positions: number[] }>) {
+  if (positions.length !== STAGES.length) return null;
+
+  const headTops = positions.map((p) => p - HEAD_H);
+
+  return (
+    <>
+      {/* Lit trail behind the head */}
+      <motion.div
+        animate={{ height: positions }}
+        className="absolute top-0 left-6 z-0 w-px bg-primary/70 md:left-1/2"
+        transition={{
+          duration: TOTAL_S,
+          times: TIMES,
+          ease: "linear",
+          repeat: Number.POSITIVE_INFINITY
+        }}
+      />
+
+      {/* Glowing head — the moving "snake" tip */}
+      <motion.div
+        animate={{ top: headTops }}
+        className="-translate-x-1/2 absolute left-6 z-0 w-[3px] rounded-full md:left-1/2"
+        style={{
+          height: HEAD_H,
+          background: "linear-gradient(to bottom, transparent, var(--color-primary))",
+          filter: "blur(0.5px)"
+        }}
+        transition={{
+          duration: TOTAL_S,
+          times: TIMES,
+          ease: "linear",
+          repeat: Number.POSITIVE_INFINITY
+        }}
+      />
+    </>
+  );
+}
+
 // ─── Timeline ──────────────────────────────────────────────────────────────────
 
 function FlowTimeline() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [positions, setPositions] = useState<number[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const nodeEls = useRef<(HTMLSpanElement | null)[]>([]);
 
   useEffect(() => {
     const id = setInterval(() => {
       setActiveIndex((i) => (i + 1) % STAGES.length);
     }, CYCLE_MS);
     return () => clearInterval(id);
+  }, []);
+
+  useLayoutEffect(() => {
+    function measure() {
+      const container = containerRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
+      const next = nodeEls.current.map((el) => {
+        if (!el) return 0;
+        const r = el.getBoundingClientRect();
+        return r.top - containerRect.top + r.height / 2;
+      });
+      setPositions(next);
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
   }, []);
 
   const statusFor = (i: number): Status => {
@@ -178,9 +256,11 @@ function FlowTimeline() {
   };
 
   return (
-    <div className="relative py-4">
-      {/* Spine */}
-      <div className="absolute top-0 bottom-0 left-6 w-px bg-border md:left-1/2" />
+    <div className="relative py-4" ref={containerRef}>
+      {/* Base spine */}
+      <div className="absolute top-0 bottom-0 left-6 z-0 w-px bg-border md:left-1/2" />
+
+      <FlowingSpine positions={positions} />
 
       <div className="flex flex-col gap-10 md:gap-6">
         {STAGES.map((stage, i) => {
@@ -199,7 +279,13 @@ function FlowTimeline() {
             >
               {/* Node — pinned to spine */}
               <div className="z-10 md:absolute md:left-1/2 md:-translate-x-1/2">
-                <StageNode stage={stage} status={status} />
+                <StageNode
+                  nodeRef={(el) => {
+                    nodeEls.current[i] = el;
+                  }}
+                  stage={stage}
+                  status={status}
+                />
               </div>
 
               {/* Card */}
