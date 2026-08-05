@@ -3,6 +3,12 @@ export type SortOrder = "asc" | "desc";
 export type MediaType = "video" | "music";
 export type Quality = "1080p" | "4K" | "720p" | "FLAC" | "MP3" | (string & {});
 
+export interface HistoryFilters {
+  search?: string;
+  sortBy?: HistorySort;
+  sortOrder?: SortOrder;
+}
+
 export interface HistoryItem {
   id: string;
   title: string;
