@@ -18,6 +18,8 @@ export interface PlaylistItem {
   url?: string;
   thumbnail?: string;
   duration?: string;
+  /** True when yt-dlp returned the entry with no metadata (deleted/private/unavailable). */
+  unavailable?: boolean;
 }
 
 export interface FormatModalData {
