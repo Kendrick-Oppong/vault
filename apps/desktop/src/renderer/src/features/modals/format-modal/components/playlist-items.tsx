@@ -1,6 +1,7 @@
 import { Button } from "@vault/ui/components/button";
 import { Checkbox } from "@vault/ui/components/checkbox";
 import { ListOrdered, Video, ChevronDown, Loader2 } from "lucide-react";
+import { cn } from "@vault/ui/lib/utils";
 import type { PlaylistItem } from "../types";
 
 interface PlaylistItemsProps {
@@ -25,6 +26,8 @@ export const PlaylistItems = ({
   onLoadMore
 }: PlaylistItemsProps) => {
   const remainingItems = totalCount ? Math.max(0, totalCount - items.length) : 0;
+  const availableItems = items.filter((i) => !i.unavailable);
+  const allSelected = availableItems.length > 0 && selectedItems.size === availableItems.length;
 
   return (
     <div className="space-y-3">
@@ -34,8 +37,8 @@ export const PlaylistItems = ({
           Playlist items
         </p>
         <p className="text-[12px] text-muted-foreground">
-          <span className="font-medium">{selectedItems.size}</span> of <span>{items.length}</span>{" "}
-          selected
+          <span className="font-medium">{selectedItems.size}</span> of{" "}
+          <span>{availableItems.length}</span> selected
         </p>
       </div>
       <div className="flex items-center gap-2 mb-1">
@@ -45,20 +48,29 @@ export const PlaylistItems = ({
           className="text-[12px] text-primary h-auto p-0"
           onClick={onToggleAll}
         >
-          {selectedItems.size === items.length ? "Deselect all" : "Select all"}
+          {allSelected ? "Deselect all" : "Select all"}
         </Button>
       </div>
       <div className="border border-border rounded-lg max-h-75 overflow-y-auto divide-y divide-border">
         {items.map((item, index) => (
           <label
-            key={item.id}
-            className="flex items-center gap-3 p-2.5 text-[12.5px] cursor-pointer hover:bg-accent/60 transition-colors"
+            key={item.id || `${item.url}-${index}`}
+            className={cn(
+              "flex items-center gap-3 p-2.5 text-[12.5px] transition-colors",
+              item.unavailable
+                ? "opacity-55 cursor-not-allowed"
+                : "cursor-pointer hover:bg-accent/60"
+            )}
           >
-            <Checkbox
-              checked={selectedItems.has(item.id)}
-              onCheckedChange={() => onToggleItem(item.id)}
-              className="w-4 h-4 shrink-0"
-            />
+            {item.unavailable ? (
+              <span className="w-4 h-4 shrink-0" />
+            ) : (
+              <Checkbox
+                checked={selectedItems.has(item.id)}
+                onCheckedChange={() => onToggleItem(item.id)}
+                className="w-4 h-4 shrink-0"
+              />
+            )}
             <span className="text-muted-foreground w-4 text-[12px] font-medium text-right shrink-0">
               {index + 1}
             </span>
@@ -75,10 +87,16 @@ export const PlaylistItems = ({
             </div>
             <div className="flex-1 min-w-0 flex flex-col justify-center">
               <span className="truncate font-medium">{item.title}</span>
-              {item.duration && (
+              {item.unavailable ? (
                 <span className="text-[10px] font-medium text-muted-foreground mt-0.5">
-                  {item.duration}
+                  Private or deleted — can&apos;t be downloaded
                 </span>
+              ) : (
+                item.duration && (
+                  <span className="text-[10px] font-medium text-muted-foreground mt-0.5">
+                    {item.duration}
+                  </span>
+                )
               )}
             </div>
           </label>
