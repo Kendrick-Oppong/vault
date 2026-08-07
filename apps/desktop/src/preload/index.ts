@@ -62,6 +62,9 @@ const vaultApi = {
 
   fileExists: (filePath: string): Promise<boolean> => ipcRenderer.invoke("fs:fileExists", filePath),
 
+  directoryExists: (dirPath: string): Promise<{ exists: boolean; writable: boolean }> =>
+    ipcRenderer.invoke("fs:directoryExists", dirPath),
+
   scanDir: (dirPath: string): Promise<string[]> => ipcRenderer.invoke("fs:scanDir", dirPath),
 
   openFileDialog: (opts?: {
