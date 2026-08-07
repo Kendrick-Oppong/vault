@@ -1,7 +1,6 @@
 import type { Preset, MediaType, VideoContainer, AudioFormat, MediaPlatform } from "@vault/types";
 import type { NormalizedSource } from "../lib/source-model";
 
-export type { MediaType, Preset, VideoContainer, AudioFormat };
 export type LinkType = "video" | "playlist";
 
 export interface VideoFormat {
@@ -71,3 +70,5 @@ export interface FormatModalProps {
   onRetry?: () => void;
   onConfirm: (options: FormatOptions) => void;
 }
+
+export { type MediaType, type Preset } from "@vault/types";
