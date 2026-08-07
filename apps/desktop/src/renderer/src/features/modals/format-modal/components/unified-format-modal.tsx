@@ -152,7 +152,9 @@ export const UnifiedFormatModal = ({
         data.playlistItems.length < data.totalCount
       );
       setTimeout(() => {
-        setSelectedItems(new Set(data.playlistItems?.map((i) => i.id) || []));
+        setSelectedItems(
+          new Set(data.playlistItems?.filter((i) => !i.unavailable).map((i) => i.id) || [])
+        );
         setHasMoreItems(hasMore);
       }, 0);
     }
@@ -164,7 +166,9 @@ export const UnifiedFormatModal = ({
     updateFormatModalData({ ...data, playlistItems: [...(data.playlistItems || []), ...newItems] });
     setSelectedItems((prev) => {
       const next = new Set(prev);
-      newItems.forEach((i) => next.add(i.id));
+      newItems.forEach((i) => {
+        if (!i.unavailable) next.add(i.id);
+      });
       return next;
     });
     const shouldDisable =
@@ -213,6 +217,7 @@ export const UnifiedFormatModal = ({
   };
 
   const toggleItem = (itemId: string) => {
+    if (data.playlistItems?.find((i) => i.id === itemId)?.unavailable) return;
     setSelectedItems((prev) => {
       const next = new Set(prev);
       if (next.has(itemId)) next.delete(itemId);
@@ -223,10 +228,9 @@ export const UnifiedFormatModal = ({
 
   const toggleAllItems = () => {
     if (!data.playlistItems) return;
+    const available = data.playlistItems.filter((i) => !i.unavailable);
     setSelectedItems((prev) =>
-      prev.size === data.playlistItems!.length
-        ? new Set()
-        : new Set(data.playlistItems!.map((i) => i.id))
+      prev.size === available.length ? new Set() : new Set(available.map((i) => i.id))
     );
   };
 
