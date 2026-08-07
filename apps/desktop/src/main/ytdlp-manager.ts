@@ -331,7 +331,7 @@ function buildMediaArgs(args: string[], extras: DownloadExtras | undefined): voi
   }
 
   const container = extras?.videoContainer || "mp4";
-  args.push("--merge-output-format", container, "--remux-video", container);
+  args.push("--merge-output-format", container);
   logger.debug("Video container set to:", container);
 }
 
