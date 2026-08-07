@@ -331,6 +331,10 @@ function buildMediaArgs(args: string[], extras: DownloadExtras | undefined): voi
   }
 
   const container = extras?.videoContainer || "mp4";
+  // --merge-output-format already produces the target container during the merge.
+  // --remux-video is NOT added here because it spawns a redundant ffmpeg pass
+  // that reads the entire file just to confirm "already mp4". On slow storage
+  // (USB/pendrive), this wastes 5-10 minutes per download.
   args.push("--merge-output-format", container);
   logger.debug("Video container set to:", container);
 }
@@ -460,44 +464,36 @@ function parseEta(etaStr: string): number | undefined {
 }
 
 /**
- * Detects post-processing step names from yt-dlp stdout lines.
- * Returns a progress event with the appropriate status, or null if not a PP line.
+ * Detects post-processing step names from yt-dlp stdout/stderr lines.
+ * Returns a progress event with the appropriate status and step, or null.
  */
 function parsePostProcessLine(line: string): YtDlpProgress | null {
   const trimmed = line.trim();
   if (!trimmed) return null;
 
-  // [Merger] Merging formats into "output.mp4"
   if (trimmed.startsWith("[Merger]")) {
-    return { status: "processing" };
+    return { status: "processing", postProcessStep: "merging" };
   }
-  // [Metadata] Adding metadata to "output.mp4"
   if (trimmed.startsWith("[Metadata]")) {
-    return { status: "postprocessing" };
+    return { status: "postprocessing", postProcessStep: "metadata" };
   }
-  // [EmbedThumbnail] Adding thumbnail to "output.mp4"
   if (trimmed.startsWith("[EmbedThumbnail]")) {
-    return { status: "postprocessing" };
+    return { status: "postprocessing", postProcessStep: "thumbnail" };
   }
-  // [SponsorBlock] Removing sponsor sections
   if (trimmed.startsWith("[SponsorBlock]")) {
-    return { status: "postprocessing" };
+    return { status: "postprocessing", postProcessStep: "sponsorblock" };
   }
-  // [ExtractAudio] Converting to mp3
   if (trimmed.startsWith("[ExtractAudio]")) {
-    return { status: "postprocessing" };
+    return { status: "postprocessing", postProcessStep: "extractaudio" };
   }
-  // [Remux] Remuxing
   if (trimmed.startsWith("[Remux]")) {
-    return { status: "processing" };
+    return { status: "processing", postProcessStep: "remux" };
   }
-  // [ModifyChapters]
   if (trimmed.startsWith("[ModifyChapters]")) {
-    return { status: "postprocessing" };
+    return { status: "postprocessing", postProcessStep: "chapters" };
   }
-  // [ffmpeg] (generic ffmpeg post-processing)
   if (trimmed.startsWith("[ffmpeg]")) {
-    return { status: "processing" };
+    return { status: "processing", postProcessStep: "generic" };
   }
 
   return null;
@@ -515,7 +511,7 @@ function attachDownloadOutputHandlers(
   let stderrBuffer = "";
   let lastFfmpegPercent = -1;
   let ffmpegProcessingEmitted = false;
-  let lastPostProcessStatus = "";
+  let lastPostProcessKey = "";
 
   const parseProgressLine = (line: string): YtDlpProgress | null => {
     const outputLine = line.trim();
@@ -604,19 +600,23 @@ function attachDownloadOutputHandlers(
         const percentComplete = Math.min(100, (elapsed / trimClipSeconds) * 100);
         if (percentComplete >= 100 || percentComplete - lastFfmpegPercent >= 1) {
           lastFfmpegPercent = percentComplete;
-          const progress: YtDlpProgress = { status: "cutting", percentComplete };
+          const progress: YtDlpProgress = {
+            status: "cutting",
+            percentComplete,
+            postProcessStep: "cutting"
+          };
           logger.debug("Trim encode progress:", progress);
           onProgress?.(progress);
         }
       } else if (!ffmpegProcessingEmitted) {
         ffmpegProcessingEmitted = true;
         logger.debug("Trim encode started (indeterminate)");
-        onProgress?.({ status: "cutting" });
+        onProgress?.({ status: "cutting", postProcessStep: "cutting" });
       }
     } else if (!ffmpegProcessingEmitted) {
       ffmpegProcessingEmitted = true;
       logger.debug("FFmpeg post-processing started");
-      onProgress?.({ status: "processing" });
+      onProgress?.({ status: "processing", postProcessStep: "generic" });
     }
     return true;
   };
@@ -636,10 +636,11 @@ function attachDownloadOutputHandlers(
     stdoutBuffer = processLines(chunk, stdoutBuffer, (line) => {
       const progress = parseProgressLine(line);
       if (progress) {
-        // Throttle post-processing events: only emit when status changes
+        // Throttle: only emit post-processing events when the step changes
         if (progress.status === "processing" || progress.status === "postprocessing") {
-          if (lastPostProcessStatus === progress.status) return;
-          lastPostProcessStatus = progress.status;
+          const key = `${progress.status}:${progress.postProcessStep ?? "unknown"}`;
+          if (lastPostProcessKey === key) return;
+          lastPostProcessKey = key;
         }
         logger.debug("Download progress:", progress);
         onProgress?.(progress);
@@ -656,8 +657,9 @@ function attachDownloadOutputHandlers(
       const progress = parseProgressLine(line);
       if (progress) {
         if (progress.status === "processing" || progress.status === "postprocessing") {
-          if (lastPostProcessStatus === progress.status) return;
-          lastPostProcessStatus = progress.status;
+          const key = `${progress.status}:${progress.postProcessStep ?? "unknown"}`;
+          if (lastPostProcessKey === key) return;
+          lastPostProcessKey = key;
         }
         logger.debug("Download progress:", progress);
         onProgress?.(progress);
