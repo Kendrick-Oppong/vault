@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { extname } from "node:path";
 import { logger } from "./logger";
 
-const mimeMap: Record<string, string> = {
+export const mimeMap: Record<string, string> = {
   ".mp4": "video/mp4",
   ".webm": "video/webm",
   ".mkv": "video/x-matroska",

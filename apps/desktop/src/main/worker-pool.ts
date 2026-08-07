@@ -132,7 +132,7 @@ export function createWorkerPool(opts: WorkerPoolOptions) {
     job.status = "active";
     emitter.emit("job:started", job);
 
-    const tracker = createProgressTracker();
+    const tracker = createProgressTracker(Boolean(job.extra?.audioFormat));
 
     const { process: proc, promise } = opts.ytdlp.download(
       job.url,

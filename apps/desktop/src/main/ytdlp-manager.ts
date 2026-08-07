@@ -19,12 +19,8 @@ export interface ProbeOptions extends DownloadExtras {
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_RETRIES = 2;
 
-// Lossless formats where a target bitrate doesn't apply.
 const LOSSLESS_AUDIO_FORMATS = new Set(["flac", "wav"]);
 
-// Formats yt-dlp/ffmpeg can embed a thumbnail into. This is checked against the
-// OUTPUT container/format (never webm here, since we always remux/extract to an
-// explicit container), not the source format's itag.
 const THUMBNAIL_SUPPORTED_FORMATS = new Set([
   "mp3",
   "m4a",
@@ -47,11 +43,6 @@ function hasTrimRange(extras: DownloadExtras | undefined): boolean {
   return Boolean(extras?.trimRange?.start || extras?.trimRange?.end);
 }
 
-/**
- * Normalize any UI-provided timestamp ("0", "90", "1:30", "1:05:30") into the
- * canonical HH:MM:SS form yt-dlp expects for --download-sections. Returns "inf"
- * for infinity, or null when the input can't be parsed.
- */
 function toYtDlpTimestamp(raw: string): string | null {
   const v = raw.trim().toLowerCase();
   if (!v || v === "inf" || v === "infinity") return "inf";
@@ -74,7 +65,6 @@ function toYtDlpTimestamp(raw: string): string | null {
   return `${pad(Math.floor(sec / 3600))}:${pad(Math.floor((sec % 3600) / 60))}:${pad(sec % 60)}`;
 }
 
-/** Parse a normalized HH:MM:SS / MM:SS / seconds string into total seconds. */
 function timestampToSeconds(raw: string): number {
   const v = raw.trim();
   if (!v) return 0;
@@ -130,7 +120,6 @@ function probeInternal(
     else if (extras?.cookiesFromBrowser)
       args.push("--cookies-from-browser", extras.cookiesFromBrowser);
 
-    // Add playlist items limit if specified
     if (playlistLimit && playlistLimit > 0) {
       args.push("--playlist-items", `1:${playlistLimit}`);
     }
@@ -234,10 +223,6 @@ export async function probeFormats(
   throw new Error(`yt-dlp probe failed after ${retries + 1} attempts: ${lastError?.message}`);
 }
 
-/**
- * Fetch a specific page of playlist items.
- * start and end are 1-based, inclusive, matching yt-dlp's --playlist-items START:END selector.
- */
 export async function probePlaylistPage(
   opts: YtDlpOptions,
   url: string,
@@ -335,11 +320,8 @@ export async function probePlaylistPage(
 
 // ---- download() helpers -----------------------------------------------
 function buildMediaArgs(args: string[], extras: DownloadExtras | undefined): void {
-  // Handle audio extraction (separate from video downloads)
   if (extras?.audioFormat) {
     args.push("--extract-audio", "--audio-format", extras.audioFormat);
-    // When extracting audio, we don't need the format selector for video —
-    // just use bestaudio to get the best quality audio.
     const formatIndex = args.indexOf("--format");
     if (formatIndex !== -1 && args[formatIndex + 1]) {
       args[formatIndex + 1] = "bestaudio";
@@ -348,7 +330,6 @@ function buildMediaArgs(args: string[], extras: DownloadExtras | undefined): voi
     return;
   }
 
-  // Video downloads: ensure proper container merging
   const container = extras?.videoContainer || "mp4";
   args.push("--merge-output-format", container, "--remux-video", container);
   logger.debug("Video container set to:", container);
@@ -386,13 +367,6 @@ function resolveAudioFormat(
   return (/mp3|m4a|opus|flac|wav/i.exec(formatSelector)?.[0] ?? "mp3").toLowerCase();
 }
 
-/**
- * Whether a thumbnail can be embedded, judged by the OUTPUT format only.
- * We always remux video to `videoContainer` (mp4/mkv) or extract audio to
- * `audioFormat`, so the source format's container/itag is irrelevant. This
- * avoids the old false positive where a webm source remuxed to mp4 was wrongly
- * denied thumbnails.
- */
 function canEmbedThumbnail(
   audioFormat: string,
   videoContainer: string,
@@ -455,7 +429,6 @@ function buildSubtitleAndArchiveArgs(
   const trimmed = hasTrimRange(extras);
 
   if (extras?.useDownloadArchive && !extras?.overwrite && !trimmed) {
-    // Create format-specific archive file to track different quality downloads separately
     const formatKey = formatSelector ? formatSelector.replace(/[^a-zA-Z0-9]/g, "_") : "best";
     const archiveFile = join(opts.userDataPath, `archive-${formatKey}.txt`);
     args.push("--download-archive", archiveFile);
@@ -486,6 +459,50 @@ function parseEta(etaStr: string): number | undefined {
   return undefined;
 }
 
+/**
+ * Detects post-processing step names from yt-dlp stdout lines.
+ * Returns a progress event with the appropriate status, or null if not a PP line.
+ */
+function parsePostProcessLine(line: string): YtDlpProgress | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // [Merger] Merging formats into "output.mp4"
+  if (trimmed.startsWith("[Merger]")) {
+    return { status: "processing" };
+  }
+  // [Metadata] Adding metadata to "output.mp4"
+  if (trimmed.startsWith("[Metadata]")) {
+    return { status: "postprocessing" };
+  }
+  // [EmbedThumbnail] Adding thumbnail to "output.mp4"
+  if (trimmed.startsWith("[EmbedThumbnail]")) {
+    return { status: "postprocessing" };
+  }
+  // [SponsorBlock] Removing sponsor sections
+  if (trimmed.startsWith("[SponsorBlock]")) {
+    return { status: "postprocessing" };
+  }
+  // [ExtractAudio] Converting to mp3
+  if (trimmed.startsWith("[ExtractAudio]")) {
+    return { status: "postprocessing" };
+  }
+  // [Remux] Remuxing
+  if (trimmed.startsWith("[Remux]")) {
+    return { status: "processing" };
+  }
+  // [ModifyChapters]
+  if (trimmed.startsWith("[ModifyChapters]")) {
+    return { status: "postprocessing" };
+  }
+  // [ffmpeg] (generic ffmpeg post-processing)
+  if (trimmed.startsWith("[ffmpeg]")) {
+    return { status: "processing" };
+  }
+
+  return null;
+}
+
 function attachDownloadOutputHandlers(
   proc: ChildProcess,
   isTrimmed: boolean,
@@ -498,12 +515,17 @@ function attachDownloadOutputHandlers(
   let stderrBuffer = "";
   let lastFfmpegPercent = -1;
   let ffmpegProcessingEmitted = false;
+  let lastPostProcessStatus = "";
 
   const parseProgressLine = (line: string): YtDlpProgress | null => {
     const outputLine = line.trim();
     if (!outputLine) return null;
 
-    // Try to parse JSON progress first (if progress template is used)
+    // ── Check post-processing step lines FIRST ──
+    const ppEvent = parsePostProcessLine(outputLine);
+    if (ppEvent) return ppEvent;
+
+    // ── Try to parse JSON progress (from --progress-template) ──
     const jsonCandidate = outputLine.replace(/^[a-zA-Z0-9_-]+:/, "").trim();
     try {
       const parsed = JSON.parse(jsonCandidate) as YtDlpProgress;
@@ -520,9 +542,7 @@ function attachDownloadOutputHandlers(
       // JSON parsing failed, try text format
     }
 
-    // Parse standard yt-dlp text progress format:
-    // [download]  23.5% of  10.00MiB at  1.00MiB/s ETA 00:05
-    // [download]  10.0% of ~250.00MiB at  5.00MiB/s ETA 00:48
+    // ── Parse standard yt-dlp text progress format ──
     const textMatch = outputLine.match(
       /\[download\]\s+([\d.]+)%\s+of\s+(~?)([\d.]+)\s*([a-zA-Z]+)(?:\s+at\s+~?([\d.]+)\s*([a-zA-Z]+)\/s)?(?:\s+ETA\s+([\d:]+))?/
     );
@@ -563,24 +583,15 @@ function attachDownloadOutputHandlers(
       };
     }
 
-    // Parse filename lines
+    // ── Parse filename lines ──
     if (isAbsolute(outputLine) || outputLine.startsWith("[download] Destination:")) {
       const filename = outputLine.replace("[download] Destination:", "").trim();
       return { filename };
     }
 
-    // Detect post-processing phases
-    if (outputLine.includes("[ffmpeg]")) {
-      return { status: "processing" };
-    }
-
     return null;
   };
 
-  // During a trim (or any ffmpeg re-encode) yt-dlp stops emitting download
-  // progress and instead ffmpeg writes "frame=... time=HH:MM:SS ..." lines to
-  // stderr. Without handling those, the UI sits on "Starting..." until the job
-  // finishes. We convert them into real "cutting"/"processing" progress events.
   const tryEmitFfmpegProgress = (line: string): boolean => {
     if (!line.includes("frame=") || !line.includes("time=")) return false;
     const m = line.match(/time=(\d+):(\d+):(\d+(?:\.\d+)?)/);
@@ -591,7 +602,6 @@ function attachDownloadOutputHandlers(
     if (isTrimmed) {
       if (trimClipSeconds && trimClipSeconds > 0) {
         const percentComplete = Math.min(100, (elapsed / trimClipSeconds) * 100);
-        // Throttle: only forward on >=1% change (or when we hit 100) to avoid IPC spam.
         if (percentComplete >= 100 || percentComplete - lastFfmpegPercent >= 1) {
           lastFfmpegPercent = percentComplete;
           const progress: YtDlpProgress = { status: "cutting", percentComplete };
@@ -626,6 +636,11 @@ function attachDownloadOutputHandlers(
     stdoutBuffer = processLines(chunk, stdoutBuffer, (line) => {
       const progress = parseProgressLine(line);
       if (progress) {
+        // Throttle post-processing events: only emit when status changes
+        if (progress.status === "processing" || progress.status === "postprocessing") {
+          if (lastPostProcessStatus === progress.status) return;
+          lastPostProcessStatus = progress.status;
+        }
         logger.debug("Download progress:", progress);
         onProgress?.(progress);
       } else {
@@ -640,6 +655,10 @@ function attachDownloadOutputHandlers(
     stderrBuffer = processLines(chunk, stderrBuffer, (line) => {
       const progress = parseProgressLine(line);
       if (progress) {
+        if (progress.status === "processing" || progress.status === "postprocessing") {
+          if (lastPostProcessStatus === progress.status) return;
+          lastPostProcessStatus = progress.status;
+        }
         logger.debug("Download progress:", progress);
         onProgress?.(progress);
         return;
@@ -668,7 +687,6 @@ function createDownloadCompletionPromise(
         return;
       }
       const stderr = getStderr();
-      // Extract only actual ERROR lines from stderr, ignore warnings
       const errorLines = stderr
         .split("\n")
         .filter((line) => line.trim().startsWith("ERROR:"))
@@ -722,7 +740,6 @@ export function download(
     "download:%(progress)j"
   ];
 
-  // Add download path if specified (youtube-downloader approach)
   if (downloadPath) {
     args.push("--paths", downloadPath);
     logger.debug("Download path set to:", downloadPath);
@@ -732,8 +749,6 @@ export function download(
 
   const trimmed = hasTrimRange(extras);
 
-  // Resume must win over overwrite: a resumed job should continue the partial
-  // download (--continue), not delete it and start over (--force-overwrites).
   if (resume && !trimmed) {
     args.push("--continue");
     logger.debug("Resume mode enabled");
@@ -741,13 +756,11 @@ export function download(
     args.push("--force-overwrites");
     logger.debug("Overwrite mode enabled");
   } else if (resume && trimmed) {
-    // yt-dlp cannot resume a --download-sections cut; restart it instead.
     logger.debug("Trimmed download cannot resume — restarting section instead");
   }
 
   buildAuthAndNetworkArgs(args, extras);
 
-  // Time-Range Cropping (timestamps normalized to HH:MM:SS for yt-dlp)
   let trimClipSeconds: number | undefined;
   if (trimmed && extras?.trimRange) {
     const start = toYtDlpTimestamp(extras.trimRange.start || "0");
@@ -757,7 +770,6 @@ export function download(
       args.push("--download-sections", `*${start}-${end}`);
       logger.debug(`Time-range cropping enabled: *${start}-${end}`);
 
-      // Track the clip length so we can report progress while ffmpeg re-encodes.
       if (end !== "inf") {
         const startSec = timestampToSeconds(start);
         const endSec = timestampToSeconds(end);
@@ -774,7 +786,6 @@ export function download(
   }
 
   const isAudio = formatSelector.includes("bestaudio") || formatSelector.includes("audio");
-  // True only for actual audio extraction (not a video download that includes bestaudio).
   const isAudioOnly = Boolean(extras?.audioFormat);
   const audioFormat = resolveAudioFormat(formatSelector, isAudio, extras?.audioFormat);
   const videoContainer = extras?.videoContainer || "mp4";

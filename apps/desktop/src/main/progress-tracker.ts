@@ -54,14 +54,16 @@ export function parsePercentage(value: unknown): number | undefined {
   return undefined;
 }
 
-export function createProgressTracker(): ProgressTracker {
+export function createProgressTracker(isAudioOnly = false): ProgressTracker {
   const startTime = Date.now();
-  let totalBytes = 0;
   let lastProgressTime = startTime;
-  let accumulatedBytes = 0;
+
+  // Multi-stream tracking: video downloads have 2 streams (video + audio),
+  // audio-only downloads have 1 stream.
+  let streamIndex = 0;
+  let previousStreamBytes = 0; // total bytes from all COMPLETED streams
   let currentStreamDownloaded = 0;
-  let streamCount = 0; // Track which stream we're on (0 = first, 1 = second, etc.)
-  let accumulatedTotalBytes = 0; // Track cumulative total across all streams
+  let currentStreamTotal = 0;
 
   function track(progress: YtDlpProgress): EnrichedProgress {
     const now = Date.now();
@@ -70,45 +72,54 @@ export function createProgressTracker(): ProgressTracker {
 
     const downloaded = progress.downloaded_bytes ?? 0;
 
-    // Detect if a new stream started (e.g., switched from video to audio)
-    // If downloaded bytes drops significantly, it's a new file
-    if (downloaded < currentStreamDownloaded - 1024 * 1024) {
-      accumulatedBytes += currentStreamDownloaded;
-      // Also accumulate the total bytes from the previous stream
-      accumulatedTotalBytes += totalBytes;
-      streamCount++;
+    // ── Detect stream transitions FIRST (before updating totals) ──
+    // If downloaded_bytes drops significantly, a new stream has started.
+    // This happens when yt-dlp finishes the video stream and starts audio.
+    if (downloaded < currentStreamDownloaded - 1024 * 512 && currentStreamDownloaded > 0) {
+      previousStreamBytes += currentStreamTotal;
+      streamIndex++;
+      currentStreamTotal = 0;
     }
     currentStreamDownloaded = downloaded;
 
-    // Update current stream's total bytes
-    if (progress.total_bytes_estimate) {
-      totalBytes = Math.max(totalBytes, progress.total_bytes_estimate);
-    }
-    if (progress.total_bytes) {
-      totalBytes = Math.max(totalBytes, progress.total_bytes);
+    // Track current stream's total size (use max since estimates can fluctuate)
+    const reportedTotal = progress.total_bytes ?? progress.total_bytes_estimate ?? 0;
+    if (reportedTotal > currentStreamTotal) {
+      currentStreamTotal = reportedTotal;
     }
 
-    const totalDownloaded = accumulatedBytes + currentStreamDownloaded;
-    // The true total is the sum of all completed streams plus the current stream
-    const trueTotal = accumulatedTotalBytes + totalBytes;
+    // ── Compute true totals across ALL streams ──
+    const totalDownloaded = previousStreamBytes + currentStreamDownloaded;
+    const trueTotal = previousStreamBytes + currentStreamTotal;
 
+    // ── Determine stream phase ──
+    let streamPhase: "video" | "audio" | "unknown" = "unknown";
+    if (progress.status === "downloading") {
+      if (isAudioOnly) {
+        streamPhase = "audio";
+      } else if (streamIndex === 0) {
+        streamPhase = "video";
+      } else {
+        streamPhase = "audio";
+      }
+    }
+
+    // ── Compute percent ──
     const hasExplicitPercent =
       typeof progress.percentComplete === "number" && !Number.isNaN(progress.percentComplete);
-    // Phase-based progress (cutting / post-processing) carries its own percent
-    // that is not derived from downloaded bytes — trust it as-is.
     const isPhaseProgress =
       progress.status === "cutting" ||
       progress.status === "processing" ||
       progress.status === "postprocessing";
 
-    const percentComplete =
-      isPhaseProgress && hasExplicitPercent
-        ? progress.percentComplete
-        : trueTotal > 0
-          ? Math.min(100, (totalDownloaded / trueTotal) * 100)
-          : hasExplicitPercent
-            ? progress.percentComplete
-            : undefined;
+    let percentComplete: number | undefined;
+    if (isPhaseProgress && hasExplicitPercent) {
+      percentComplete = progress.percentComplete;
+    } else if (trueTotal > 0) {
+      percentComplete = Math.min(100, (totalDownloaded / trueTotal) * 100);
+    } else if (hasExplicitPercent) {
+      percentComplete = progress.percentComplete;
+    }
 
     const remainingBytes = trueTotal > 0 ? Math.max(0, trueTotal - totalDownloaded) : undefined;
 
@@ -122,51 +133,12 @@ export function createProgressTracker(): ProgressTracker {
     }
 
     const formattedSpeed = progress.speed == null ? undefined : formatSpeed(progress.speed);
-
     const formattedEta = etaSeconds === undefined ? undefined : formatEta(etaSeconds);
-
-    // Always use the accumulated total which includes all streams
-    const displayTotalBytes = trueTotal > 0 ? trueTotal : progress.total_bytes;
-
-    // Detect which stream we're downloading based on stream count and filename
-    let streamPhase: "video" | "audio" | "unknown" = "unknown";
-    if (progress.status === "downloading" && progress.filename) {
-      const filename = progress.filename.toLowerCase();
-
-      // First check filename for explicit audio/video indicators
-      const isAudioFile =
-        filename.includes(".m4a") ||
-        filename.includes(".mp3") ||
-        filename.includes(".opus") ||
-        filename.includes(".flac") ||
-        filename.includes(".wav") ||
-        filename.includes(".aac") ||
-        filename.includes(".faudio");
-
-      // For audio-only downloads (single stream with audio extension)
-      if (isAudioFile && streamCount === 0) {
-        streamPhase = "audio";
-      }
-      // For video downloads with separate streams
-      else if (streamCount === 0) {
-        streamPhase = "video"; // First stream is video
-      } else if (streamCount > 0) {
-        streamPhase = "audio"; // Second stream is audio
-      }
-
-      // Additional verification using format codes (not exhaustive, just common ones)
-      // This helps in edge cases where stream detection might be ambiguous
-      if (filename.match(/\.f(140|251|250|139|171|249)\b/)) {
-        streamPhase = "audio";
-      } else if (filename.match(/\.f(137|248|303|398|244|247|136|135|18|22)\b/)) {
-        streamPhase = "video";
-      }
-    }
 
     return {
       ...progress,
       downloaded_bytes: totalDownloaded,
-      total_bytes: displayTotalBytes,
+      total_bytes: trueTotal > 0 ? trueTotal : progress.total_bytes,
       percentComplete,
       speedMbps,
       etaSeconds,

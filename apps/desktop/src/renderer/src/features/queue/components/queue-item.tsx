@@ -115,8 +115,10 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const isCutting = isDownloading && progressStatus === "cutting";
   const isMerging = isDownloading && progressStatus === "processing";
   const isPostProcessing = isDownloading && progressStatus === "postprocessing";
-  const isDownloadingVideo = isDownloading && progressStatus === "downloading" && streamPhase === "video";
-  const isDownloadingAudio = isDownloading && progressStatus === "downloading" && streamPhase === "audio";
+  const isDownloadingVideo =
+    isDownloading && progressStatus === "downloading" && streamPhase === "video";
+  const isDownloadingAudio =
+    isDownloading && progressStatus === "downloading" && streamPhase === "audio";
 
   const downloaded =
     !isCompleted && rawProgress?.downloaded_bytes
@@ -127,9 +129,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
       ? formatBytes(rawProgress.total_bytes)
       : !isCompleted && rawProgress?.total_bytes_estimate
         ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
-        : item.size && item.size !== "Unknown"
-          ? item.size
-          : item.size;
+        : item.size;
   const speed = !isCompleted && rawProgress?.formattedSpeed ? rawProgress.formattedSpeed : null;
   const eta = !isCompleted && rawProgress?.formattedEta ? rawProgress.formattedEta : null;
   const trimLabel = formatTrimLabel(item.trimRange);
