@@ -69,6 +69,7 @@ export interface YtDlpProgress {
   filename?: string;
   formattedSpeed?: string;
   formattedEta?: string;
+  streamPhase?: "video" | "audio" | "unknown";
   [key: string]: unknown;
 }
 

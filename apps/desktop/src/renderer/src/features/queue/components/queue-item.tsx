@@ -111,21 +111,24 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const hasPercent = clampedProgress !== undefined;
 
   const progressStatus = rawProgress?.status;
+  const streamPhase = rawProgress?.streamPhase;
   const isCutting = isDownloading && progressStatus === "cutting";
-  const isPostProcessing =
-    isDownloading && (progressStatus === "processing" || progressStatus === "postprocessing");
+  const isMerging = isDownloading && progressStatus === "processing";
+  const isPostProcessing = isDownloading && progressStatus === "postprocessing";
+  const isDownloadingVideo = isDownloading && progressStatus === "downloading" && streamPhase === "video";
+  const isDownloadingAudio = isDownloading && progressStatus === "downloading" && streamPhase === "audio";
 
   const downloaded =
     !isCompleted && rawProgress?.downloaded_bytes
       ? formatBytes(rawProgress.downloaded_bytes)
       : item.downloaded;
   const size =
-    item.size && item.size !== "Unknown"
-      ? item.size
-      : !isCompleted && rawProgress?.total_bytes
-        ? formatBytes(rawProgress.total_bytes)
-        : !isCompleted && rawProgress?.total_bytes_estimate
-          ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
+    !isCompleted && rawProgress?.total_bytes
+      ? formatBytes(rawProgress.total_bytes)
+      : !isCompleted && rawProgress?.total_bytes_estimate
+        ? `~${formatBytes(rawProgress.total_bytes_estimate)}`
+        : item.size && item.size !== "Unknown"
+          ? item.size
           : item.size;
   const speed = !isCompleted && rawProgress?.formattedSpeed ? rawProgress.formattedSpeed : null;
   const eta = !isCompleted && rawProgress?.formattedEta ? rawProgress.formattedEta : null;
@@ -200,7 +203,19 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
         railClass: "bg-amber-500",
         determinate: hasPercent,
         percent: clampedProgress,
-        showStats: false,
+        showStats: true,
+        showRate: false
+      };
+    if (isMerging)
+      return {
+        label: "Merging…",
+        icon: Settings2,
+        iconClass: "text-violet-500",
+        spin: true,
+        barClass: "bg-violet-500",
+        railClass: "bg-violet-500",
+        determinate: false,
+        showStats: true,
         showRate: false
       };
     if (isPostProcessing)
@@ -212,8 +227,32 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
         barClass: "bg-violet-500",
         railClass: "bg-violet-500",
         determinate: false,
-        showStats: false,
+        showStats: true,
         showRate: false
+      };
+    if (isDownloadingVideo)
+      return {
+        label: "Downloading video…",
+        icon: Download,
+        iconClass: "text-blue-500",
+        barClass: "bg-blue-500",
+        railClass: "bg-blue-500",
+        determinate: true,
+        percent: clampedProgress,
+        showStats: true,
+        showRate: true
+      };
+    if (isDownloadingAudio)
+      return {
+        label: "Downloading audio…",
+        icon: Download,
+        iconClass: "text-cyan-500",
+        barClass: "bg-cyan-500",
+        railClass: "bg-cyan-500",
+        determinate: true,
+        percent: clampedProgress,
+        showStats: true,
+        showRate: true
       };
     if (hasPercent)
       return {

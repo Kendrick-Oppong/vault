@@ -45,7 +45,7 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
     const items: React.ReactNode[] = [];
 
     // Status-specific actions
-    if ((isPaused || isDownloading) && !isTrimmedDownload) {
+    if (isPaused && !isTrimmedDownload) {
       items.push(
         <ContextMenuItem
           key="resume"
@@ -58,13 +58,12 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
       );
     }
 
-    if ((isPaused || isQueued || isDownloading) && !isTrimmedDownload) {
+    if (isDownloading && !isTrimmedDownload) {
       items.push(
         <ContextMenuItem
           key="pause"
           onClick={() => pauseDownload(item.id)}
           className="flex items-center gap-2"
-          disabled={isPaused || isQueued}
         >
           <Pause className="w-3.5 h-3.5" />
           Pause
