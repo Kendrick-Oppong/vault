@@ -173,16 +173,21 @@ export function normalizeSource(raw: RawFormat[], url = ""): NormalizedSource {
     ? raw
         .filter((e) => str(e["_type"]) !== "playlist")
         .filter((e) => str(e["url"]) || str(e["webpage_url"]))
-        .map((e) => ({
-          id: str(e["id"]),
-          title: str(e["title"]) || "Untitled",
-          url: str(e["url"]) || str(e["webpage_url"]),
-          thumbnail:
+        .map((e) => {
+          const itemTitle = str(e["title"]);
+          const itemThumb =
             ((e["thumbnails"] as Array<{ url?: string }> | undefined)?.[0]?.url ??
               str(e["thumbnail"])) ||
-            undefined,
-          duration: undefined
-        }))
+            undefined;
+          return {
+            id: str(e["id"]),
+            title: itemTitle || "Unavailable video",
+            url: str(e["url"]) || str(e["webpage_url"]),
+            thumbnail: itemThumb,
+            duration: undefined,
+            unavailable: !itemTitle
+          };
+        })
     : undefined;
 
   return {
