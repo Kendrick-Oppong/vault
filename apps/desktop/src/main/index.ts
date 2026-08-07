@@ -275,7 +275,24 @@ function registerIpcHandlers(): void {
     if (!formatValidation.valid)
       throw new Error(`Invalid format selector: ${formatValidation.error}`);
 
-    const cookieFile = cookies.ensureFreshCookies(ytdlp.binaryPath, ytdlp.ffmpegPath); // ← CHANGED
+    // Validate download path exists and is writable before queueing
+    const downloadPath = jobInput.downloadPath;
+    if (downloadPath) {
+      if (!existsSync(downloadPath)) {
+        throw new Error(
+          `Download folder does not exist: "${downloadPath}". Reconnect the drive or choose a different folder in Settings.`
+        );
+      }
+      try {
+        fs.accessSync(downloadPath, fs.constants.W_OK);
+      } catch {
+        throw new Error(
+          `Download folder is not writable: "${downloadPath}". Check permissions or choose a different folder.`
+        );
+      }
+    }
+
+    const cookieFile = cookies.ensureFreshCookies(ytdlp.binaryPath, ytdlp.ffmpegPath);
     if (cookieFile) {
       jobInput = {
         ...jobInput,
@@ -331,6 +348,18 @@ function registerIpcHandlers(): void {
     const exists = fs.existsSync(resolved);
     logger.debug(`[fs:fileExists] input="${filePath}" resolved="${resolved}" exists=${exists}`);
     return exists;
+  });
+
+  ipcMain.handle("fs:directoryExists", async (_e, dirPath: string) => {
+    if (!dirPath || dirPath === "__unset__") return { exists: false, writable: false };
+    try {
+      const stats = await fs.promises.stat(dirPath);
+      if (!stats.isDirectory()) return { exists: false, writable: false };
+      await fs.promises.access(dirPath, fs.constants.W_OK);
+      return { exists: true, writable: true };
+    } catch {
+      return { exists: false, writable: false };
+    }
   });
 
   ipcMain.handle("fs:readFile", async (_e, filePath: string) => {
