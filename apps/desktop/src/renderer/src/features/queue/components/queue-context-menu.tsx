@@ -5,18 +5,21 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger
 } from "@vault/ui/components/context-menu";
-import { Play, Pause, RotateCcw, X, FolderOpen } from "lucide-react";
+import { Play, Pause, RotateCcw, X, FolderOpen, ExternalLink } from "lucide-react";
 import type { QueueItem } from "../types";
+import type { HistoryItem } from "@/features/history/types";
 import {
   useCancelDownload,
   usePauseDownload,
   useResumeDownload,
   useRetryDownload,
-  useRevealFile
+  useRevealFile,
+  useOpenFile
 } from "@/lib/mutations/downloads";
 import { toast } from "sonner";
 import { useState } from "react";
 import { ConfirmationDialog } from "@/features/ui/components/confirmation-dialog";
+import { usePlayerActions } from "@renderer/stores/player/player.selectors";
 
 interface QueueContextMenuProps {
   children: React.ReactNode;
@@ -29,12 +32,32 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
   const { mutate: resumeDownload } = useResumeDownload();
   const { mutate: retryDownload } = useRetryDownload();
   const { mutate: revealFile } = useRevealFile();
+  const { mutate: openFile } = useOpenFile();
+  const { playMedia } = usePlayerActions();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const isPaused = item.status === "paused";
   const isError = item.status === "error";
   const isDownloading = item.status === "downloading";
   const isCompleted = item.status === "completed";
+
+  // Convert QueueItem to HistoryItem for player compatibility
+  const queueItemToHistoryItem = (queueItem: QueueItem): HistoryItem => ({
+    id: queueItem.id,
+    title: queueItem.title,
+    channel: queueItem.channel,
+    type: queueItem.type,
+    quality: (queueItem.format || "unknown") as HistoryItem["quality"],
+    size: queueItem.size || "0",
+    sizeBytes: 0, // Not available in QueueItem
+    addedAt: queueItem.addedAt,
+    duration: queueItem.duration,
+    thumbnail: queueItem.thumbnail,
+    url: queueItem.url,
+    filePath: queueItem.filePath,
+    status: queueItem.status,
+    format: queueItem.format
+  });
 
   // Trimmed downloads stream through ffmpeg (--download-sections) and can't be
   // resumed, so pause/resume would only cause a silent restart. Hide them.
@@ -79,6 +102,46 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
         >
           <RotateCcw className="w-3.5 h-3.5" />
           Retry
+        </ContextMenuItem>
+      );
+    }
+
+    // Completed download actions
+    if (isCompleted) {
+      items.push(
+        <ContextMenuItem
+          key="play-in-vault"
+          onClick={() => {
+            if (item.filePath) {
+              playMedia(queueItemToHistoryItem(item));
+            } else {
+              toast.error("File path not available", {
+                description:
+                  "This file might have been downloaded with an older version, or it was moved/deleted."
+              });
+            }
+          }}
+          className="flex items-center gap-2"
+        >
+          <Play className="w-3.5 h-3.5" />
+          Play in Vault
+        </ContextMenuItem>,
+        <ContextMenuItem
+          key="play-external"
+          onClick={() => {
+            if (item.filePath) {
+              openFile(item.filePath);
+            } else {
+              toast.error("File path not available", {
+                description:
+                  "This file might have been downloaded with an older version, or it was moved/deleted."
+              });
+            }
+          }}
+          className="flex items-center gap-2"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          Play in External Player
         </ContextMenuItem>
       );
     }
