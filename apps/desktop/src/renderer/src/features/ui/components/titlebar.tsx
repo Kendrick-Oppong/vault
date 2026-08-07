@@ -3,9 +3,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@vault/ui/components/to
 import { X, Minus, Square } from "lucide-react";
 import { useState, useEffect } from "react";
 import icon from "@/assets/icon.png";
+import { useActiveJobs } from "@/lib/queries/jobs";
+import { useModalStore } from "@/stores/ui/modal.store";
 
 export const Titlebar = () => {
   const [isMaximized, setIsMaximized] = useState(false);
+  const { openConfirmDialog } = useModalStore();
+  const { data: activeJobs = [] } = useActiveJobs();
 
   useEffect(() => {
     const handleMaximize = () => setIsMaximized(true);
@@ -19,7 +23,25 @@ export const Titlebar = () => {
 
   const handleMinimize = () => globalThis.api.minimizeWindow?.();
   const handleMaximize = () => globalThis.api.maximizeWindow?.();
-  const handleClose = () => globalThis.api.closeWindow?.();
+
+  const handleClose = () => {
+    const activeDownloads = activeJobs.filter(
+      (job) => job.status === "active" || job.status === "pending"
+    );
+
+    if (activeDownloads.length > 0) {
+      openConfirmDialog({
+        title: "Close Window?",
+        description: `There ${activeDownloads.length === 1 ? "is" : "are"} ${activeDownloads.length} download${activeDownloads.length === 1 ? "" : "s"} in progress. Closing the window will cancel these downloads.`,
+        confirmText: "Close",
+        cancelText: "Cancel",
+        variant: "danger",
+        onConfirm: () => globalThis.api.closeWindow?.()
+      });
+    } else {
+      globalThis.api.closeWindow?.();
+    }
+  };
 
   return (
     <div className="flex items-center justify-between h-8 px-4 bg-sidebar border-b border-sidebar-border select-none [-webkit-app-region:drag]">
