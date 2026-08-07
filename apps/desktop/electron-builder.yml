@@ -39,6 +39,7 @@ nsis:
   shortcutName: Vault
   differentialPackage: false
   include: build/installer.nsh
+  deleteAppDataOnUninstall: false
 
 mac:
   category: public.app-category.utilities
