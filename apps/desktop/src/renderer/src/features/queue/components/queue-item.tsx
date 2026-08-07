@@ -57,6 +57,30 @@ function formatTrimLabel(trimRange?: { start?: string; end?: string }): string |
   return `${trimRange.start || "0:00"}–${trimRange.end || "end"}`;
 }
 
+/** Maps postProcessStep to a user-friendly label. */
+function getPostProcessLabel(step: string | undefined, mediaType: "video" | "music"): string {
+  switch (step) {
+    case "merging":
+      return "Merging video + audio…";
+    case "metadata":
+      return "Embedding metadata…";
+    case "thumbnail":
+      return "Embedding thumbnail…";
+    case "extractaudio":
+      return mediaType === "music" ? "Extracting audio…" : "Converting audio…";
+    case "remux":
+      return "Remuxing…";
+    case "sponsorblock":
+      return "Removing sponsor segments…";
+    case "chapters":
+      return "Embedding chapters…";
+    case "cutting":
+      return "Cutting…";
+    default:
+      return mediaType === "video" ? "Finalizing…" : "Processing audio…";
+  }
+}
+
 export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const isPaused = item.status === "paused";
   const isQueued = item.status === "queued";
@@ -112,9 +136,12 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
 
   const progressStatus = rawProgress?.status;
   const streamPhase = rawProgress?.streamPhase;
+  const postProcessStep = rawProgress?.postProcessStep;
   const isCutting = isDownloading && progressStatus === "cutting";
-  const isMerging = isDownloading && progressStatus === "processing";
+  const isMerging =
+    isDownloading && progressStatus === "processing" && postProcessStep === "merging";
   const isPostProcessing = isDownloading && progressStatus === "postprocessing";
+  const isGenericProcessing = isDownloading && progressStatus === "processing" && !isMerging;
   const isDownloadingVideo =
     isDownloading && progressStatus === "downloading" && streamPhase === "video";
   const isDownloadingAudio =
@@ -208,7 +235,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
       };
     if (isMerging)
       return {
-        label: "Merging…",
+        label: "Merging video + audio…",
         icon: Settings2,
         iconClass: "text-violet-500",
         spin: true,
@@ -220,7 +247,19 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
       };
     if (isPostProcessing)
       return {
-        label: item.type === "video" ? "Finalizing…" : "Extracting audio…",
+        label: getPostProcessLabel(postProcessStep, item.type),
+        icon: Settings2,
+        iconClass: "text-violet-500",
+        spin: true,
+        barClass: "bg-violet-500",
+        railClass: "bg-violet-500",
+        determinate: false,
+        showStats: true,
+        showRate: false
+      };
+    if (isGenericProcessing)
+      return {
+        label: getPostProcessLabel(postProcessStep, item.type),
         icon: Settings2,
         iconClass: "text-violet-500",
         spin: true,
@@ -295,7 +334,6 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
     if (isDownloading) {
       return (
         <>
-          {/* Trimmed downloads can't be resumed, so don't offer Pause for them. */}
           {!isTrimmedDownload && (
             <Button
               variant="ghost"
@@ -427,7 +465,6 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
             onClick={(e) => e.stopPropagation()}
           />
 
-          {/* Thumbnail with per-phase badge */}
           <div className="relative w-24 h-14 rounded-lg shrink-0 overflow-hidden bg-secondary">
             {item.thumbnail && !imgError ? (
               <img
@@ -505,7 +542,6 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
               </div>
             </div>
 
-            {/* Status row */}
             <div className="flex items-center gap-2 mt-2">
               <PhaseIcon className={cn("w-3 h-3", phase.iconClass, phase.spin && "animate-spin")} />
               <span className={cn("text-[11.5px]", phase.iconClass)}>{phase.label}</span>
@@ -556,7 +592,6 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
               </div>
             )}
 
-            {/* Progress block: downloading / cutting / paused / resuming */}
             {showProgressBlock && (
               <div className="mt-2">
                 <div className="relative h-1 rounded-full bg-muted overflow-hidden">

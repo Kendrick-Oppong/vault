@@ -50,13 +50,24 @@ export interface DownloadExtras {
   subtitleLanguages?: string[];
   reencodeFormat?: "none" | "h264-aac" | "h265-aac";
   videoContainer?: "mp4" | "mkv";
-  audioFormat?: string; // e.g., "mp3", "m4a", "opus", "flac", "wav"
-  audioBitrate?: number; // e.g., 320, 256, 192, 128, 96 (kbps)
+  audioFormat?: string;
+  audioBitrate?: number;
   useDownloadArchive?: boolean;
   overwrite?: boolean;
   trimRange?: { start?: string; end?: string };
   frameAccurate?: boolean;
 }
+
+export type PostProcessStep =
+  | "merging"
+  | "metadata"
+  | "thumbnail"
+  | "extractaudio"
+  | "remux"
+  | "sponsorblock"
+  | "chapters"
+  | "cutting"
+  | "generic";
 
 export interface YtDlpProgress {
   status?: string;
@@ -70,6 +81,7 @@ export interface YtDlpProgress {
   formattedSpeed?: string;
   formattedEta?: string;
   streamPhase?: "video" | "audio" | "unknown";
+  postProcessStep?: PostProcessStep;
   [key: string]: unknown;
 }
 
