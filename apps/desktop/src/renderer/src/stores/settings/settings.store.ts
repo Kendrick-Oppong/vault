@@ -83,8 +83,8 @@ export const useSettingsStore = create<SettingsStore>()(
           isReady: true,
           settings: {
             ...state.settings,
-            // Only overwrite if still at the unset sentinel (i.e. fresh install or after reset)
-            version: state.settings.version === UNSET ? appVersion : state.settings.version,
+            // Always update version from main process (it should reflect current app version)
+            version: appVersion,
             ytDlpVersion:
               state.settings.ytDlpVersion === UNSET ? ytDlpVersion : state.settings.ytDlpVersion,
             downloadPath:
