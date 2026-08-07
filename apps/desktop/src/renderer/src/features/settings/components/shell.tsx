@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@vault/ui/components/button";
 import { Input } from "@vault/ui/components/input";
 import { Switch } from "@vault/ui/components/switch";
@@ -40,6 +39,7 @@ import { useUpdateBinaries } from "@/lib/mutations/dependencies";
 import { cn } from "@vault/ui/lib/utils";
 import { useModalActions } from "@/stores/ui/modal.selectors";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@vault/ui/components/tooltip";
+import { useState, useEffect } from "react";
 
 export const SettingsView = () => {
   const settings = useSettingsStore(selectSettings);
@@ -54,6 +54,30 @@ export const SettingsView = () => {
     const browserValue = value === "none" || !value ? "" : value;
     setBrowserMutation.mutate(browserValue);
   };
+
+  const [downloadPathStatus, setDownloadPathStatus] = useState<{
+    exists: boolean;
+    writable: boolean;
+  } | null>(null);
+
+  // Validate download path whenever it changes
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!settings.downloadPath) {
+      Promise.resolve().then(() => {
+        if (!cancelled) setDownloadPathStatus(null);
+      });
+    } else {
+      globalThis.api.directoryExists(settings.downloadPath).then((result) => {
+        if (!cancelled) setDownloadPathStatus(result);
+      });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.downloadPath]);
 
   const { data: cookieInfo } = useCookieInfo();
   const setBrowserMutation = useSetCookieBrowser();
@@ -101,39 +125,55 @@ export const SettingsView = () => {
           title="Downloads"
         >
           <Row label="Download folder" description="Where downloaded files are saved">
-            <div className="flex items-center gap-2 min-w-0 flex-1 max-w-xs">
-              <Input
-                value={settings.downloadPath}
-                onChange={(e) => updateSetting("downloadPath", e.target.value)}
-                readOnly
-                disabled
-                placeholder="~/Downloads"
-              />
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={() =>
-                        openFolderMutation.mutate(undefined, {
-                          onSuccess: (folder) => {
-                            if (folder) updateSetting("downloadPath", folder);
-                          }
-                        })
-                      }
-                      disabled={openFolderMutation.isPending}
-                    >
-                      <FolderOpen className="w-3.5 h-3.5" />
-                    </Button>
-                  }
+            <div className="flex flex-col gap-1 min-w-0 flex-1 max-w-xs">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={settings.downloadPath}
+                  onChange={(e) => updateSetting("downloadPath", e.target.value)}
+                  readOnly
+                  disabled
+                  placeholder="~/Downloads"
+                  className={cn(
+                    downloadPathStatus && !downloadPathStatus.exists && "border-destructive!"
+                  )}
                 />
-
-                <TooltipContent side="top" sideOffset={8}>
-                  Browse
-                </TooltipContent>
-              </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() =>
+                          openFolderMutation.mutate(undefined, {
+                            onSuccess: (folder) => {
+                              if (folder) updateSetting("downloadPath", folder);
+                            }
+                          })
+                        }
+                        disabled={openFolderMutation.isPending}
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                      </Button>
+                    }
+                  />
+                  <TooltipContent side="top" sideOffset={8}>
+                    Browse
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              {downloadPathStatus && !downloadPathStatus.exists && (
+                <p className="flex items-center gap-1 text-[11px] text-destructive">
+                  <AlertTriangle className="w-3 h-3 shrink-0" />
+                  Folder not found. Reconnect the drive or choose another path
+                </p>
+              )}
+              {downloadPathStatus && downloadPathStatus.exists && !downloadPathStatus.writable && (
+                <p className="flex items-center gap-1 text-[11px] text-amber-500">
+                  <AlertTriangle className="w-3 h-3 shrink-0" />
+                  Folder is read-only.
+                </p>
+              )}
             </div>
           </Row>
 
