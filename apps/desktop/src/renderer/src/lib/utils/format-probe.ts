@@ -109,16 +109,20 @@ function mapProbeToFormatModalData(
     const items = raw
       .filter((e) => e["_type"] !== "playlist")
       .filter((e) => e["url"] || e["webpage_url"])
-      .map((e) => ({
-        id: str(e["id"], ""),
-        title: str(e["title"], "Untitled"),
-        url: str(e["url"], str(e["webpage_url"], "")),
-        thumbnail:
-          ((e["thumbnails"] as Array<{ url?: string }> | undefined)?.[0]?.url ??
-            str(e["thumbnail"], "")) ||
-          undefined,
-        duration: formatDuration(num(e["duration"]))
-      }));
+      .map((e) => {
+        const itemTitle = str(e["title"], "");
+        return {
+          id: str(e["id"], ""),
+          title: itemTitle || "Unavailable video",
+          url: str(e["url"], str(e["webpage_url"], "")),
+          thumbnail:
+            ((e["thumbnails"] as Array<{ url?: string }> | undefined)?.[0]?.url ??
+              str(e["thumbnail"], "")) ||
+            undefined,
+          duration: formatDuration(num(e["duration"])),
+          unavailable: !itemTitle
+        };
+      });
     const totalCount = num(entry["playlist_count"]) ?? items.length;
     return {
       id: str(entry["id"], str(entry["webpage_url"], "")),
@@ -130,7 +134,7 @@ function mapProbeToFormatModalData(
       type: "playlist",
       videoCount: totalCount,
       playlistItems: items,
-      selectedCount: items.length,
+      selectedCount: items.filter((i) => !i.unavailable).length,
       totalCount,
       videoPresets: PRESETS.filter((p) => p.mediaType === "video"),
       audioPresets: PRESETS.filter((p) => p.mediaType === "audio"),
