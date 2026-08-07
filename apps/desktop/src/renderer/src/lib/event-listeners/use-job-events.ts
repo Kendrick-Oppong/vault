@@ -39,7 +39,6 @@ export function useJobEvents() {
       queryClient.removeQueries({ queryKey: QueryKeys.jobs.progress(job.id) });
       upsertJob({ ...job, status: "completed" });
       queryClient.invalidateQueries({ queryKey: QueryKeys.history.base() });
-      toast.success(`Download completed: ${job.meta?.title || job.url}`);
     };
 
     const handleJobFailed = (job: Job, err: unknown) => {
