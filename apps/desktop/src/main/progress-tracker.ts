@@ -132,26 +132,28 @@ export function createProgressTracker(): ProgressTracker {
     let streamPhase: "video" | "audio" | "unknown" = "unknown";
     if (progress.status === "downloading" && progress.filename) {
       const filename = progress.filename.toLowerCase();
-      
+
       // First check filename for explicit audio/video indicators
-      const isAudioFile = filename.includes(".m4a") || filename.includes(".mp3") || 
-                          filename.includes(".opus") || filename.includes(".flac") || 
-                          filename.includes(".wav") || filename.includes(".aac") ||
-                          filename.includes(".faudio");
-      const isVideoFile = filename.includes(".mp4") || filename.includes(".mkv") || 
-                          filename.includes(".webm") || filename.includes(".fvideo");
-      
+      const isAudioFile =
+        filename.includes(".m4a") ||
+        filename.includes(".mp3") ||
+        filename.includes(".opus") ||
+        filename.includes(".flac") ||
+        filename.includes(".wav") ||
+        filename.includes(".aac") ||
+        filename.includes(".faudio");
+
       // For audio-only downloads (single stream with audio extension)
       if (isAudioFile && streamCount === 0) {
         streamPhase = "audio";
       }
       // For video downloads with separate streams
       else if (streamCount === 0) {
-        streamPhase = "video";  // First stream is video
+        streamPhase = "video"; // First stream is video
       } else if (streamCount > 0) {
-        streamPhase = "audio";  // Second stream is audio
+        streamPhase = "audio"; // Second stream is audio
       }
-      
+
       // Additional verification using format codes (not exhaustive, just common ones)
       // This helps in edge cases where stream detection might be ambiguous
       if (filename.match(/\.f(140|251|250|139|171|249)\b/)) {

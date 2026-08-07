@@ -32,7 +32,6 @@ export const QueueContextMenu = ({ children, item }: QueueContextMenuProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const isPaused = item.status === "paused";
-  const isQueued = item.status === "queued";
   const isError = item.status === "error";
   const isDownloading = item.status === "downloading";
   const isCompleted = item.status === "completed";
