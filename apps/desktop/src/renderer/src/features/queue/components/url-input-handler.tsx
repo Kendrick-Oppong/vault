@@ -61,6 +61,25 @@ export const UrlInputHandler = ({
             openFormatModal(modalData, {
               isLoading: false,
               onConfirm: async (options) => {
+                const downloadPath = options.destination || settings.downloadPath || undefined;
+
+                // ── Validate download path exists before doing anything else ──
+                if (downloadPath) {
+                  const pathCheck = await globalThis.api.directoryExists(downloadPath);
+                  if (!pathCheck.exists) {
+                    toast.error("Download folder not found", {
+                      description: `"${downloadPath}" does not exist. Reconnect the drive or choose a different folder in Settings.`
+                    });
+                    return;
+                  }
+                  if (!pathCheck.writable) {
+                    toast.error("Download folder not writable", {
+                      description: `"${downloadPath}" is read-only. Check permissions or choose a different folder.`
+                    });
+                    return;
+                  }
+                }
+
                 const formatSelector = presetToFormatSelector(options.preset, options.formatId);
                 const qualitySuffix =
                   options.mediaType === "video" && settings.useDownloadArchive
@@ -72,7 +91,7 @@ export const UrlInputHandler = ({
 
                 const baseJobInput = {
                   outputTemplate,
-                  downloadPath: options.destination || settings.downloadPath || undefined,
+                  downloadPath,
                   formatSelector,
                   extra: {
                     embedThumbnail: options.embedThumbnail,
