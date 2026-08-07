@@ -30,7 +30,9 @@ export function ToastProvider() {
           title:
             "font-semibold group-data-[type=success]:text-success! group-data-[type=error]:text-destructive!",
           description:
-            "group-data-[type=success]:text-success/80! group-data-[type=error]:text-destructive/80!"
+            "group-data-[type=success]:text-success/80! group-data-[type=error]:text-destructive/80!",
+          actionButton:
+            "group-data-[type=success]:bg-primary! h-7! group-data-[type=error]:bg-destructive/50!"
         }
       }}
     />
