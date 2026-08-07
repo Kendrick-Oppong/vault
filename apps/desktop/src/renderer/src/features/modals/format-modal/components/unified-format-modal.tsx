@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@vault/ui/components/select";
-import { Video, Music, Info, AudioLines, FolderOpen, Volume2 } from "lucide-react";
+import { Video, Music, Info, AudioLines, FolderOpen, Volume2, AlertTriangle } from "lucide-react";
 import { cn } from "@vault/ui/lib/utils";
 import type { FormatModalProps, MediaType, Preset } from "../types";
 import { deriveCapabilities } from "../lib/source-capabilities";
@@ -105,6 +105,35 @@ export const UnifiedFormatModal = ({
   const [destination, setDestination] = useState(settings.downloadPath);
   const [trimRange, setTrimRange] = useState<{ start?: string; end?: string }>({});
   const [frameAccurate, setFrameAccurate] = useState(false);
+  const [pathWarning, setPathWarning] = useState<string | null>(null);
+
+  // Validate destination path whenever it changes
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!destination) {
+      Promise.resolve().then(() => {
+        if (!cancelled) setPathWarning(null);
+      });
+    } else {
+      globalThis.api.directoryExists(destination).then((result) => {
+        if (cancelled) return;
+        if (!result.exists) {
+          setPathWarning(
+            "This output folder does not exist. Reconnect the drive or choose another path."
+          );
+        } else if (!result.writable) {
+          setPathWarning("This folder is read-only.");
+        } else {
+          setPathWarning(null);
+        }
+      });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [destination]);
 
   useEffect(() => {
     if (data.type !== "playlist") {
@@ -203,6 +232,13 @@ export const UnifiedFormatModal = ({
 
   const handleConfirm = () => {
     if (!selectedPreset) return;
+
+    // Block confirm if path is invalid
+    if (pathWarning) {
+      toast.error("Cannot download", { description: pathWarning });
+      return;
+    }
+
     const trimActive = Boolean(trimRange.start || trimRange.end);
     if (trimActive && caps.canTrim) {
       const total = parseDurationToSeconds(data.duration);
@@ -632,41 +668,52 @@ export const UnifiedFormatModal = ({
                 </>
               )}
 
-              <div className="flex items-center gap-3">
-                <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Save to</Label>
-                <Input
-                  value={destination}
-                  readOnly
-                  disabled
-                  placeholder="~/Downloads"
-                  className="flex-1 bg-secondary/60 border-border text-[12.5px] h-9"
-                />
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-9 h-9 shrink-0"
-                        onClick={() =>
-                          openFolderMutation.mutate(undefined, {
-                            onSuccess: (folder) => {
-                              if (folder) {
-                                setDestination(folder);
-                                updateSetting("downloadPath", folder);
-                              }
-                            }
-                          })
-                        }
-                      >
-                        <FolderOpen className="w-4 h-4" />
-                      </Button>
-                    }
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-3">
+                  <Label className="text-[13px] text-muted-foreground w-24 shrink-0">Save to</Label>
+                  <Input
+                    value={destination}
+                    readOnly
+                    disabled
+                    placeholder="~/Downloads"
+                    className={cn(
+                      "flex-1 bg-secondary/60 text-[12.5px] h-9",
+                      pathWarning ? "border border-destructive!" : "border-border"
+                    )}
                   />
-                  <TooltipContent side="top" sideOffset={8}>
-                    Browse folders
-                  </TooltipContent>
-                </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-9 h-9 shrink-0"
+                          onClick={() =>
+                            openFolderMutation.mutate(undefined, {
+                              onSuccess: (folder) => {
+                                if (folder) {
+                                  setDestination(folder);
+                                  updateSetting("downloadPath", folder);
+                                }
+                              }
+                            })
+                          }
+                        >
+                          <FolderOpen className="w-4 h-4" />
+                        </Button>
+                      }
+                    />
+                    <TooltipContent side="top" sideOffset={8}>
+                      Browse folders
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                {pathWarning && (
+                  <div className="flex items-start gap-2 text-[12px] text-destructive ml-26">
+                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <span>{pathWarning}</span>
+                  </div>
+                )}
               </div>
             </div>
 
