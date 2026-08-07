@@ -267,7 +267,7 @@ export const useBatchImport = () => {
         if (modalData.type === "playlist" && modalData.playlistItems?.length) {
           // Expand playlist into individual items
           for (const item of modalData.playlistItems) {
-            if (!item.url) continue;
+            if (!item.url || item.unavailable) continue;
             const job = buildJobInput(item.url, {
               title: item.title,
               thumbnail: item.thumbnail,
