@@ -4,7 +4,7 @@
 
 **A fast, modern desktop YouTube downloader — powered by yt-dlp & FFmpeg**
 
-Download videos, playlists, and audio from YouTube and 1000+ sites, entirely on your machine.
+Download videos, playlists, and audio from YouTube and 1000+ sites, entirely on your machine
 
 [Features](#-features) · [Screenshots](#-screenshots) · [Quick Start](#-quick-start) · [Tech Stack](#-tech-stack) · [Project Structure](#-project-structure)
 
