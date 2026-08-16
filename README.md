@@ -120,7 +120,7 @@ pnpm format           # format with Prettier
 
 ## 🧩 Tech Stack
 
-**Electron** · **React 19** · **TypeScript** · **Tailwind CSS v4** + **shadcn/ui** · **TanStack Query** · **Zustand** · **better-sqlite3** · **yt-dlp** + **FFmpeg** · **pnpm** workspaces
+**Electron** · **React 19** · **TypeScript** · **Tailwind CSS v4** + **shadcn/ui** · **TanStack Query** · **Zustand** · **better-sqlite3** · **yt-dlp** + **FFmpeg**
 
 ---
 
