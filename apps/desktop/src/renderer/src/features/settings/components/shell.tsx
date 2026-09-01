@@ -384,7 +384,7 @@ export const SettingsView = () => {
             label="Bandwidth limit"
             description={
               <>
-                Cap download speed, e.g. <code>5M</code> or <code>500K</code>
+                Cap download speed, e.g. <code className="font-sans"> 5M or 500K</code>
               </>
             }
           >
@@ -396,7 +396,7 @@ export const SettingsView = () => {
                 placeholder="unlimited"
               />
               {bandwidthError && (
-                <p className="text-[11px] text-destructive mt-0.5">Format: 5M or 500K</p>
+                <p className="text-[11px] text-destructive mt-0.5">Format: 5M or 500K </p>
               )}
             </div>
           </Row>
@@ -405,7 +405,8 @@ export const SettingsView = () => {
             label="Proxy"
             description={
               <>
-                SOCKS5/HTTP proxy, e.g. <code>127.0.0.1:1080</code>
+                SOCKS5/HTTP proxy, e.g.{" "}
+                <code className="font-sans tracking-wider">127.0.0.1:1080</code>
               </>
             }
           >
@@ -604,6 +605,33 @@ export const SettingsView = () => {
             <Switch
               checked={settings.autoUpdateApp}
               onCheckedChange={(checked) => updateSetting("autoUpdateApp", checked)}
+            />
+          </Row>
+          <Row
+            label="Enable nightly builds"
+            description="Receive daily experimental builds. These may contain bugs or crash."
+          >
+            <Switch
+              checked={Boolean(settings.useNightlyBuilds)}
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  openConfirmDialog({
+                    title: "Enable Nightly Builds?",
+                    description:
+                      "Nightly builds are generated daily and may be unstable, contain bugs, or crash unexpectedly. Are you sure you want to opt-in?",
+                    confirmText: "Enable",
+                    variant: "warning",
+                    onConfirm: () => {
+                      updateSetting("useNightlyBuilds", true);
+                      // Sync to Main Process so electron-updater switches to "nightly" channel
+                      globalThis.api.settingsSync({ useNightlyBuilds: true });
+                    }
+                  });
+                } else {
+                  updateSetting("useNightlyBuilds", false);
+                  globalThis.api.settingsSync({ useNightlyBuilds: false });
+                }
+              }}
             />
           </Row>
           <Row
