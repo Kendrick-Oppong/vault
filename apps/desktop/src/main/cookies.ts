@@ -266,7 +266,9 @@ export function isAuthRequiredError(error: unknown): boolean {
     /members[- ]only|available to (this channel's |)members|join this channel/i.test(message) ||
     /requires payment|purchase/i.test(message) ||
     /not a bot/i.test(message) ||
-    /login required|account/i.test(message);
+    /login required|account/i.test(message) ||
+    /HTTP Error 403/i.test(message) ||
+    /Forbidden/i.test(message);
   if (isAuthError) {
     logger.debug("Detected authentication required error:", message);
   }
