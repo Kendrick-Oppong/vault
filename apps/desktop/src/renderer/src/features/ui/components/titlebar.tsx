@@ -1,6 +1,6 @@
 import { Button } from "@vault/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@vault/ui/components/tooltip";
-import { X, Minus, Square } from "lucide-react";
+import { X, Minus, Square, Copy } from "lucide-react";
 import { useState, useEffect } from "react";
 import icon from "@/assets/icon.png";
 import { useActiveJobs } from "@/lib/queries/jobs";
@@ -78,7 +78,11 @@ export const Titlebar = () => {
                 className="rounded-md hover:bg-sidebar-accent"
                 onClick={handleMaximize}
               >
-                <Square className={`w-3.5 h-3.5 ${isMaximized ? "opacity-60" : ""}`} />
+                {isMaximized ? (
+                  <Copy className="h-3.5 w-3.5" />
+                ) : (
+                  <Square className="h-3.5 w-3.5" />
+                )}
               </Button>
             }
           />
