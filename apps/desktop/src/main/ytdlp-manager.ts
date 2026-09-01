@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { isAbsolute, join } from "node:path";
-import type { YtDlpProgress, DownloadExtras } from "@vault/types";
+import type { YtDlpProgress, DownloadExtras, PostProcessStep } from "@vault/types";
 import { validateMediaUrl, validateYouTubeUrl } from "./validators";
 import { logger } from "./logger";
 
@@ -95,7 +95,7 @@ function parseYtDlpError(stderr: string): string {
   if (stderr.includes("ERROR: This video is age restricted"))
     return "Video is age-restricted. Enable cookies or sign in to access it.";
   if (stderr.includes("HTTP Error 403"))
-    return "Access forbidden. The video may be private or unavailable in your region.";
+    return "Access forbidden (HTTP 403). YouTube may be blocking the download. Try enabling cookies in Settings.";
   if (stderr.includes("HTTP Error 404"))
     return "Video not found. It may have been deleted or the URL is incorrect.";
   if (stderr.includes("Connection refused"))
@@ -114,7 +114,16 @@ function probeInternal(
   logger.debug("Binary path:", opts.binaryPath);
   logger.debug("FFmpeg path:", opts.ffmpegPath);
   return new Promise((resolve, reject) => {
-    const args = ["--dump-json", "--flat-playlist", "--quiet", "--no-warnings"];
+    const args = [
+      "--dump-json",
+      "--flat-playlist",
+      "--quiet",
+      "--no-warnings",
+      "--js-runtimes",
+      `node:${process.execPath}`,
+      "--extractor-args",
+      "youtube:player_client=web_safari,web_embedded,-tv_downgraded"
+    ];
 
     if (extras?.cookiesFile) args.push("--cookies", extras.cookiesFile);
     else if (extras?.cookiesFromBrowser)
@@ -240,6 +249,8 @@ export async function probePlaylistPage(
       "--flat-playlist",
       "--js-runtimes",
       `node:${process.execPath}`,
+      "--extractor-args",
+      "youtube:player_client=web_safari,web_embedded,-tv_downgraded",
       "--quiet",
       "--no-warnings",
       "--playlist-items",
@@ -504,7 +515,7 @@ function attachDownloadOutputHandlers(
   isTrimmed: boolean,
   trimClipSeconds: number | undefined,
   onProgress?: (progress: YtDlpProgress) => void
-): { getStderr: () => string; getStdoutInfo: () => string } {
+): { getStderr: () => string; getStdoutInfo: () => string; cleanup: () => void } {
   let stderr = "";
   let stdoutInfo = "";
   let stdoutBuffer = "";
@@ -513,19 +524,53 @@ function attachDownloadOutputHandlers(
   let ffmpegProcessingEmitted = false;
   let lastPostProcessKey = "";
 
+  // Heartbeat for long-running post-processing steps (merging, finalizing)
+  let heartbeatInterval: NodeJS.Timeout | null = null;
+  let currentPostProcessStep: PostProcessStep | null = null;
+
+  const startHeartbeat = (step: PostProcessStep) => {
+    if (currentPostProcessStep === step && heartbeatInterval) return;
+    currentPostProcessStep = step;
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+
+    // Emit immediately
+    onProgress?.({ status: "processing", postProcessStep: step });
+
+    // Emit every 2 seconds so the UI knows it's not frozen
+    heartbeatInterval = setInterval(() => {
+      onProgress?.({ status: "processing", postProcessStep: step });
+    }, 2000);
+  };
+
+  const stopHeartbeat = () => {
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+    currentPostProcessStep = null;
+  };
+
   const parseProgressLine = (line: string): YtDlpProgress | null => {
     const outputLine = line.trim();
     if (!outputLine) return null;
 
     // ── Check post-processing step lines FIRST ──
     const ppEvent = parsePostProcessLine(outputLine);
-    if (ppEvent) return ppEvent;
+    if (ppEvent) {
+      if (ppEvent.postProcessStep) {
+        startHeartbeat(ppEvent.postProcessStep);
+      }
+      return ppEvent;
+    }
 
     // ── Try to parse JSON progress (from --progress-template) ──
     const jsonCandidate = outputLine.replace(/^[a-zA-Z0-9_-]+:/, "").trim();
     try {
       const parsed = JSON.parse(jsonCandidate) as YtDlpProgress;
       if (parsed && typeof parsed === "object") {
+        if (parsed.status === "downloading" || parsed.status === "finished") {
+          stopHeartbeat();
+        }
         if (parsed.percentComplete === undefined) {
           const total = parsed.total_bytes ?? parsed.total_bytes_estimate;
           if (total && typeof parsed.downloaded_bytes === "number") {
@@ -543,6 +588,7 @@ function attachDownloadOutputHandlers(
       /\[download\]\s+([\d.]+)%\s+of\s+(~?)([\d.]+)\s*([a-zA-Z]+)(?:\s+at\s+~?([\d.]+)\s*([a-zA-Z]+)\/s)?(?:\s+ETA\s+([\d:]+))?/
     );
     if (textMatch) {
+      stopHeartbeat();
       const percentComplete = Number.parseFloat(textMatch[1]);
       const isEstimate = textMatch[2] === "~";
       const totalSizeNum = textMatch[3];
@@ -572,6 +618,7 @@ function attachDownloadOutputHandlers(
 
     const percentMatch = outputLine.match(/\[download\]\s+([\d.]+)%/);
     if (percentMatch) {
+      stopHeartbeat();
       const percentComplete = Number.parseFloat(percentMatch[1]);
       return {
         status: "downloading",
@@ -611,12 +658,12 @@ function attachDownloadOutputHandlers(
       } else if (!ffmpegProcessingEmitted) {
         ffmpegProcessingEmitted = true;
         logger.debug("Trim encode started (indeterminate)");
-        onProgress?.({ status: "cutting", postProcessStep: "cutting" });
+        startHeartbeat("cutting");
       }
     } else if (!ffmpegProcessingEmitted) {
       ffmpegProcessingEmitted = true;
       logger.debug("FFmpeg post-processing started");
-      onProgress?.({ status: "processing", postProcessStep: "generic" });
+      startHeartbeat("generic");
     }
     return true;
   };
@@ -672,17 +719,19 @@ function attachDownloadOutputHandlers(
     });
   });
 
-  return { getStderr: () => stderr, getStdoutInfo: () => stdoutInfo };
+  return { getStderr: () => stderr, getStdoutInfo: () => stdoutInfo, cleanup: stopHeartbeat };
 }
 
 function createDownloadCompletionPromise(
   proc: ChildProcess,
   url: string,
   getStderr: () => string,
-  getStdoutInfo: () => string
+  getStdoutInfo: () => string,
+  cleanup: () => void
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     proc.on("close", (code) => {
+      cleanup(); // Stop post-processing heartbeat
       if (code === 0) {
         logger.info("Download completed successfully:", url);
         resolve();
@@ -704,7 +753,10 @@ function createDownloadCompletionPromise(
       err.stderr = details;
       reject(err);
     });
-    proc.on("error", reject);
+    proc.on("error", (err) => {
+      cleanup();
+      reject(err);
+    });
   });
 }
 
@@ -738,6 +790,10 @@ export function download(
     formatSelector,
     "--newline",
     "--no-warnings",
+    "--js-runtimes",
+    `node:${process.execPath}`,
+    "--extractor-args",
+    "youtube:player_client=web_safari,web_embedded,-tv_downgraded",
     "--progress-template",
     "download:%(progress)j"
   ];
@@ -812,13 +868,13 @@ export function download(
     stdio: ["ignore", "pipe", "pipe"]
   });
 
-  const { getStderr, getStdoutInfo } = attachDownloadOutputHandlers(
+  const { getStderr, getStdoutInfo, cleanup } = attachDownloadOutputHandlers(
     proc,
     trimmed,
     trimClipSeconds,
     onProgress
   );
-  const promise = createDownloadCompletionPromise(proc, url, getStderr, getStdoutInfo);
+  const promise = createDownloadCompletionPromise(proc, url, getStderr, getStdoutInfo, cleanup);
 
   return { process: proc, promise };
 }
