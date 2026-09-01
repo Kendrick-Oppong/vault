@@ -752,11 +752,14 @@ function registerIpcHandlers(): void {
       // Dynamically switch the electron-updater channel
       if (autoUpdaterInstance) {
         autoUpdaterInstance.channel = settings.useNightlyBuilds ? "nightly" : "latest";
+        autoUpdaterInstance.allowPrerelease = settings.useNightlyBuilds;
         // Immediately check for updates on the new channel if auto-update is on
         if (mainSettings.autoUpdateApp) {
-          autoUpdaterInstance.checkForUpdates().catch((err) =>
-            logger.warn("Channel switch update check failed:", err?.message ?? err)
-          );
+          autoUpdaterInstance
+            .checkForUpdates()
+            .catch((err) =>
+              logger.warn("Channel switch update check failed:", err?.message ?? err)
+            );
         }
       }
       logger.info("Nightly builds setting updated:", settings.useNightlyBuilds);
@@ -780,7 +783,7 @@ async function setupAutoUpdater() {
 
     // Route to the correct channel based on user settings
     autoUpdater.channel = mainSettings.useNightlyBuilds ? "nightly" : "latest";
-
+    autoUpdater.allowPrerelease = mainSettings.useNightlyBuilds;
     autoUpdater.autoDownload = mainSettings.autoUpdateApp;
     autoUpdater.autoInstallOnAppQuit = false;
 

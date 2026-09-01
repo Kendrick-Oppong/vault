@@ -30,8 +30,29 @@ jobs:
       - name: Typecheck
         run: pnpm --filter vault typecheck
 
-  release:
+  # Compute ONE shared nightly version so all 3 matrix jobs agree.
+  version:
     needs: verify
+    runs-on: ubuntu-latest
+    outputs:
+      nightly: ${{ steps.compute.outputs.nightly }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - id: compute
+        name: Compute nightly version (stable patch + 1, -nightly.<timestamp>)
+        run: |
+          BASE=$(node -p "require('./apps/desktop/package.json').version.split('-')[0]")
+          MAJOR=$(echo "$BASE" | cut -d. -f1)
+          MINOR=$(echo "$BASE" | cut -d. -f2)
+          PATCH=$(echo "$BASE" | cut -d. -f3)
+          echo "nightly=${MAJOR}.${MINOR}.$((PATCH + 1))-nightly.$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -58,25 +79,32 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y rpm
 
-      # Notice the appended `--channel nightly` flag
+      # electron-builder derives the update channel from the version's
+      # pre-release component: 0.1.9-nightly.X -> emits nightly.yml /
+      # nightly-mac.yml / nightly-linux.yml. No CLI flag needed.
+      - name: Stamp nightly version into package.json
+        run: node -e "const fs=require('fs');const p='apps/desktop/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version='${{ needs.version.outputs.nightly }}';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+
       - name: Build and package (macOS, unsigned)
         if: matrix.os == 'macos-latest'
-        run: pnpm --filter vault ${{ matrix.script }} --channel nightly
+        run: pnpm --filter vault ${{ matrix.script }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Build and package (Windows/Linux)
         if: matrix.os != 'macos-latest'
-        run: pnpm --filter vault ${{ matrix.script }} --channel nightly
+        run: pnpm --filter vault ${{ matrix.script }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      # Upload to a permanent "nightly" tag instead of creating a new version tag
+      # Each run creates a NEW semver tag (required: the updater skips
+      # non-semver tags). Marked prerelease so GitHub's "latest release"
+      # (used by stable users) never points at a nightly.
       - name: Upload artifacts to Nightly release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: nightly
-          name: Nightly Build
+          tag_name: v${{ needs.version.outputs.nightly }}
+          name: "Nightly ${{ needs.version.outputs.nightly }}"
           prerelease: true
           draft: false
           files: |
