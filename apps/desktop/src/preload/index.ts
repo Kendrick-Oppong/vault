@@ -166,6 +166,7 @@ const vaultApi = {
     minimizeToTray?: boolean;
     clipboardDetection?: boolean;
     useNightlyBuilds?: boolean;
+    autoUpdateBinaries?: boolean;
   }): void => {
     ipcRenderer.send("settings:sync", settings);
   },

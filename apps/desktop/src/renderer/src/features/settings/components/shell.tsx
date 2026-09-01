@@ -640,7 +640,10 @@ export const SettingsView = () => {
           >
             <Switch
               checked={settings.autoUpdateBinaries}
-              onCheckedChange={(checked) => updateSetting("autoUpdateBinaries", checked)}
+              onCheckedChange={(checked) => {
+                updateSetting("autoUpdateBinaries", checked);
+                globalThis.api.settingsSync({ autoUpdateBinaries: checked });
+              }}
             />
           </Row>
           <div className="py-1.5">

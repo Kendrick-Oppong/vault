@@ -52,6 +52,8 @@ interface MainSettings {
   clipboardDetection: boolean;
   cookiesBrowser: string;
   useNightlyBuilds: boolean;
+  autoUpdateBinaries: boolean;
+  lastFfmpegUpdate?: number;
 }
 
 const mainSettingsPath = join(app.getPath("userData"), "main-settings.json");
@@ -68,7 +70,11 @@ function loadMainSettings(): MainSettings {
         clipboardDetection:
           typeof data.clipboardDetection === "boolean" ? data.clipboardDetection : true,
         cookiesBrowser: typeof data.cookiesBrowser === "string" ? data.cookiesBrowser : "",
-        useNightlyBuilds: typeof data.useNightlyBuilds === "boolean" ? data.useNightlyBuilds : false
+        useNightlyBuilds:
+          typeof data.useNightlyBuilds === "boolean" ? data.useNightlyBuilds : false,
+        autoUpdateBinaries:
+          typeof data.autoUpdateBinaries === "boolean" ? data.autoUpdateBinaries : true,
+        lastFfmpegUpdate: typeof data.lastFfmpegUpdate === "number" ? data.lastFfmpegUpdate : 0
       };
     }
   } catch {
@@ -80,7 +86,9 @@ function loadMainSettings(): MainSettings {
     historyRepairedV1: false,
     clipboardDetection: true,
     cookiesBrowser: "",
-    useNightlyBuilds: false
+    useNightlyBuilds: false,
+    autoUpdateBinaries: true,
+    lastFfmpegUpdate: 0
   };
 }
 
@@ -98,7 +106,9 @@ cookies.setConfiguredBrowser(mainSettings.cookiesBrowser);
 
 let autoUpdaterInstance: import("electron-updater").AppUpdater | null = null;
 let updateCheckInterval: NodeJS.Timeout | null = null;
+let binaryUpdateInterval: NodeJS.Timeout | null = null;
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+const BINARY_UPDATE_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function resolveBinaryPaths(): { binaryPath: string; ffmpegPath: string } {
   let base: string;
@@ -243,6 +253,54 @@ function forwardPoolEventsToRenderer(): void {
 
   pool.on("job:cancelled", (job) => sendToRenderer("job:cancelled", job));
   pool.on("job:paused", (job) => sendToRenderer("job:paused", job));
+}
+
+async function reloadBinariesAndPool() {
+  const { binaryPath, ffmpegPath } = resolveBinaryPaths();
+  const status = await checkDependencies(binaryPath, ffmpegPath);
+  if (status.allReady) {
+    ytdlp = createYtDlpManager({
+      binaryPath,
+      ffmpegPath,
+      userDataPath: app.getPath("userData")
+    });
+    pool = createWorkerPool({ ytdlp, maxConcurrent: 3 });
+    forwardPoolEventsToRenderer();
+  }
+}
+
+async function checkAndUpdateBinaries() {
+  if (!mainSettings.autoUpdateBinaries) {
+    logger.debug("Auto-update binaries is disabled");
+    return;
+  }
+
+  logger.info("Checking for binary updates (yt-dlp, ffmpeg)...");
+  const { binaryPath } = resolveBinaryPaths();
+  const destDir = join(binaryPath, "..");
+
+  try {
+    // yt-dlp has a built-in updater that checks for updates efficiently
+    await updateYtDlp(destDir, () => {});
+
+    // ffmpeg doesn't have a built-in updater. Re-downloading it every startup
+    // wastes bandwidth. Let's only auto-update it once every 7 days.
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const lastUpdate = mainSettings.lastFfmpegUpdate || 0;
+    if (Date.now() - lastUpdate > sevenDaysMs) {
+      logger.info("FFmpeg auto-update triggered (last update > 7 days ago)");
+      await updateFfmpeg(destDir, () => {});
+      mainSettings.lastFfmpegUpdate = Date.now();
+      saveMainSettings(mainSettings);
+    } else {
+      logger.debug("FFmpeg auto-update skipped (recently updated)");
+    }
+
+    // Reload the manager and pool in case binaries were updated
+    await reloadBinariesAndPool();
+  } catch (err) {
+    logger.warn("Background binary update failed:", err);
+  }
 }
 
 function registerIpcHandlers(): void {
@@ -514,6 +572,8 @@ function registerIpcHandlers(): void {
         await updateFfmpeg(destDir, (progress) =>
           sendToRenderer("dependency:download:progress", progress)
         );
+        mainSettings.lastFfmpegUpdate = Date.now();
+        saveMainSettings(mainSettings);
       }
       const status = await checkDependencies(binaryPath, ffmpegPath);
       if (status.allReady) {
@@ -764,6 +824,16 @@ function registerIpcHandlers(): void {
       }
       logger.info("Nightly builds setting updated:", settings.useNightlyBuilds);
     }
+    if (typeof settings.autoUpdateBinaries === "boolean") {
+      mainSettings.autoUpdateBinaries = settings.autoUpdateBinaries;
+      saveMainSettings(mainSettings);
+      logger.info("Auto-update binaries setting updated:", settings.autoUpdateBinaries);
+
+      // If enabled, trigger a check immediately
+      if (settings.autoUpdateBinaries) {
+        void checkAndUpdateBinaries();
+      }
+    }
   });
 }
 
@@ -927,6 +997,15 @@ app.whenReady().then(async () => {
 
   await setupAutoUpdater();
 
+  // Trigger background binary update check
+  void checkAndUpdateBinaries();
+
+  // Check for binary updates every 24 hours
+  if (binaryUpdateInterval) clearInterval(binaryUpdateInterval);
+  binaryUpdateInterval = setInterval(() => {
+    void checkAndUpdateBinaries();
+  }, BINARY_UPDATE_INTERVAL_MS);
+
   globalShortcut.register("MediaPlayPause", () => {
     sendToRenderer("media:play-pause");
   });
@@ -949,6 +1028,7 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   vaultApp.isQuitting = true;
   if (updateCheckInterval) clearInterval(updateCheckInterval);
+  if (binaryUpdateInterval) clearInterval(binaryUpdateInterval);
   if (db?.raw) db.raw.close();
   globalShortcut.unregisterAll();
   stopMediaServer();
