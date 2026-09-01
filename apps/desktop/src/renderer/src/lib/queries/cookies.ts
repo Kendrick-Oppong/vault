@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { cookiesApi } from "@/lib/api/cookies";
 import { QueryKeys } from "@/lib/constants/query-keys";
 import { useSettingsStore } from "@/stores/settings/settings.store";
@@ -9,6 +9,7 @@ export const useCookieInfo = () => {
   return useQuery({
     queryKey: QueryKeys.cookies.info(settings.cookiesFromBrowser),
     queryFn: () => cookiesApi.getInfo(settings.cookiesFromBrowser),
-    staleTime: 30000 // Cookie info can be cached for 30 seconds
+    staleTime: 30000, // Cookie info can be cached for 30 seconds
+    placeholderData: keepPreviousData
   });
 };
