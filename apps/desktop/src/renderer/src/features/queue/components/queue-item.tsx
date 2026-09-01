@@ -160,6 +160,7 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
   const speed = !isCompleted && rawProgress?.formattedSpeed ? rawProgress.formattedSpeed : null;
   const eta = !isCompleted && rawProgress?.formattedEta ? rawProgress.formattedEta : null;
   const trimLabel = formatTrimLabel(item.trimRange);
+  const ffmpegTime = rawProgress?.ffmpegTime;
 
   // ---- Single source of truth for the visual phase ----
   const phase: Phase = (() => {
@@ -615,6 +616,11 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                   <span className="flex items-center gap-1">
                     {isCutting && <Scissors className="w-3 h-3 text-amber-500" />}
                     {phase.label}
+                    {ffmpegTime && (
+                      <span className="text-muted-foreground/70 tabular-nums text-[10px]">
+                        ({ffmpegTime})
+                      </span>
+                    )}
                     {isPaused && hasPercent && (
                       <span className="text-muted-foreground/70">
                         at {phase.percent!.toFixed(1)}%
