@@ -161,7 +161,12 @@ const vaultApi = {
   settingsGetNotifications: (): Promise<boolean> => ipcRenderer.invoke("settings:getNotifications"),
   settingsSetNotifications: (value: boolean): Promise<boolean> =>
     ipcRenderer.invoke("settings:setNotifications", value),
-  settingsSync: (settings: { minimizeToTray?: boolean; clipboardDetection?: boolean }): void => {
+
+  settingsSync: (settings: {
+    minimizeToTray?: boolean;
+    clipboardDetection?: boolean;
+    useNightlyBuilds?: boolean;
+  }): void => {
     ipcRenderer.send("settings:sync", settings);
   },
 
