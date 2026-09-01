@@ -9,7 +9,7 @@ import { createYtDlpManager, type YtDlpManager } from "./ytdlp-manager";
 import { probePlaylistPage } from "./ytdlp-manager";
 import { createWorkerPool, type WorkerPool } from "./worker-pool";
 import { type HistoryFilters, initDb, type VaultDb } from "./db";
-import { JobInput } from "@vault/types";
+import { JobInput, DownloadExtras } from "@vault/types";
 import { validateMediaUrl, validateOutputTemplate, validateFormatSelector } from "./validators";
 import {
   checkDependencies,
@@ -297,6 +297,16 @@ function registerIpcHandlers(): void {
       jobInput = {
         ...jobInput,
         extra: { ...jobInput.extra, cookiesFile: cookieFile, cookiesFromBrowser: undefined }
+      };
+    } else {
+      const effectiveBrowser = cookies.getConfiguredBrowser();
+      jobInput = {
+        ...jobInput,
+        extra: {
+          ...jobInput.extra,
+          cookiesFromBrowser: (effectiveBrowser ||
+            undefined) as DownloadExtras["cookiesFromBrowser"]
+        }
       };
     }
     return pool.enqueue(jobInput);
