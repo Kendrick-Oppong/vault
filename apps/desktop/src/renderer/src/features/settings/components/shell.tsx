@@ -442,7 +442,7 @@ export const SettingsView = () => {
           >
             <div className="flex items-center gap-2">
               <Select
-                value={settings.cookiesFromBrowser ?? "none"}
+                value={settings.cookiesFromBrowser || "none"}
                 onValueChange={(value) => handleSetBrowser(value)}
               >
                 <SelectTrigger className="h-8 w-40 text-[12px]">
