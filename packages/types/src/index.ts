@@ -82,6 +82,7 @@ export interface YtDlpProgress {
   formattedEta?: string;
   streamPhase?: "video" | "audio" | "unknown";
   postProcessStep?: PostProcessStep;
+  ffmpegTime?: string;
   [key: string]: unknown;
 }
 
