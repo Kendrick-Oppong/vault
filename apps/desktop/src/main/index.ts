@@ -51,6 +51,7 @@ interface MainSettings {
   historyRepairedV1: boolean;
   clipboardDetection: boolean;
   cookiesBrowser: string;
+  useNightlyBuilds: boolean;
 }
 
 const mainSettingsPath = join(app.getPath("userData"), "main-settings.json");
@@ -66,7 +67,8 @@ function loadMainSettings(): MainSettings {
           typeof data.historyRepairedV1 === "boolean" ? data.historyRepairedV1 : false,
         clipboardDetection:
           typeof data.clipboardDetection === "boolean" ? data.clipboardDetection : true,
-        cookiesBrowser: typeof data.cookiesBrowser === "string" ? data.cookiesBrowser : ""
+        cookiesBrowser: typeof data.cookiesBrowser === "string" ? data.cookiesBrowser : "",
+        useNightlyBuilds: typeof data.useNightlyBuilds === "boolean" ? data.useNightlyBuilds : false
       };
     }
   } catch {
@@ -77,7 +79,8 @@ function loadMainSettings(): MainSettings {
     notifications: true,
     historyRepairedV1: false,
     clipboardDetection: true,
-    cookiesBrowser: ""
+    cookiesBrowser: "",
+    useNightlyBuilds: false
   };
 }
 
@@ -742,6 +745,22 @@ function registerIpcHandlers(): void {
       mainSettings.clipboardDetection = settings.clipboardDetection;
       saveMainSettings(mainSettings);
     }
+    if (typeof settings.useNightlyBuilds === "boolean") {
+      mainSettings.useNightlyBuilds = settings.useNightlyBuilds;
+      saveMainSettings(mainSettings);
+
+      // Dynamically switch the electron-updater channel
+      if (autoUpdaterInstance) {
+        autoUpdaterInstance.channel = settings.useNightlyBuilds ? "nightly" : "latest";
+        // Immediately check for updates on the new channel if auto-update is on
+        if (mainSettings.autoUpdateApp) {
+          autoUpdaterInstance.checkForUpdates().catch((err) =>
+            logger.warn("Channel switch update check failed:", err?.message ?? err)
+          );
+        }
+      }
+      logger.info("Nightly builds setting updated:", settings.useNightlyBuilds);
+    }
   });
 }
 
@@ -759,9 +778,14 @@ async function setupAutoUpdater() {
 
     autoUpdaterInstance = autoUpdater;
 
+    // Route to the correct channel based on user settings
+    autoUpdater.channel = mainSettings.useNightlyBuilds ? "nightly" : "latest";
+
     autoUpdater.autoDownload = mainSettings.autoUpdateApp;
     autoUpdater.autoInstallOnAppQuit = false;
-    autoUpdater.allowDowngrade = false;
+
+    // CRITICAL: Must be true so users can safely revert from Nightly -> Stable
+    autoUpdater.allowDowngrade = true;
 
     autoUpdater.on("checking-for-update", () => {
       logger.info("Checking for app updates…");
