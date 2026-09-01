@@ -58,7 +58,8 @@ const baseDefaults: Settings = {
   autoUpdateApp: true,
   autoUpdateBinaries: false,
   notifications: true,
-  clipboardDetection: true
+  clipboardDetection: true,
+  useNightlyBuilds: false
 };
 
 export const useSettingsStore = create<SettingsStore>()(
