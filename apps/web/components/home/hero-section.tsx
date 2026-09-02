@@ -52,9 +52,6 @@ export function HeroSection() {
               className="size-2 rounded-full bg-primary"
               transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
             />
-            <span className="font-mono font-medium text-primary text-sm tracking-wide">
-              v{VERSION} · now available
-            </span>
           </motion.div>
 
           <motion.h1
