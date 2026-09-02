@@ -4,7 +4,6 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { Button } from "@vault/ui/components/button";
 import { Download, Github } from "lucide-react";
-import { VERSION } from "./download-section";
 
 const STATS = [
   { value: "1000+", label: "Sites supported" },
