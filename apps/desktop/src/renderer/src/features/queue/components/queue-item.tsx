@@ -612,10 +612,17 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                     />
                   )}
                 </div>
+
                 <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
                   <span className="flex items-center gap-1">
                     {isCutting && <Scissors className="w-3 h-3 text-amber-500" />}
-                    {phase.label}
+                    <span
+                      className={cn(
+                        (isMerging || isPostProcessing || isGenericProcessing) && "animate-pulse"
+                      )}
+                    >
+                      {phase.label}
+                    </span>
                     {ffmpegTime && (
                       <span className="text-muted-foreground/70 tabular-nums text-[10px]">
                         ({ffmpegTime})
@@ -647,6 +654,22 @@ export const QueueItem = ({ item, isSelected, onSelect }: QueueItemProps) => {
                     </div>
                   )}
                 </div>
+
+                {isMerging && (
+                  <p className="text-[10.5px] text-muted-foreground/80 mt-1.5 leading-tight">
+                    Merging can take a few minutes for long videos because audio is being re-encoded
+                    for MP4.
+                    <span className="text-primary font-medium">
+                      {" "}
+                      Tip: Switch to MKV for instant merging.
+                    </span>
+                  </p>
+                )}
+                {(isPostProcessing || isGenericProcessing) && !isMerging && !isCutting && (
+                  <p className="text-[10.5px] text-muted-foreground/80 mt-1.5 leading-tight">
+                    Finalizing the file… This may take a moment for longer videos.
+                  </p>
+                )}
               </div>
             )}
           </div>
