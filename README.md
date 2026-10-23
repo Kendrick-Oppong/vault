@@ -2,7 +2,7 @@
 
 # Vault
 
-**A fast, modern desktop YouTube downloader — powered by yt-dlp & FFmpeg**
+**A fast, modern desktop YouTube downloader — 
 
 Download videos, playlists, and audio from YouTube and 1000+ sites, entirely on your machine
 
